@@ -1,0 +1,28 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+
+## Publish & installer output — nikdy necommitovat
+publish/
+dist/
+
+## Uživatelská data aplikace
+*.db
+*.db-wal
+*.db-shm
+
+## Logy
+logs/
+*.log
+
+## Modely (velké GGUF soubory)
+*.gguf
+
+## OS
+.DS_Store
+Thumbs.db
+desktop.ini

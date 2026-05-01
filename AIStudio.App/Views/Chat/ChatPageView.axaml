@@ -1,0 +1,1030 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AIStudio.App.ViewModels.Chat"
+             xmlns:ctrl="using:AIStudio.App.Controls"
+             x:Class="AIStudio.App.Views.Chat.ChatPageView"
+             x:DataType="vm:ChatPageViewModel">
+
+    <UserControl.KeyBindings>
+        <!-- Globální zkratky pro chat stránku -->
+        <KeyBinding Gesture="Ctrl+N" Command="{Binding NewConversationCommand}"/>
+        <KeyBinding Gesture="F2"     Command="{Binding BeginEditTitleCommand}"/>
+    </UserControl.KeyBindings>
+
+    <Grid ColumnDefinitions="240,*">
+
+        <!-- ═══════════════════ SIDEBAR — seznam konverzací ═══════════════════ -->
+        <Border Grid.Column="0"
+                Background="#111113"
+                BorderBrush="#2A2A2E"
+                BorderThickness="0,0,1,0">
+            <DockPanel>
+
+                <Border DockPanel.Dock="Top" Padding="10,14,10,8">
+                    <Button Classes="primary"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            Padding="0,10"
+                            Command="{Binding NewConversationCommand}"
+                            Content="+ Nový chat"/>
+                </Border>
+
+                <!-- Vyhledávání v konverzacích -->
+                <Border DockPanel.Dock="Top" Padding="8,0,8,6">
+                    <TextBox Text="{Binding SidebarSearch}"
+                             PlaceholderText="&#xE721; Hledat…"
+                             Background="#1C1C1E"
+                             BorderBrush="#2A2A2E" BorderThickness="1"
+                             Foreground="#CCCCDD" CaretBrush="#A78BFA"
+                             CornerRadius="8" Padding="10,6"
+                             FontSize="12"/>
+                </Border>
+
+                <Border DockPanel.Dock="Top" Padding="14,2,14,4">
+                    <TextBlock Text="KONVERZACE" Classes="sectionHeader"/>
+                </Border>
+
+                <ListBox ItemsSource="{Binding FilteredConversations}"
+                         SelectedItem="{Binding SelectedConversation}"
+                         Background="Transparent"
+                         Padding="6,0">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ConversationViewModel">
+                            <Border Padding="8,10" CornerRadius="8">
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                                    <StackPanel Grid.Column="0" Spacing="3">
+                                        <!-- Připnutá konverzace: fialová tečka vlevo od názvu -->
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <TextBlock Text="●" FontSize="7" Foreground="#7C3AED"
+                                                       VerticalAlignment="Center"
+                                                       IsVisible="{Binding IsPinned}"/>
+                                            <TextBlock Text="{Binding Title}"
+                                                       FontSize="13" FontWeight="Medium"
+                                                       Foreground="#CCCCDD"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Title}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding ShortDate}"
+                                                       FontSize="11" Foreground="#444450"/>
+                                            <TextBlock Text="·" FontSize="11" Foreground="#333338"/>
+                                            <TextBlock Text="{Binding SelectedModelName}"
+                                                       FontSize="11" Foreground="#444450"
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="80"/>
+                                            <!-- Počet zpráv — zobrazí se pouze pokud existují zprávy -->
+                                            <TextBlock Text="·" FontSize="11" Foreground="#333338"
+                                                       IsVisible="{Binding HasMessages}"/>
+                                            <TextBlock Text="{Binding MessageCount}"
+                                                       FontSize="11" Foreground="#333A48"
+                                                       IsVisible="{Binding HasMessages}"
+                                                       ToolTip.Tip="{Binding MessageCount, StringFormat='Počet zpráv: {0}'}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Připnout — fade-in při hover, vždy viditelné pokud je připnuto -->
+                                    <Button Grid.Column="1"
+                                            Classes="pinConv"
+                                            Command="{ReflectionBinding $parent[ListBox].DataContext.TogglePinConversationCommand}"
+                                            CommandParameter="{Binding}"
+                                            Width="24" Height="24" Padding="0"
+                                            CornerRadius="6"
+                                            BorderThickness="0"
+                                            VerticalAlignment="Center"
+                                            ToolTip.Tip="Připnout / Odepnout">
+                                        <Panel>
+                                            <TextBlock Text="&#xE718;" FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="10" Foreground="#A78BFA"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       IsVisible="{Binding IsPinned}"/>
+                                            <TextBlock Text="&#xE840;" FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="10" Foreground="#444450"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       IsVisible="{Binding !IsPinned}"/>
+                                        </Panel>
+                                    </Button>
+
+                                    <!-- Smazat — fade-in při hover -->
+                                    <Button Grid.Column="2"
+                                            Classes="deleteConv"
+                                            Command="{ReflectionBinding $parent[ListBox].DataContext.DeleteConversationCommand}"
+                                            CommandParameter="{Binding}"
+                                            Width="24" Height="24" Padding="0"
+                                            CornerRadius="6"
+                                            Background="#2A1515" BorderThickness="0"
+                                            VerticalAlignment="Center"
+                                            ToolTip.Tip="Smazat konverzaci">
+                                        <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="10" Foreground="#F87171"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0,1"/>
+                            <Setter Property="CornerRadius" Value="8"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#26263A"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="#1E1E24"/>
+                        </Style>
+                        <Style Selector="Button.pinConv">
+                            <Setter Property="Opacity" Value="0"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
+                                </Transitions>
+                            </Setter>
+                        </Style>
+                        <Style Selector="ListBoxItem:pointerover Button.pinConv">
+                            <Setter Property="Opacity" Value="0.7"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected:pointerover Button.pinConv">
+                            <Setter Property="Opacity" Value="1"/>
+                        </Style>
+                        <!-- Připnuté konverzace: pin ikona vždy viditelná -->
+                        <Style Selector="Button.pinConv[Tag=pinned]">
+                            <Setter Property="Opacity" Value="1"/>
+                        </Style>
+                        <Style Selector="Button.deleteConv">
+                            <Setter Property="Opacity" Value="0"/>
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
+                                </Transitions>
+                            </Setter>
+                        </Style>
+                        <Style Selector="ListBoxItem:pointerover Button.deleteConv">
+                            <Setter Property="Opacity" Value="1"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected Button.deleteConv">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </Style>
+                        <Style Selector="ListBoxItem:selected:pointerover Button.deleteConv">
+                            <Setter Property="Opacity" Value="1"/>
+                        </Style>
+                    </ListBox.Styles>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- ═══════════════════ CHAT AREA ═══════════════════════════════════ -->
+        <!--
+            Row 0: Header (titulek, model picker, token slider)
+            Row 1: System prompt panel (Auto, skrytý pokud IsSystemPromptVisible=false)
+            Row 2: Zprávy (*)
+            Row 3: Regenerate / Loading strip (Auto)
+            Row 4: Input area (Auto)
+        -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto,Auto">
+
+            <!-- ── Row 0: Header ── -->
+            <Border Grid.Row="0" Padding="20,12,20,10"
+                    BorderBrush="#2A2A2E" BorderThickness="0,0,0,1"
+                    Background="#111113">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+
+                    <!-- Titulek + edit -->
+                    <Panel Grid.Column="0" VerticalAlignment="Center">
+
+                        <!-- View mode -->
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="4"
+                              IsVisible="{Binding !IsEditingTitle}">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding SelectedConversation.Title}"
+                                       FontSize="15" FontWeight="SemiBold"
+                                       Foreground="#FFFFFF"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <!-- Přejmenovat -->
+                            <Button Grid.Column="1"
+                                    Background="Transparent" BorderThickness="0"
+                                    Padding="4" Width="26" Height="26" CornerRadius="6"
+                                    Command="{Binding BeginEditTitleCommand}"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                    ToolTip.Tip="Přejmenovat (F2)">
+                                <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="12" Foreground="#444450"/>
+                            </Button>
+                            <!-- Exportovat -->
+                            <Button Grid.Column="2"
+                                    Background="Transparent" BorderThickness="0"
+                                    Padding="4" Width="26" Height="26" CornerRadius="6"
+                                    Command="{Binding ExportConversationCommand}"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                    ToolTip.Tip="Exportovat konverzaci (MD / TXT)">
+                                <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="12" Foreground="#444450"/>
+                            </Button>
+                            <!-- Systémový prompt toggle -->
+                            <Button Grid.Column="3"
+                                    Background="Transparent" BorderThickness="0"
+                                    Padding="4" Width="26" Height="26" CornerRadius="6"
+                                    Command="{Binding ToggleSystemPromptCommand}"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                    ToolTip.Tip="Systémový prompt">
+                                <Panel>
+                                    <TextBlock IsVisible="{Binding !IsSystemPromptVisible}"
+                                               Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="12" Foreground="#444450"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <TextBlock IsVisible="{Binding IsSystemPromptVisible}"
+                                               Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="12" Foreground="#A78BFA"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Panel>
+                            </Button>
+                            <!-- Vymazat zprávy konverzace -->
+                            <Button Grid.Column="4"
+                                    Background="Transparent" BorderThickness="0"
+                                    Padding="4" Width="26" Height="26" CornerRadius="6"
+                                    Command="{Binding ClearConversationCommand}"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding SelectedConversation.HasMessages}"
+                                    ToolTip.Tip="Vymazat zprávy (zachová nastavení konverzace)">
+                                <TextBlock Text="&#xED60;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="12" Foreground="#444450"/>
+                            </Button>
+                        </Grid>
+
+                        <!-- Edit mode -->
+                        <TextBox Name="TitleEditBox"
+                                 Text="{Binding EditingTitle}"
+                                 IsVisible="{Binding IsEditingTitle}"
+                                 Background="#1C1C1E" Foreground="#FFFFFF"
+                                 SelectionBrush="#4C3A7A"
+                                 BorderBrush="#7C3AED" BorderThickness="1"
+                                 CornerRadius="7" Padding="8,5"
+                                 FontSize="14" FontWeight="SemiBold"
+                                 LostFocus="TitleEditBox_LostFocus"
+                                 KeyDown="TitleEditBox_KeyDown"/>
+                    </Panel>
+
+                    <!-- Model picker + unload + thinking toggle -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="Model:"
+                                   FontSize="11" Foreground="#555560"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox ItemsSource="{Binding AvailableModels}"
+                                  SelectedItem="{Binding SelectedConversation.SelectedModelName}"
+                                  Background="#1C1C1E"
+                                  Foreground="#CCCCDD"
+                                  BorderBrush="#2A2A2E"
+                                  CornerRadius="7"
+                                  FontSize="12"
+                                  MinWidth="190"
+                                  IsEnabled="{Binding !IsSending}"/>
+                        <!-- Uvolnit model z VRAM -->
+                        <Button IsVisible="{Binding IsModelLoaded}"
+                                Command="{Binding UnloadModelCommand}"
+                                Background="#1A1210"
+                                BorderBrush="#3A2010" BorderThickness="1"
+                                CornerRadius="7"
+                                Width="28" Height="28" Padding="0"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="{Binding LoadedModelName, StringFormat='Uvolnit &quot;{0}&quot; z VRAM'}">
+                            <TextBlock Text="&#xECC6;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="12" Foreground="#D97706"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+                        <!-- Thinking mode toggle — pouze pro Qwen3 modely -->
+                        <Button IsVisible="{Binding SelectedConversation.IsQwen3Selected}"
+                                Command="{Binding ToggleThinkingModeCommand}"
+                                BorderThickness="1" CornerRadius="7"
+                                Width="28" Height="28" Padding="0"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="Thinking mode (Qwen3) — interní přemýšlení před odpovědí">
+                            <Button.Background>
+                                <SolidColorBrush Color="#0F0A1E"/>
+                            </Button.Background>
+                            <Button.BorderBrush>
+                                <SolidColorBrush Color="#2A1A44"/>
+                            </Button.BorderBrush>
+                            <Panel>
+                                <!-- Zapnuto -->
+                                <TextBlock IsVisible="{Binding SelectedConversation.IsThinkingEnabled}"
+                                           Text="&#xE8D6;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="12" Foreground="#A78BFA"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <!-- Vypnuto -->
+                                <TextBlock IsVisible="{Binding !SelectedConversation.IsThinkingEnabled}"
+                                           Text="&#xE8D6;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="12" Foreground="#333344"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Panel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Token slider + context bar -->
+                    <StackPanel Grid.Column="2" Spacing="3" VerticalAlignment="Center"
+                                MinWidth="200">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <TextBlock Grid.Column="0"
+                                       Text="Tokeny"
+                                       FontSize="10" Foreground="#444450"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding SelectedConversation.MaxTokensLabel}"
+                                       FontSize="11" Foreground="#A78BFA"
+                                       FontWeight="SemiBold" TextAlignment="Right"/>
+                        </Grid>
+                        <Slider Value="{Binding SelectedConversation.TokenSliderValue}"
+                                Minimum="0" Maximum="100"
+                                TickFrequency="0"
+                                IsSnapToTickEnabled="False"
+                                VerticalAlignment="Center"/>
+                        <!-- Kontext usage bar -->
+                        <Grid ColumnDefinitions="*,Auto"
+                              IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <ProgressBar Grid.Column="0"
+                                         Value="{Binding EstimatedTokensPercent}"
+                                         Minimum="0" Maximum="100"
+                                         Height="2" CornerRadius="1"
+                                         Foreground="{Binding TokenBarBrush}"
+                                         Background="#1C1C24"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding EstimatedTokensLabel}"
+                                       FontSize="9" Foreground="#3A3A4A"
+                                       Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Temperature slider -->
+                    <StackPanel Grid.Column="3" Spacing="3" VerticalAlignment="Center"
+                                MinWidth="140"
+                                IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <TextBlock Grid.Column="0"
+                                       Text="Teplota"
+                                       FontSize="10" Foreground="#444450"/>
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding SelectedConversation.TemperatureLabel}"
+                                       FontSize="11" Foreground="#A78BFA"
+                                       FontWeight="SemiBold" TextAlignment="Right"/>
+                        </Grid>
+                        <Slider Value="{Binding SelectedConversation.Temperature}"
+                                Minimum="0" Maximum="2"
+                                TickFrequency="0"
+                                IsSnapToTickEnabled="False"
+                                VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                </Grid>
+            </Border>
+
+            <!-- ── Row 1: Systémový prompt panel (skrytý pokud není aktivní) ── -->
+            <Border Grid.Row="1"
+                    IsVisible="{Binding IsSystemPromptVisible}"
+                    Background="#0A0A0C"
+                    BorderBrush="#2A2A2E" BorderThickness="0,0,0,1"
+                    Padding="20,10,20,12">
+                <Grid RowDefinitions="Auto,8,Auto" >
+                    <!-- Hlavička panelu -->
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="11" Foreground="#555560"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="SYSTÉMOVÝ PROMPT"
+                                       Classes="sectionHeader"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="· přepíše výchozí instrukce pro tento chat"
+                                       FontSize="10" Foreground="#3A3A44"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="4" Width="22" Height="22" CornerRadius="5"
+                                Command="{Binding ToggleSystemPromptCommand}"
+                                ToolTip.Tip="Skrýt panel">
+                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="10" Foreground="#444450"/>
+                        </Button>
+                    </Grid>
+                    <!-- TextBox -->
+                    <TextBox Grid.Row="2"
+                             Text="{Binding SelectedConversation.SystemPrompt}"
+                             PlaceholderText="Instrukce pro model (např. 'Odpovídej vždy česky a stručně')…"
+                             Background="#161618"
+                             BorderBrush="#2A2A2E" BorderThickness="1"
+                             Foreground="#CCCCDD"
+                             CaretBrush="#A78BFA"
+                             Padding="12,8"
+                             FontSize="12"
+                             AcceptsReturn="True"
+                             MaxLines="6"
+                             MaxLength="2000"
+                             TextWrapping="Wrap"
+                             CornerRadius="8"/>
+                </Grid>
+            </Border>
+
+            <!-- ── Row 2: Zprávy + FAB ── -->
+            <Panel Grid.Row="2">
+              <ScrollViewer Padding="28,16,28,72" Name="MessagesScroll">
+              <Panel>
+
+                <!-- Prázdný stav — žádná konverzace vůbec (vše smazáno) -->
+                <StackPanel IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNull}}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Spacing="14" Margin="0,40,0,0" MaxWidth="380">
+                    <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets"
+                               FontSize="52" Foreground="#1A1A22"
+                               HorizontalAlignment="Center"/>
+                    <StackPanel Spacing="6" HorizontalAlignment="Center">
+                        <TextBlock Text="Žádný chat"
+                                   FontSize="18" FontWeight="SemiBold"
+                                   Foreground="#252530"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="Vlevo klikni na tlačítko + Nový chat a můžeš začít psát."
+                                   FontSize="13" Foreground="#1E1E28"
+                                   HorizontalAlignment="Center" TextAlignment="Center"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Button Command="{Binding NewConversationCommand}"
+                            HorizontalAlignment="Center"
+                            Background="#1A1530"
+                            BorderBrush="#3D2A6E" BorderThickness="1"
+                            CornerRadius="10" Padding="20,10">
+                        <TextBlock Text="+ Nový chat"
+                                   FontSize="13" Foreground="#A78BFA"/>
+                    </Button>
+                </StackPanel>
+
+                <!-- Prázdný stav — konverzace vybraná, ale ještě beze zpráv -->
+                <StackPanel IsVisible="{Binding SelectedConversation.HasNoMessages}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Spacing="0" Margin="0,40,0,0" MaxWidth="420">
+
+                    <!-- Stav A: žádný stažený model -->
+                    <StackPanel IsVisible="{Binding !HasDownloadedModels}"
+                                HorizontalAlignment="Center" Spacing="16">
+                        <TextBlock Text="&#xF158;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="52" Foreground="#1E1E28"
+                                   HorizontalAlignment="Center"/>
+                        <StackPanel Spacing="6" HorizontalAlignment="Center">
+                            <TextBlock Text="Zatím žádný model"
+                                       FontSize="18" FontWeight="SemiBold"
+                                       Foreground="#2A2A38"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="Stáhni si model a pak se sem vrať."
+                                       FontSize="13" Foreground="#222230"
+                                       HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <Button Command="{Binding NavigateToModelsCommand}"
+                                HorizontalAlignment="Center"
+                                Background="#1A1530"
+                                BorderBrush="#3D2A6E" BorderThickness="1"
+                                CornerRadius="10" Padding="20,10">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="&#xF158;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="13" Foreground="#7C3AED"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="Přejít do Modelů"
+                                           FontSize="13" Foreground="#A78BFA"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Stav B: model existuje, chat je prázdný -->
+                    <StackPanel IsVisible="{Binding HasDownloadedModels}"
+                                HorizontalAlignment="Center" Spacing="12">
+                        <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="52" Foreground="#1A1A22"
+                                   HorizontalAlignment="Center"/>
+                        <StackPanel Spacing="5" HorizontalAlignment="Center">
+                            <TextBlock Text="Začni konverzaci"
+                                       FontSize="18" FontWeight="SemiBold"
+                                       Foreground="#252530"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="Napiš zprávu níže a stiskni Enter."
+                                       FontSize="13" Foreground="#1E1E28"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="Model se načte automaticky při prvním odeslání."
+                                       FontSize="11" Foreground="#1A1A24"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                </StackPanel>
+
+                <ItemsControl ItemsSource="{Binding SelectedConversation.Messages}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChatMessage">
+                            <Border Margin="0,6">
+                                <Grid ColumnDefinitions="60,*,60">
+
+                                    <!-- Uživatelská zpráva (vpravo) -->
+                                    <Border Grid.Column="1"
+                                            HorizontalAlignment="Right"
+                                            MaxWidth="640"
+                                            Background="#2D1F52"
+                                            BorderBrush="#3D2A6E"
+                                            BorderThickness="1"
+                                            CornerRadius="14,14,2,14"
+                                            Padding="14,10"
+                                            IsVisible="{Binding Role, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:MessageRole.User}}">
+                                        <Panel>
+
+                                            <!-- Zobrazení (normální stav) -->
+                                            <StackPanel Spacing="0" IsVisible="{Binding !IsEditing}">
+                                                <SelectableTextBlock Text="{Binding Content}"
+                                                           Foreground="#E8E0FF"
+                                                           FontSize="14" LineHeight="22"
+                                                           TextWrapping="Wrap"/>
+                                                <!-- Řádek: čas + tokeny (vlevo) + akce (vpravo) -->
+                                                <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,-2">
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                                Spacing="5" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding TimeLabel}"
+                                                                   FontSize="10" Foreground="#4A3A6A"/>
+                                                        <TextBlock Text="{Binding TokenHint}"
+                                                                   FontSize="10" Foreground="#2E2448"
+                                                                   IsVisible="{Binding TokenHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1"
+                                                                Orientation="Horizontal" Spacing="2">
+                                                        <Button Classes="msgAction"
+                                                                Command="{Binding CopyContentCommand}"
+                                                                ToolTip.Tip="Kopírovat"
+                                                                Width="22" Height="22" Padding="0"
+                                                                CornerRadius="5"
+                                                                Background="Transparent" BorderThickness="0">
+                                                            <Panel>
+                                                                <TextBlock Text="&#xE8C8;"
+                                                                           FontFamily="Segoe MDL2 Assets"
+                                                                           FontSize="10" Foreground="#9090A8"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"
+                                                                           IsVisible="{Binding !IsCopied}"/>
+                                                                <TextBlock Text="&#xE73E;"
+                                                                           FontFamily="Segoe MDL2 Assets"
+                                                                           FontSize="10" Foreground="#4ADE80"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"
+                                                                           IsVisible="{Binding IsCopied}"/>
+                                                            </Panel>
+                                                        </Button>
+                                                        <Button Classes="msgAction"
+                                                                Command="{Binding BeginEditCommand}"
+                                                                ToolTip.Tip="Upravit zprávu"
+                                                                Width="22" Height="22" Padding="0"
+                                                                CornerRadius="5"
+                                                                Background="Transparent" BorderThickness="0">
+                                                            <TextBlock Text="&#xE70F;"
+                                                                       FontFamily="Segoe MDL2 Assets"
+                                                                       FontSize="10" Foreground="#9090A8"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Button>
+                                                        <!-- Větev konverzace od této zprávy -->
+                                                        <Button Classes="msgAction"
+                                                                Command="{ReflectionBinding $parent[UserControl].DataContext.BranchConversationCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip.Tip="Větev od této zprávy"
+                                                                Width="22" Height="22" Padding="0"
+                                                                CornerRadius="5"
+                                                                Background="Transparent" BorderThickness="0">
+                                                            <TextBlock Text="&#xE8C0;"
+                                                                       FontFamily="Segoe MDL2 Assets"
+                                                                       FontSize="10" Foreground="#9090A8"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </StackPanel>
+
+                                            <!-- Editační mód -->
+                                            <StackPanel Spacing="8" IsVisible="{Binding IsEditing}">
+                                                <TextBox Text="{Binding EditContent}"
+                                                         Background="#1C1530"
+                                                         BorderBrush="#7C3AED" BorderThickness="1"
+                                                         Foreground="#E8E0FF"
+                                                         CaretBrush="#A78BFA"
+                                                         SelectionBrush="#4C3A7A"
+                                                         Padding="10,8"
+                                                         FontSize="14"
+                                                         AcceptsReturn="True"
+                                                         MaxLines="10"
+                                                         TextWrapping="Wrap"
+                                                         CornerRadius="8"
+                                                         MinWidth="260">
+                                                    <TextBox.KeyBindings>
+                                                        <KeyBinding Gesture="Escape" Command="{Binding CancelEditCommand}"/>
+                                                    </TextBox.KeyBindings>
+                                                </TextBox>
+                                                <StackPanel Orientation="Horizontal"
+                                                            HorizontalAlignment="Right"
+                                                            Spacing="6">
+                                                    <Button Command="{Binding CancelEditCommand}"
+                                                            Content="Zrušit"
+                                                            FontSize="12" Padding="10,5"
+                                                            CornerRadius="7"
+                                                            Background="#2A1515"
+                                                            BorderBrush="#3D2020" BorderThickness="1"
+                                                            Foreground="#F87171"/>
+                                                    <Button Command="{ReflectionBinding $parent[UserControl].DataContext.ConfirmEditCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            Content="Potvrdit"
+                                                            FontSize="12" Padding="10,5"
+                                                            CornerRadius="7"
+                                                            Background="#3A1F6A"
+                                                            BorderBrush="#7C3AED" BorderThickness="1"
+                                                            Foreground="#C4B5FD"/>
+                                                </StackPanel>
+                                            </StackPanel>
+
+                                        </Panel>
+                                    </Border>
+
+                                    <!-- Asistent (vlevo) -->
+                                    <Border Grid.Column="1"
+                                            HorizontalAlignment="Left"
+                                            MaxWidth="640"
+                                            Background="#1C1C1E"
+                                            CornerRadius="14,14,14,2"
+                                            Padding="14,10"
+                                            IsVisible="{Binding Role, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:MessageRole.Assistant}}">
+                                        <StackPanel Spacing="0">
+                                            <!-- ── Streaming pohled — laciný plain text + typing dots ──
+                                                 MarkdownViewer při každé změně Content znovu staví celý
+                                                 strom (StackPanel, TextBlocky, code-block bordery…), takže
+                                                 při ~60 tokenech/s zahltí UI thread → "Neodpovídá".
+                                                 Během streamu proto použijeme jen SelectableTextBlock
+                                                 (laciný Avalonia primitive) a teprve po dokončení
+                                                 přepneme na plný markdown render — jen jednou. -->
+                                            <Panel IsVisible="{Binding IsStreaming}">
+                                                <!-- Typing dots — viditelné dokud nedorazí první token -->
+                                                <StackPanel Classes="typingIndicator"
+                                                            Orientation="Horizontal" Spacing="4"
+                                                            Margin="0,2,0,4"
+                                                            IsVisible="{Binding Content, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+                                                    <TextBlock Text="●" FontSize="8" Foreground="#555560"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Text="●" FontSize="8" Foreground="#555560"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Text="●" FontSize="8" Foreground="#555560"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                                <!-- Živě se aktualizující plain text -->
+                                                <SelectableTextBlock Text="{Binding Content}"
+                                                                     Foreground="#EBEBF5"
+                                                                     FontSize="14" LineHeight="22"
+                                                                     TextWrapping="Wrap"
+                                                                     IsVisible="{Binding Content, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            </Panel>
+                                            <!-- Plný markdown render — pouze po dokončení streamu -->
+                                            <ctrl:MarkdownViewer Markdown="{Binding Content}"
+                                                                 Padding="0"
+                                                                 IsVisible="{Binding !IsStreaming}"/>
+                                            <!-- Řádek: čas + tokeny (vlevo) + akce (vpravo) -->
+                                            <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,-2"
+                                                  IsVisible="{Binding !IsStreaming}">
+                                                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                            Spacing="5" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding TimeLabel}"
+                                                               FontSize="10" Foreground="#333342"/>
+                                                    <TextBlock Text="{Binding TokenHint}"
+                                                               FontSize="10" Foreground="#222232"
+                                                               IsVisible="{Binding TokenHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
+                                                    <!-- Zkusit znovu (jen při chybě) -->
+                                                    <Button Classes="msgAction"
+                                                            IsVisible="{Binding IsError}"
+                                                            Command="{ReflectionBinding $parent[UserControl].DataContext.RegenerateLastResponseCommand}"
+                                                            ToolTip.Tip="Zkusit znovu"
+                                                            Width="22" Height="22" Padding="0"
+                                                            CornerRadius="5"
+                                                            Background="Transparent" BorderThickness="0">
+                                                        <TextBlock Text="&#xE72C;"
+                                                                   FontFamily="Segoe MDL2 Assets"
+                                                                   FontSize="10" Foreground="#F59E0B"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Button>
+                                                    <!-- Větev konverzace -->
+                                                    <Button Classes="msgAction"
+                                                            Command="{ReflectionBinding $parent[UserControl].DataContext.BranchConversationCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip.Tip="Větev od této zprávy"
+                                                            Width="22" Height="22" Padding="0"
+                                                            CornerRadius="5"
+                                                            Background="Transparent" BorderThickness="0">
+                                                        <TextBlock Text="&#xE8C0;"
+                                                                   FontFamily="Segoe MDL2 Assets"
+                                                                   FontSize="10" Foreground="#9090A8"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"/>
+                                                    </Button>
+                                                    <!-- Kopírovat -->
+                                                    <Button Classes="msgAction"
+                                                            Command="{Binding CopyContentCommand}"
+                                                            ToolTip.Tip="Kopírovat"
+                                                            Width="22" Height="22" Padding="0"
+                                                            CornerRadius="5"
+                                                            Background="Transparent" BorderThickness="0">
+                                                        <Panel>
+                                                            <TextBlock Text="&#xE8C8;"
+                                                                       FontFamily="Segoe MDL2 Assets"
+                                                                       FontSize="10" Foreground="#9090A8"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       IsVisible="{Binding !IsCopied}"/>
+                                                            <TextBlock Text="&#xE73E;"
+                                                                       FontFamily="Segoe MDL2 Assets"
+                                                                       FontSize="10" Foreground="#4ADE80"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       IsVisible="{Binding IsCopied}"/>
+                                                        </Panel>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                    <ItemsControl.Styles>
+                        <!-- Animace typing dots v asistentské bublině -->
+                        <Style Selector="StackPanel.typingIndicator">
+                            <Style.Animations>
+                                <Animation Duration="0:0:0.9" IterationCount="INFINITE"
+                                           Easing="SineEaseInOut" FillMode="Both">
+                                    <KeyFrame Cue="0%">  <Setter Property="Opacity" Value="0.3"/></KeyFrame>
+                                    <KeyFrame Cue="50%"> <Setter Property="Opacity" Value="1.0"/></KeyFrame>
+                                    <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0.3"/></KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                        <Style Selector="Border Button.msgAction">
+                            <Setter Property="Opacity" Value="0"/>
+                            <Setter Property="Transitions">
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
+                                </Transitions>
+                            </Setter>
+                        </Style>
+                        <Style Selector="Border:pointerover Button.msgAction">
+                            <Setter Property="Opacity" Value="0.65"/>
+                        </Style>
+                        <Style Selector="Border:pointerover Button.msgAction:pointerover">
+                            <Setter Property="Opacity" Value="1"/>
+                        </Style>
+                    </ItemsControl.Styles>
+                </ItemsControl>
+
+              </Panel>
+              </ScrollViewer>
+
+              <!-- FAB: Scroll na konec (zobrazí se, když uživatel scrolloval nahoru) -->
+              <Button Name="ScrollToBottomFab"
+                      IsVisible="False"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Bottom"
+                      Margin="0,0,28,16"
+                      Width="36" Height="36" Padding="0"
+                      CornerRadius="18"
+                      Background="#2A2050"
+                      BorderBrush="#4A3080" BorderThickness="1"
+                      ToolTip.Tip="Přejít na konec (↓)"
+                      Click="ScrollToBottomFab_Click">
+                  <TextBlock Text="&#xE74B;" FontFamily="Segoe MDL2 Assets"
+                             FontSize="14" Foreground="#A78BFA"
+                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Button>
+            </Panel>
+
+            <!-- ── Row 3: Stripy (StackPanel = více pruhů může být viditelných naráz) ── -->
+            <StackPanel Grid.Row="3">
+
+                <!-- Edit-mode strip — aktivní editace zprávy -->
+                <Border IsVisible="{Binding SelectedConversation.IsAnyMessageEditing}"
+                        Background="#0C0A18"
+                        BorderBrush="#2A1F4A" BorderThickness="0,1,0,0"
+                        Padding="20,7,20,7">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="11" Foreground="#7C3AED"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="Editace zprávy — potvrď nebo zruš"
+                                   FontSize="12" Foreground="#6040A8"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Loading strip -->
+                <Border IsVisible="{Binding IsLoadingModel}"
+                        Background="#12100A"
+                        BorderBrush="#2A2010" BorderThickness="0,1,0,0"
+                        Padding="20,7,20,7">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <ProgressBar IsIndeterminate="True"
+                                     Width="120" Height="2"
+                                     Foreground="#F59E0B"
+                                     Background="#2A2010"
+                                     VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding ModelStatusText}"
+                                   FontSize="12" Foreground="#A07820"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Regenerate + Compare strip -->
+                <Border IsVisible="{Binding CanRegenerate}"
+                        Background="#0D0D0D"
+                        BorderBrush="#2A2A2E" BorderThickness="0,1,0,0"
+                        Padding="20,7,20,7">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Button Grid.Column="0"
+                                HorizontalAlignment="Center"
+                                Command="{Binding RegenerateLastResponseCommand}"
+                                Background="Transparent"
+                                BorderBrush="#2A2A2E" BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="14,6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="12" Foreground="#666672"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="Regenerovat odpověď"
+                                           FontSize="12" Foreground="#666672"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <!-- Porovnat s jiným modelem -->
+                        <Button Grid.Column="1"
+                                Command="{Binding ToggleComparePickerCommand}"
+                                Background="Transparent"
+                                BorderBrush="#2A2A2E" BorderThickness="1"
+                                CornerRadius="8" Padding="10,6"
+                                ToolTip.Tip="Porovnat odpověď s jiným modelem">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="&#xE8C1;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="11" Foreground="#555560"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="Porovnat" FontSize="12" Foreground="#555560"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Compare model picker strip -->
+                <Border IsVisible="{Binding IsComparePickerVisible}"
+                        Background="#080810"
+                        BorderBrush="#1A1A30" BorderThickness="0,1,0,0"
+                        Padding="20,8,20,8">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                        <TextBlock Grid.Column="0" Text="Porovnat s modelem:"
+                                   FontSize="12" Foreground="#555560"
+                                   VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{Binding AvailableModels}"
+                                  SelectedItem="{Binding CompareModelName}"
+                                  Background="#1C1C1E" Foreground="#CCCCDD"
+                                  BorderBrush="#2A2A2E" CornerRadius="7" FontSize="12"/>
+                        <Button Grid.Column="2"
+                                Command="{Binding CompareWithModelCommand}"
+                                Background="#1A1A3A" BorderBrush="#3A3A6A" BorderThickness="1"
+                                CornerRadius="7" Padding="12,5"
+                                ToolTip.Tip="Vytvořit větev a vygenerovat odpověď zvoleným modelem">
+                            <TextBlock Text="Spustit" FontSize="12" Foreground="#818CF8"/>
+                        </Button>
+                        <Button Grid.Column="3"
+                                Command="{Binding ToggleComparePickerCommand}"
+                                Background="Transparent" BorderThickness="0"
+                                Width="26" Height="26" Padding="0" CornerRadius="6">
+                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="10" Foreground="#444450"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
+            </StackPanel>
+
+            <!-- ── Row 4: Input area ── -->
+            <Border Grid.Row="4"
+                    Padding="20,10,20,18"
+                    BorderBrush="#2A2A2E" BorderThickness="0,1,0,0"
+                    Background="#0D0D0D">
+                <StackPanel Spacing="8">
+
+                    <!-- Přiložený obrázek — náhled -->
+                    <Border IsVisible="{Binding HasAttachedImage}"
+                            Background="#1A1A20" BorderBrush="#2A2A30" BorderThickness="1"
+                            CornerRadius="8" Padding="8">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <!-- Náhled obrázku -->
+                            <Border Grid.Column="0" Width="56" Height="56"
+                                    CornerRadius="6" ClipToBounds="True"
+                                    Background="#111118">
+                                <Image Name="AttachmentPreview"
+                                       Stretch="UniformToFill"/>
+                            </Border>
+                            <!-- Název souboru -->
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding AttachedImagePath}"
+                                       FontSize="12" Foreground="#666672"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <!-- Odebrat přílohu -->
+                            <Button Grid.Column="2"
+                                    Command="{Binding RemoveAttachmentCommand}"
+                                    Background="Transparent" BorderThickness="0"
+                                    Width="24" Height="24" Padding="0" CornerRadius="6"
+                                    VerticalAlignment="Center"
+                                    ToolTip.Tip="Odebrat přílohu">
+                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="10" Foreground="#F87171"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Input řádek: attach + textbox + send/stop -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+
+                        <!-- Přiložit obrázek -->
+                        <Button Grid.Column="0"
+                                Command="{Binding AttachImageCommand}"
+                                Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                                Width="46" Height="46" Padding="0" CornerRadius="12"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="Přiložit obrázek">
+                            <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="16" Foreground="#444450"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+
+                        <Border Grid.Column="1"
+                                Background="#1C1C1E"
+                                BorderBrush="#2A2A2E"
+                                BorderThickness="1"
+                                CornerRadius="12">
+                            <TextBox Name="ChatInputBox"
+                                     Text="{Binding InputText}"
+                                     PlaceholderText="Napiš zprávu… (Enter = odeslat)"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Foreground="#EBEBF5"
+                                     CaretBrush="#A78BFA"
+                                     Padding="16,12"
+                                     FontSize="14"
+                                     AcceptsReturn="False"
+                                     MaxLines="1"
+                                     MaxLength="8000"
+                                     IsEnabled="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                     KeyDown="InputBox_KeyDown"/>
+                        </Border>
+
+                        <Panel Grid.Column="2" Width="46" Height="46">
+                            <!-- Odeslat -->
+                            <Button Classes="primary"
+                                    Command="{Binding SendMessageCommand}"
+                                    IsVisible="{Binding !IsSending}"
+                                    IsEnabled="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                    Width="46" Height="46" Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    CornerRadius="12">
+                                <TextBlock Text="&#xE724;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                            </Button>
+                            <!-- Zastavit generování -->
+                            <Button Command="{Binding StopGenerationCommand}"
+                                    IsVisible="{Binding IsSending}"
+                                    Width="46" Height="46" Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
+                                    CornerRadius="12"
+                                    Background="#3A1515"
+                                    BorderBrush="#6B2020" BorderThickness="1"
+                                    ToolTip.Tip="Zastavit generování (Esc)">
+                                <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="15" Foreground="#F87171"/>
+                            </Button>
+                        </Panel>
+                    </Grid>
+
+                </StackPanel>
+            </Border>
+
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,0 +1,592 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AIStudio.App.ViewModels.Setup"
+        x:Class="AIStudio.App.Views.Setup.FirstRunWizardWindow"
+        x:DataType="vm:FirstRunWizardViewModel"
+        Title="AI Studio — Průvodce nastavením"
+        Width="700" Height="660"
+        MinWidth="640" MinHeight="540"
+        CanResize="True"
+        WindowStartupLocation="CenterScreen"
+        Background="#0D0D0D"
+        FontFamily="Inter,Segoe UI,sans-serif">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- ── Hlavička: krok-indikátor + název kroku ── -->
+        <Border Grid.Row="0"
+                Background="#111113"
+                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1"
+                Padding="32,20,32,18">
+            <Grid RowDefinitions="Auto,12,Auto">
+
+                <!-- Logo + název aplikace -->
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
+                    <Border Width="32" Height="32" CornerRadius="8"
+                            Background="#7C3AED">
+                        <TextBlock Text="AI" FontSize="13" FontWeight="Bold"
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="AI Studio" FontSize="15" FontWeight="Bold"
+                                   Foreground="#FFFFFF"/>
+                        <TextBlock Text="Průvodce nastavením" FontSize="11"
+                                   Foreground="#555560"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Step dots (5 kroků) -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
+
+                    <!-- Dot 0 -->
+                    <Panel Width="24" Height="8">
+                        <Border CornerRadius="4" Background="#7C3AED"
+                                IsVisible="{Binding IsStep0}"
+                                Width="24" Height="8"/>
+                        <Border CornerRadius="4" Background="#2A2A2E"
+                                IsVisible="{Binding !IsStep0}"
+                                Width="8" Height="8" HorizontalAlignment="Center"/>
+                    </Panel>
+
+                    <!-- Dot 1 -->
+                    <Panel Width="24" Height="8">
+                        <Border CornerRadius="4" Background="#7C3AED"
+                                IsVisible="{Binding IsStep1}"
+                                Width="24" Height="8"/>
+                        <Border CornerRadius="4" Background="#2A2A2E"
+                                IsVisible="{Binding !IsStep1}"
+                                Width="8" Height="8" HorizontalAlignment="Center"/>
+                    </Panel>
+
+                    <!-- Dot 2 -->
+                    <Panel Width="24" Height="8">
+                        <Border CornerRadius="4" Background="#7C3AED"
+                                IsVisible="{Binding IsStep2}"
+                                Width="24" Height="8"/>
+                        <Border CornerRadius="4" Background="#2A2A2E"
+                                IsVisible="{Binding !IsStep2}"
+                                Width="8" Height="8" HorizontalAlignment="Center"/>
+                    </Panel>
+
+                    <!-- Dot 3 -->
+                    <Panel Width="24" Height="8">
+                        <Border CornerRadius="4" Background="#7C3AED"
+                                IsVisible="{Binding IsStep3}"
+                                Width="24" Height="8"/>
+                        <Border CornerRadius="4" Background="#2A2A2E"
+                                IsVisible="{Binding !IsStep3}"
+                                Width="8" Height="8" HorizontalAlignment="Center"/>
+                    </Panel>
+
+                    <!-- Dot 4 -->
+                    <Panel Width="24" Height="8">
+                        <Border CornerRadius="4" Background="#7C3AED"
+                                IsVisible="{Binding IsStep4}"
+                                Width="24" Height="8"/>
+                        <Border CornerRadius="4" Background="#2A2A2E"
+                                IsVisible="{Binding !IsStep4}"
+                                Width="8" Height="8" HorizontalAlignment="Center"/>
+                    </Panel>
+
+                </StackPanel>
+
+            </Grid>
+        </Border>
+
+        <!-- ── Obsah kroků ── -->
+        <Panel Grid.Row="1">
+
+            <!-- ═══ KROK 0: Uvítání ═══ -->
+            <ScrollViewer IsVisible="{Binding IsStep0}" Padding="40,32,40,0"
+                          VerticalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="0">
+                    <TextBlock Text="Vítejte v AI Studiu 👋"
+                               FontSize="26" FontWeight="Bold"
+                               Foreground="#FFFFFF"/>
+                    <TextBlock Margin="0,10,0,0"
+                               FontSize="14" Foreground="#888896"
+                               LineHeight="22" TextWrapping="Wrap"
+                               Text="Vše pro lokální AI v jedné aplikaci. Tento průvodce vás provede základním nastavením za pár kliknutí."/>
+
+                    <Border Margin="0,28,0,0" Background="#111113"
+                            BorderBrush="#2A2A2E" BorderThickness="1"
+                            CornerRadius="12" Padding="20,16">
+                        <StackPanel Spacing="14">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Border Width="32" Height="32" CornerRadius="8" Background="#1A1228">
+                                    <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="16" Foreground="#A78BFA"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Lokální LLM chat" FontSize="13"
+                                               FontWeight="SemiBold" Foreground="#CCCCDD"/>
+                                    <TextBlock Text="LlamaSharp + GGUF modely — žádný cloud"
+                                               FontSize="11" Foreground="#555560"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Border Width="32" Height="32" CornerRadius="8" Background="#0E1A18">
+                                    <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="16" Foreground="#34D399"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Generování obrázků" FontSize="13"
+                                               FontWeight="SemiBold" Foreground="#CCCCDD"/>
+                                    <TextBlock Text="ComfyUI frontend — FLUX, SDXL a další"
+                                               FontSize="11" Foreground="#555560"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Border Width="32" Height="32" CornerRadius="8" Background="#1A1018">
+                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="16" Foreground="#F472B6"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Správa modelů" FontSize="13"
+                                               FontWeight="SemiBold" Foreground="#CCCCDD"/>
+                                    <TextBlock Text="Stahování, katalog, správa VRAM"
+                                               FontSize="11" Foreground="#555560"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Margin="0,20,0,0"
+                               FontSize="11" Foreground="#3A3A44"
+                               Text="🔒 Veškerá data zůstávají pouze na vašem počítači."/>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ═══ KROK 1: Složka modelů ═══ -->
+            <ScrollViewer IsVisible="{Binding IsStep1}" Padding="40,32,40,16"
+                          VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0" Spacing="0">
+                <TextBlock Text="Kde ukládat modely?" FontSize="22" FontWeight="Bold"
+                           Foreground="#FFFFFF"/>
+                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="#888896"
+                           TextWrapping="Wrap" LineHeight="22"
+                           Text="Modely GGUF mohou mít 5–40 GB. Zvolte disk s dostatkem místa."/>
+
+                <TextBlock Margin="0,24,0,6" FontSize="12"
+                           Foreground="#888896" Text="Složka pro modely:"/>
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Border Grid.Column="0"
+                            Background="#1C1C1E" BorderBrush="#2A2A2E"
+                            BorderThickness="1" CornerRadius="9">
+                        <TextBox Text="{Binding ModelsDirectory}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="#EBEBF5"
+                                 CaretBrush="#A78BFA"
+                                 Padding="12,10"
+                                 FontSize="13"
+                                 Name="ModelsPathBox"/>
+                    </Border>
+                    <Button Grid.Column="1"
+                            Name="BrowseBtn"
+                            Click="BrowseBtn_Click"
+                            Background="#1C1C1E"
+                            BorderBrush="#2A2A2E" BorderThickness="1"
+                            CornerRadius="9" Padding="14,10"
+                            FontSize="13" Foreground="#CCCCDD">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="&#xED25;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" Foreground="#888896"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="Procházet" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <Border Margin="0,16,0,0" Background="#111113"
+                        BorderBrush="#2A2A2E" BorderThickness="1"
+                        CornerRadius="8" Padding="14,10">
+                    <StackPanel Spacing="4">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="11" Foreground="#A78BFA"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="Výchozí umístění:" FontSize="11"
+                                       Foreground="#555560"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding DefaultModelsDir}"
+                                   FontSize="11" Foreground="#3A3A44"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Margin="0,16,0,0" FontSize="12" Foreground="#555560"
+                           TextWrapping="Wrap"
+                           Text="Složku lze kdykoliv změnit v Nastavení → Cesty."/>
+            </StackPanel>
+            </ScrollViewer>
+
+            <!-- ═══ KROK 2: GPU detekce ═══ -->
+            <ScrollViewer IsVisible="{Binding IsStep2}" Padding="40,32,40,16"
+                          VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0" Spacing="0">
+                <TextBlock Text="Hardware a výkon" FontSize="22" FontWeight="Bold"
+                           Foreground="#FFFFFF"/>
+                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="#888896"
+                           Text="AI Studio detekuje GPU a nastaví optimální výkon."/>
+
+                <!-- Detekce probíhá -->
+                <Border IsVisible="{Binding IsDetectingGpu}"
+                        Margin="0,24,0,0" Background="#111113"
+                        BorderBrush="#2A2A2E" BorderThickness="1"
+                        CornerRadius="12" Padding="20,16">
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <ProgressBar IsIndeterminate="True"
+                                     Width="80" Height="2"
+                                     Foreground="#7C3AED"
+                                     Background="#2A2A2E"
+                                     VerticalAlignment="Center"/>
+                        <TextBlock Text="Detekuji GPU…" FontSize="13"
+                                   Foreground="#555560" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- GPU nalezeno -->
+                <Border IsVisible="{Binding GpuDetected}"
+                        Margin="0,24,0,0" Background="#0D1A12"
+                        BorderBrush="#166534" BorderThickness="1"
+                        CornerRadius="12" Padding="20,16">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
+                        <Border Grid.Column="0" Width="44" Height="44"
+                                CornerRadius="10" Background="#14532D">
+                            <TextBlock Text="&#xE950;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="20" Foreground="#4ADE80"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="{Binding GpuName}"
+                                       FontSize="14" FontWeight="SemiBold"
+                                       Foreground="#CCFFCC"/>
+                            <TextBlock FontSize="12" Foreground="#4ADE80">
+                                <Run Text="VRAM: "/>
+                                <Run Text="{Binding VramTotalGb, StringFormat='{}{0:F1} GB'}"/>
+                            </TextBlock>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- GPU nenalezeno (a detekce skončila) -->
+                <Border IsVisible="{Binding !GpuDetected}"
+                        Margin="0,24,0,0" Background="#1A1008"
+                        BorderBrush="#3A2A10" BorderThickness="1"
+                        CornerRadius="12" Padding="20,16">
+                    <StackPanel Spacing="4"
+                                IsVisible="{Binding !IsDetectingGpu}">
+                        <TextBlock Text="GPU nedetekováno" FontSize="13"
+                                   FontWeight="SemiBold" Foreground="#FBBF24"/>
+                        <TextBlock FontSize="12" Foreground="#A07820" TextWrapping="Wrap"
+                                   Text="Inference poběží na CPU — bude pomalejší. Pro GPU je potřeba NVIDIA s CUDA 12."/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Toggle GPU / CPU -->
+                <Border Margin="0,16,0,0" Background="#111113"
+                        BorderBrush="#2A2A2E" BorderThickness="1"
+                        CornerRadius="12" Padding="16,12">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Preferovaný výpočetní prostředek:"
+                                   FontSize="12" Foreground="#555560"/>
+                        <StackPanel Spacing="8">
+                            <!-- GPU option -->
+                            <Border CornerRadius="8" Padding="12,10"
+                                    Background="#1A1228"
+                                    Cursor="Hand"
+                                    PointerPressed="GpuOption_Pressed">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                    <Border Grid.Column="0" Width="18" Height="18"
+                                            CornerRadius="9"
+                                            BorderBrush="#7C3AED" BorderThickness="2"
+                                            Background="#7C3AED">
+                                        <Border Width="6" Height="6" CornerRadius="3"
+                                                Background="White"
+                                                IsVisible="{Binding UseGpu}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="GPU (doporučeno)"
+                                                   FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="#CCCCDD"/>
+                                        <TextBlock Text="Rychlé — využívá CUDA jádra"
+                                                   FontSize="11" Foreground="#555560"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2"
+                                               Text="&#xE950;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="14" Foreground="#A78BFA"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                                <Border.Styles>
+                                    <Style Selector="Border:pointerover">
+                                        <Setter Property="Background" Value="#201830"/>
+                                    </Style>
+                                </Border.Styles>
+                            </Border>
+                            <!-- CPU option -->
+                            <Border CornerRadius="8" Padding="12,10"
+                                    Background="#111113" Cursor="Hand"
+                                    PointerPressed="CpuOption_Pressed">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                    <Border Grid.Column="0" Width="18" Height="18"
+                                            CornerRadius="9"
+                                            BorderBrush="#3A3A44" BorderThickness="2"
+                                            Background="Transparent">
+                                        <Border Width="6" Height="6" CornerRadius="3"
+                                                Background="#7C3AED"
+                                                IsVisible="{Binding !UseGpu}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Jen CPU"
+                                                   FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="#CCCCDD"/>
+                                        <TextBlock Text="Pomalejší — funguje bez GPU"
+                                                   FontSize="11" Foreground="#555560"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2"
+                                               Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="14" Foreground="#555560"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+            </ScrollViewer>
+
+            <!-- ═══ KROK 3: API tokeny ═══ -->
+            <ScrollViewer IsVisible="{Binding IsStep3}" Padding="40,32,40,16"
+                          VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0" Spacing="0">
+                <TextBlock Text="API tokeny (volitelné)" FontSize="22" FontWeight="Bold"
+                           Foreground="#FFFFFF"/>
+                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="#888896"
+                           TextWrapping="Wrap" LineHeight="22"
+                           Text="Pro stahování veřejných modelů z HuggingFace token nepotřebujete. Tokeny jsou uloženy pouze lokálně."/>
+
+                <!-- HuggingFace -->
+                <TextBlock Margin="0,24,0,6" FontSize="12" Foreground="#888896">
+                    <Run Text="HuggingFace token "/>
+                    <Run Text="— hf_..." Foreground="#3A3A44"/>
+                </TextBlock>
+                <Border Background="#1C1C1E" BorderBrush="#2A2A2E"
+                        BorderThickness="1" CornerRadius="9">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding HuggingFaceToken}"
+                                 PlaceholderText="hf_xxxxxxxxxxxxxxxxxxxxxxxx"
+                                 PasswordChar="•"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="#EBEBF5"
+                                 CaretBrush="#A78BFA"
+                                 Padding="12,10"
+                                 FontSize="13"
+                                 Name="HfTokenBox"/>
+                        <Button Grid.Column="1"
+                                Name="ToggleHfVisBtn"
+                                Click="ToggleHfVis_Click"
+                                Background="Transparent" BorderThickness="0"
+                                Width="36" Padding="0" CornerRadius="0,9,9,0"
+                                ToolTip.Tip="Zobrazit/skrýt token">
+                            <TextBlock Text="&#xED1A;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" Foreground="#444450"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+                    </Grid>
+                </Border>
+                <TextBlock Margin="0,5,0,0" FontSize="11" Foreground="#3A3A44"
+                           Text="Potřebujete pro gated modely (Llama 3, Gemma…)"/>
+
+                <!-- Civitai -->
+                <TextBlock Margin="0,20,0,6" FontSize="12" Foreground="#888896">
+                    <Run Text="Civitai API klíč "/>
+                    <Run Text="— pro SDXL modely" Foreground="#3A3A44"/>
+                </TextBlock>
+                <Border Background="#1C1C1E" BorderBrush="#2A2A2E"
+                        BorderThickness="1" CornerRadius="9">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding CivitaiApiKey}"
+                                 PlaceholderText="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                 PasswordChar="•"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="#EBEBF5"
+                                 CaretBrush="#A78BFA"
+                                 Padding="12,10"
+                                 FontSize="13"
+                                 Name="CivitaiKeyBox"/>
+                        <Button Grid.Column="1"
+                                Name="ToggleCivitaiVisBtn"
+                                Click="ToggleCivitaiVis_Click"
+                                Background="Transparent" BorderThickness="0"
+                                Width="36" Padding="0" CornerRadius="0,9,9,0"
+                                ToolTip.Tip="Zobrazit/skrýt klíč">
+                            <TextBlock Text="&#xED1A;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" Foreground="#444450"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+                    </Grid>
+                </Border>
+                <TextBlock Margin="0,5,0,0" FontSize="11" Foreground="#3A3A44"
+                           Text="Dostupný na civitai.com v Profil → API Keys"/>
+
+                <TextBlock Margin="0,20,0,0" FontSize="12" Foreground="#444450"
+                           Text="Tokeny lze kdykoliv přidat nebo změnit v Nastavení → API."/>
+            </StackPanel>
+            </ScrollViewer>
+
+            <!-- ═══ KROK 4: Hotovo ═══ -->
+            <ScrollViewer IsVisible="{Binding IsStep4}" Padding="40,32,40,16"
+                          VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0" Spacing="0">
+                <TextBlock Text="Vše je připraveno! 🎉" FontSize="22" FontWeight="Bold"
+                           Foreground="#FFFFFF"/>
+                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="#888896"
+                           Text="Nastavení bylo uloženo. Tady je přehled:"/>
+
+                <Border Margin="0,24,0,0" Background="#111113"
+                        BorderBrush="#2A2A2E" BorderThickness="1"
+                        CornerRadius="12" Padding="20,16">
+                    <StackPanel Spacing="12">
+
+                        <!-- Složka modelů -->
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" Foreground="#4ADE80"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel>
+                                <TextBlock Text="Složka modelů"
+                                           FontSize="12" Foreground="#888896"/>
+                                <TextBlock Text="{Binding SummaryModelsDir}"
+                                           FontSize="11" Foreground="#CCCCDD"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border Height="1" Background="#2A2A2E"/>
+
+                        <!-- GPU -->
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" Foreground="#4ADE80"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel>
+                                <TextBlock Text="Výpočetní prostředek"
+                                           FontSize="12" Foreground="#888896"/>
+                                <TextBlock Text="{Binding GpuSummaryLine}"
+                                           FontSize="11" Foreground="#CCCCDD"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border Height="1" Background="#2A2A2E"/>
+
+                        <!-- API tokeny -->
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="13" Foreground="#4ADE80"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel>
+                                <TextBlock Text="API tokeny"
+                                           FontSize="12" Foreground="#888896"/>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="HuggingFace:" FontSize="11" Foreground="#888896"/>
+                                    <TextBlock Text="nastaven ✓"  FontSize="11" Foreground="#4ADE80"
+                                               IsVisible="{Binding HasHfToken}"/>
+                                    <TextBlock Text="(nevyplněn)" FontSize="11" Foreground="#444450"
+                                               IsVisible="{Binding !HasHfToken}"/>
+                                    <TextBlock Text="·" FontSize="11" Foreground="#3A3A44" Margin="4,0"/>
+                                    <TextBlock Text="Civitai:" FontSize="11" Foreground="#888896"/>
+                                    <TextBlock Text="nastaven ✓"  FontSize="11" Foreground="#4ADE80"
+                                               IsVisible="{Binding HasCivitaiKey}"/>
+                                    <TextBlock Text="(nevyplněn)" FontSize="11" Foreground="#444450"
+                                               IsVisible="{Binding !HasCivitaiKey}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+
+                    </StackPanel>
+                </Border>
+
+                <Border Margin="0,16,0,0" Background="#0D150D"
+                        BorderBrush="#14532D" BorderThickness="1"
+                        CornerRadius="10" Padding="16,12">
+                    <TextBlock FontSize="13" Foreground="#86EFAC"
+                               TextWrapping="Wrap" LineHeight="22">
+                        <Run Text="Nyní přejděte do "/>
+                        <Run Text="Modely" FontWeight="SemiBold"/>
+                        <Run Text=" a stáhněte svůj první GGUF model (doporučujeme Qwen3 14B nebo Llama 3.1 8B). Pak se vraťte na "/>
+                        <Run Text="Chat" FontWeight="SemiBold"/>
+                        <Run Text=" a začněte konverzovat. 🚀"/>
+                    </TextBlock>
+                </Border>
+            </StackPanel>
+            </ScrollViewer>
+
+        </Panel>
+
+        <!-- ── Tlačítka navigace ── -->
+        <Border Grid.Row="2"
+                Background="#111113"
+                BorderBrush="#2A2A2E" BorderThickness="0,1,0,0"
+                Padding="32,16">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+
+                <!-- Zpět -->
+                <Button Grid.Column="0"
+                        Command="{Binding BackCommand}"
+                        IsVisible="{Binding CanGoBack}"
+                        Background="#1C1C1E"
+                        BorderBrush="#2A2A2E" BorderThickness="1"
+                        CornerRadius="9" Padding="18,10"
+                        FontSize="13" Foreground="#888896">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <TextBlock Text="&#xE760;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="11" VerticalAlignment="Center"/>
+                        <TextBlock Text="Zpět" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Přeskočit (jen kroky 1-3) -->
+                <Button Grid.Column="1"
+                        HorizontalAlignment="Left"
+                        Command="{Binding NextCommand}"
+                        IsVisible="{Binding !IsLastStep}"
+                        Background="Transparent" BorderThickness="0"
+                        Padding="6,10" FontSize="12" Foreground="#3A3A44"
+                        ToolTip.Tip="Tento krok přeskočit">
+                    <TextBlock IsVisible="{Binding !IsStep0}" Text="Přeskočit"/>
+                </Button>
+
+                <!-- Pokračovat / Spustit -->
+                <Button Grid.Column="2"
+                        Classes="primary"
+                        Command="{Binding NextCommand}"
+                        Padding="22,10" CornerRadius="9" FontSize="13">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding NextButtonText}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="&#xE76C;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="11" VerticalAlignment="Center"
+                                   IsVisible="{Binding !IsLastStep}"/>
+                    </StackPanel>
+                </Button>
+
+            </Grid>
+        </Border>
+
+    </Grid>
+</Window>

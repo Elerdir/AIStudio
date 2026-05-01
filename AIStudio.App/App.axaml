@@ -1,0 +1,16 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="AIStudio.App.App"
+             xmlns:local="using:AIStudio.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.DataTemplates>
+        <local:ViewLocator/>
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <FluentTheme/>
+        <StyleInclude Source="avares://AIStudio.App/Themes/AppStyles.axaml"/>
+    </Application.Styles>
+
+</Application>

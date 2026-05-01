@@ -1,0 +1,540 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AIStudio.App.ViewModels.Models"
+             x:Class="AIStudio.App.Views.Models.ModelManagerPageView"
+             x:DataType="vm:ModelManagerPageViewModel">
+
+    <Grid ColumnDefinitions="*,320" RowDefinitions="Auto,Auto,*">
+
+        <!-- Header -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2"
+                Padding="28,22,28,16"
+                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <StackPanel Grid.Column="0" Spacing="3">
+                    <TextBlock Text="Modely" Classes="pageTitle"/>
+                    <TextBlock Text="Stahuj, spravuj a aktivuj modely pro chat i generování obrázků"
+                               FontSize="12" Foreground="#666672"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <!-- Přidat lokální GGUF -->
+                    <Button Classes="secondary"
+                            Command="{Binding AddLocalModelCommand}"
+                            ToolTip.Tip="Přidat GGUF ze svého disku">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                            <TextBlock Text="Přidat lokální" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <!-- Rescan -->
+                    <Button Classes="secondary"
+                            Command="{Binding RescanModelsCommand}"
+                            ToolTip.Tip="Prohledat složku modelů znovu (bez restartu)">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                            <TextBlock Text="Prohledat" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <!-- Otevřít složku -->
+                    <Button Classes="secondary"
+                            Command="{Binding OpenModelsFolderCommand}"
+                            ToolTip.Tip="Otevřít složku modelů v Průzkumníku">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="&#xE8DA;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                            <TextBlock Text="Složka" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Toolbar: tabs + search -->
+        <Border Grid.Row="1" Grid.Column="0"
+                Padding="20,12,20,10"
+                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1"
+                Background="#0F0F11">
+            <Grid ColumnDefinitions="Auto,*,280" ColumnSpacing="16">
+
+                <!-- Category tabs -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                    <Button Classes="tabBtn"
+                            Classes.activeTab="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="0"
+                            Content="Vše"/>
+                    <Button Classes="tabBtn"
+                            Classes.activeTab="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=1}"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="1">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBlock Text="Chat" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="tabBtn"
+                            Classes.activeTab="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=2}"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="2">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBlock Text="Obrázky" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="tabBtn"
+                            Classes.activeTab="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=3}"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="3">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBlock Text="Staženo" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Search -->
+                <Border Grid.Column="2"
+                        Background="#1C1C1E"
+                        BorderBrush="#2A2A2E"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <TextBlock Grid.Column="0"
+                                   Text="&#xE721;"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="13"
+                                   Foreground="#555560"
+                                   VerticalAlignment="Center"
+                                   Margin="12,0,0,0"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding SearchText}"
+                                 PlaceholderText="Hledat modely..."
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="#EBEBF5"
+                                 Padding="8,8"
+                                 FontSize="13"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Toolbar right side (detail panel header) -->
+        <Border Grid.Row="1" Grid.Column="1"
+                Padding="16,12"
+                BorderBrush="#2A2A2E" BorderThickness="1,0,0,1"
+                Background="#0F0F11">
+            <TextBlock Text="DETAIL MODELU" Classes="sectionHeader" VerticalAlignment="Center"/>
+        </Border>
+
+        <!-- ═══════════════════════ MODEL LIST ═══════════════════════════════ -->
+        <ScrollViewer Grid.Row="2" Grid.Column="0" Padding="20,12,20,80">
+            <ItemsControl ItemsSource="{Binding DisplayedModels}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ModelItemViewModel">
+                        <Border Margin="0,0,0,6"
+                                CornerRadius="12"
+                                Cursor="Hand"
+                                Background="#1C1C1E">
+                            <Button Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="16"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Command="{ReflectionBinding $parent[ItemsControl].DataContext.SelectModelCommand}"
+                                    CommandParameter="{Binding}">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+
+                                    <!-- Name + badges -->
+                                    <StackPanel Grid.Row="0" Grid.Column="0"
+                                                Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="14"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#EBEBF5"
+                                                   VerticalAlignment="Center"/>
+                                        <Border IsVisible="{Binding IsActive}"
+                                                Background="#172917" BorderBrush="#264726" BorderThickness="1"
+                                                CornerRadius="4" Padding="7,2">
+                                            <TextBlock Text="● Aktivní" FontSize="10" Foreground="#4ADE80"/>
+                                        </Border>
+                                        <Border IsVisible="{Binding IsDownloaded}"
+                                                Background="#151524" BorderBrush="#252540" BorderThickness="1"
+                                                CornerRadius="4" Padding="7,2">
+                                            <TextBlock Text="Staženo" FontSize="10" Foreground="#818CF8"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- ═══ Akční panel (Panel = mutex IsVisible) ═══ -->
+                                    <Panel Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
+                                           VerticalAlignment="Center"
+                                           Margin="12,0,0,0"
+                                           MinWidth="140">
+
+                                        <!-- Stahování: progress + rychlost + ETA + zrušit -->
+                                        <StackPanel IsVisible="{Binding ShowDownloading}"
+                                                    Spacing="5" Width="160">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                                <ProgressBar Grid.Column="0"
+                                                             Value="{Binding DownloadProgress}"
+                                                             Minimum="0" Maximum="100"
+                                                             Height="4" CornerRadius="2"
+                                                             Foreground="#7C3AED"
+                                                             Background="#2A2A2E"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding DownloadProgressLabel}"
+                                                           FontSize="10" Foreground="#888896"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                                <StackPanel Grid.Column="0" Spacing="1">
+                                                    <TextBlock Text="{Binding DownloadedLabel}"
+                                                               FontSize="10" Foreground="#555560"/>
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="{Binding DownloadSpeedLabel}"
+                                                                   FontSize="10" Foreground="#555560"/>
+                                                        <TextBlock Text="{Binding EtaLabel}"
+                                                                   FontSize="10" Foreground="#444450"
+                                                                   IsVisible="{Binding EtaLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <Button Grid.Column="1"
+                                                        Classes="secondary"
+                                                        Command="{ReflectionBinding $parent[ItemsControl].DataContext.CancelDownloadCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Padding="8,4" FontSize="11"
+                                                        Foreground="#F87171"
+                                                        Content="Zrušit"/>
+                                            </Grid>
+                                        </StackPanel>
+
+                                        <!-- Chyba: zpráva + zkusit znovu -->
+                                        <StackPanel IsVisible="{Binding ShowDownloadError}"
+                                                    Spacing="5" Width="150">
+                                            <TextBlock Text="{Binding DownloadError}"
+                                                       FontSize="10" Foreground="#F87171"
+                                                       TextWrapping="Wrap"/>
+                                            <Button Classes="secondary" Foreground="#F87171"
+                                                    Command="{ReflectionBinding $parent[ItemsControl].DataContext.DownloadCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="8,4" FontSize="11"
+                                                    Content="Zkusit znovu"/>
+                                        </StackPanel>
+
+                                        <!-- Staženo → Nastavit aktivní / Aktivní -->
+                                        <Button Classes="secondary"
+                                                IsVisible="{Binding ShowDownloaded}"
+                                                IsEnabled="{Binding !IsActive}"
+                                                Command="{ReflectionBinding $parent[ItemsControl].DataContext.SetActiveCommand}"
+                                                CommandParameter="{Binding}"
+                                                Content="Nastavit aktivní"/>
+
+                                        <!-- Nestaženo → Stáhnout -->
+                                        <Button Classes="primary"
+                                                IsVisible="{Binding ShowDownloadButton}"
+                                                Command="{ReflectionBinding $parent[ItemsControl].DataContext.DownloadCommand}"
+                                                CommandParameter="{Binding}"
+                                                Content="Stáhnout"/>
+                                    </Panel>
+
+                                    <!-- Description -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0"
+                                               Text="{Binding Description}"
+                                               FontSize="12"
+                                               Foreground="#888896"
+                                               TextWrapping="Wrap"/>
+
+                                    <!-- Meta info -->
+                                    <StackPanel Grid.Row="2" Grid.Column="0"
+                                                Orientation="Horizontal" Spacing="12">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock Text="&#xE950;" FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="11" Foreground="#555560" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Size}" FontSize="11" Foreground="#555560"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock Text="VRAM" FontSize="11" Foreground="#555560"/>
+                                            <TextBlock FontSize="11" Foreground="#555560"
+                                                       Text="{Binding VramRequiredGb, StringFormat={}{0} GB}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                                    IsVisible="{Binding HasContextLength}">
+                                            <TextBlock Text="{Binding ContextLength, StringFormat={}{0:N0} tok.}"
+                                                       FontSize="11" Foreground="#555560"/>
+                                        </StackPanel>
+                                        <Border Background="#1E1E2A" BorderBrush="#2A2A3E" BorderThickness="1"
+                                                CornerRadius="4" Padding="6,1">
+                                            <TextBlock Text="{Binding SourceLabel}" FontSize="10" Foreground="#5B6EAE"/>
+                                        </Border>
+                                        <Border Background="#1E1E2A" BorderBrush="#2A2A3E" BorderThickness="1"
+                                                CornerRadius="4" Padding="6,1"
+                                                IsVisible="{Binding Quantization, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                            <TextBlock Text="{Binding Quantization}" FontSize="10" Foreground="#5B6EAE"/>
+                                        </Border>
+                                    </StackPanel>
+
+                                </Grid>
+                            </Button>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- ═══════════════════════ DETAIL PANEL ═══════════════════════════════ -->
+        <Border Grid.Row="2" Grid.Column="1"
+                Background="#111113"
+                BorderBrush="#2A2A2E"
+                BorderThickness="1,0,0,0">
+            <Panel>
+
+                <!-- Empty state -->
+                <StackPanel VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            Spacing="10"
+                            IsVisible="{Binding SelectedModel, Converter={x:Static ObjectConverters.IsNull}}">
+                    <TextBlock Text="&#xF158;"
+                               FontFamily="Segoe MDL2 Assets"
+                               FontSize="40"
+                               Foreground="#2A2A2E"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="Vyber model ze seznamu"
+                               FontSize="13"
+                               Foreground="#444450"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Model detail -->
+                <ScrollViewer IsVisible="{Binding SelectedModel, Converter={x:Static ObjectConverters.IsNotNull}}"
+                              Padding="20,20,20,80">
+                    <StackPanel Spacing="20"
+                                DataContext="{Binding SelectedModel}">
+
+                        <!-- Název + badges -->
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding Name}"
+                                       FontSize="16" FontWeight="Bold"
+                                       Foreground="#FFFFFF" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Border Background="#172917" BorderBrush="#264726" BorderThickness="1"
+                                        CornerRadius="4" Padding="7,2" IsVisible="{Binding IsActive}">
+                                    <TextBlock Text="● Aktivní" FontSize="10" Foreground="#4ADE80"/>
+                                </Border>
+                                <Border Background="#151524" BorderBrush="#252540" BorderThickness="1"
+                                        CornerRadius="4" Padding="7,2" IsVisible="{Binding IsDownloaded}">
+                                    <TextBlock Text="Staženo" FontSize="10" Foreground="#818CF8"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding Description}"
+                                       FontSize="12" Foreground="#888896" TextWrapping="Wrap"/>
+                        </StackPanel>
+
+                        <!-- Download progress (zobrazí se jen při stahování) -->
+                        <Border IsVisible="{Binding ShowDownloading}"
+                                Background="#0F0F11" CornerRadius="10" Padding="14">
+                            <StackPanel Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0"
+                                               Text="Stahování…"
+                                               FontSize="12" FontWeight="SemiBold"
+                                               Foreground="#EBEBF5"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding DownloadProgressLabel}"
+                                               FontSize="12" Foreground="#A78BFA"
+                                               FontWeight="SemiBold"/>
+                                </Grid>
+                                <ProgressBar Value="{Binding DownloadProgress}"
+                                             Minimum="0" Maximum="100"
+                                             Height="6" CornerRadius="3"
+                                             Foreground="#7C3AED" Background="#2A2A2E"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding DownloadedLabel}"
+                                                   FontSize="11" Foreground="#555560"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding DownloadSpeedLabel}"
+                                                       FontSize="11" Foreground="#555560"/>
+                                            <TextBlock Text="{Binding EtaLabel}"
+                                                       FontSize="11" Foreground="#444450"
+                                                       IsVisible="{Binding EtaLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Button Grid.Column="1"
+                                            Classes="secondary"
+                                            Command="{ReflectionBinding $parent[UserControl].DataContext.CancelDownloadCommand}"
+                                            CommandParameter="{Binding}"
+                                            Padding="12,7" Foreground="#F87171"
+                                            Content="Zrušit stahování"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Chyba stahování -->
+                        <Border IsVisible="{Binding ShowDownloadError}"
+                                Background="#1A0E0E" BorderBrush="#3D1515" BorderThickness="1"
+                                CornerRadius="10" Padding="14">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Chyba stahování"
+                                           FontSize="12" FontWeight="SemiBold" Foreground="#F87171"/>
+                                <TextBlock Text="{Binding DownloadError}"
+                                           FontSize="11" Foreground="#CC5C5C" TextWrapping="Wrap"/>
+                                <Button Classes="secondary" Foreground="#F87171"
+                                        HorizontalAlignment="Left"
+                                        Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadCommand}"
+                                        CommandParameter="{Binding}"
+                                        Content="Zkusit znovu"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Stats tabulka -->
+                        <Border Classes="card" Padding="14">
+                            <StackPanel Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Velikost" FontSize="12" Foreground="#666672"/>
+                                    <!-- Skutečná velikost ze skenu má přednost před odhadovanou -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                        <TextBlock FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"
+                                                   Text="{Binding SizeOnDisk}"
+                                                   IsVisible="{Binding SizeOnDisk, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        <TextBlock FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"
+                                                   Text="{Binding Size}"
+                                                   IsVisible="{Binding SizeOnDisk, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                                        <TextBlock FontSize="11" Foreground="#444450"
+                                                   Text="{Binding Size, StringFormat='(est. {0})'}"
+                                                   IsVisible="{Binding SizeOnDisk, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    </StackPanel>
+                                </Grid>
+                                <Border Height="1" Background="#222228"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="VRAM" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding VramRequiredGb, StringFormat={}{0} GB}"
+                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                </Grid>
+                                <Border Height="1" Background="#222228" IsVisible="{Binding HasContextLength}"/>
+                                <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasContextLength}">
+                                    <TextBlock Grid.Column="0" Text="Kontext" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding ContextLength, StringFormat={}{0:N0} tokenů}"
+                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                </Grid>
+                                <Border Height="1" Background="#222228"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Kvantizace" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Quantization}"
+                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                </Grid>
+                                <Border Height="1" Background="#222228"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Zdroj" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding SourceLabel}"
+                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                </Grid>
+                                <Border Height="1" Background="#222228"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Verze" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Version}"
+                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                </Grid>
+                                <Border Height="1" Background="#222228"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="Kategorie" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding CategoryLabel}"
+                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Akční tlačítka -->
+                        <StackPanel Spacing="8">
+                            <!-- Stáhnout -->
+                            <Button Classes="primary"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    IsVisible="{Binding ShowDownloadButton}"
+                                    Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadCommand}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Stáhnout model" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <!-- Nastavit aktivní -->
+                            <Button Classes="primary"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    IsVisible="{Binding ShowDownloaded}"
+                                    IsEnabled="{Binding !IsActive}"
+                                    Command="{ReflectionBinding $parent[UserControl].DataContext.SetActiveCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="Nastavit jako aktivní"/>
+                            <!-- Stránka modelu -->
+                            <Button Classes="secondary"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    IsVisible="{Binding ModelPageUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                    Command="{ReflectionBinding $parent[UserControl].DataContext.OpenModelPageCommand}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Otevřít stránku modelu" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <!-- Odebrat model — výchozí tlačítko (před confirm) -->
+                            <Button Classes="secondary"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Center"
+                                    Foreground="#F87171"
+                                    Command="{Binding BeginDeleteConfirmationCommand}"
+                                    Content="Odebrat model ze složky">
+                                <Button.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="IsDownloaded"/>
+                                        <Binding Path="!IsConfirmingDelete"/>
+                                    </MultiBinding>
+                                </Button.IsVisible>
+                            </Button>
+
+                            <!-- Inline confirmation — po prvním kliku na "Odebrat" -->
+                            <Border IsVisible="{Binding IsConfirmingDelete}"
+                                    Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
+                                    CornerRadius="10" Padding="14,12">
+                                <StackPanel Spacing="10">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="14" Foreground="#F87171"
+                                                   VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="Opravdu smazat tento model?"
+                                                       FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="#F87171"/>
+                                            <TextBlock FontSize="11" Foreground="#9c6a6a" TextWrapping="Wrap"
+                                                       Text="Soubor se smaže ze složky modelů. Pokud byl výchozí v chatu, výchozí volba se vyresetuje. Stažení můžeš kdykoliv opakovat."/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <Button Grid.Column="0"
+                                                Classes="secondary"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                Command="{Binding CancelDeleteConfirmationCommand}"
+                                                Content="Zrušit"/>
+                                        <Button Grid.Column="1"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                Background="#3A1515" BorderBrush="#6B2020" BorderThickness="1"
+                                                Foreground="#F87171"
+                                                CornerRadius="8" Padding="0,8"
+                                                Command="{ReflectionBinding $parent[UserControl].DataContext.DeleteModelCommand}"
+                                                CommandParameter="{Binding}"
+                                                Content="Ano, smazat"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+            </Panel>
+        </Border>
+
+    </Grid>
+</UserControl>

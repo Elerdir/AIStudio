@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="AIStudio.App/AIStudio.App.csproj" />
+  <Project Path="AIStudio.Core/AIStudio.Core.csproj" />
+  <Project Path="AIStudio.Infrastructure/AIStudio.Infrastructure.csproj" />
+</Solution>

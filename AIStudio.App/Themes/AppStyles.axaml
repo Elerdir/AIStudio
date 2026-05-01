@@ -1,0 +1,132 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Nav item button -->
+    <Style Selector="Button.navItem">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="#9999AA"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Setter Property="Padding" Value="12,10"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Background" Duration="0:0:0.15"/>
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.navItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#222228"/>
+        <Setter Property="TextElement.Foreground" Value="#CCCCDD"/>
+    </Style>
+
+    <Style Selector="Button.navItem:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#1A1A22"/>
+    </Style>
+
+    <Style Selector="Button.navItem.active /template/ ContentPresenter">
+        <Setter Property="Background" Value="#26263A"/>
+        <Setter Property="TextElement.Foreground" Value="#A78BFA"/>
+    </Style>
+
+    <Style Selector="Button.navItem.active TextBlock">
+        <Setter Property="Foreground" Value="#A78BFA"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <!-- Primary action button -->
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="#7C3AED"/>
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+        <Setter Property="Padding" Value="16,10"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#6D28D9"/>
+    </Style>
+
+    <Style Selector="Button.primary:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#5B21B6"/>
+    </Style>
+
+    <!-- Secondary button -->
+    <Style Selector="Button.secondary">
+        <Setter Property="Background" Value="#2A2A2E"/>
+        <Setter Property="Foreground" Value="#CCCCDD"/>
+        <Setter Property="Padding" Value="12,8"/>
+        <Setter Property="CornerRadius" Value="8"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+
+    <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#333338"/>
+    </Style>
+
+    <!-- Page title -->
+    <Style Selector="TextBlock.pageTitle">
+        <Setter Property="FontSize" Value="22"/>
+        <Setter Property="FontWeight" Value="Bold"/>
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+    </Style>
+
+    <!-- Section header -->
+    <Style Selector="TextBlock.sectionHeader">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="#555560"/>
+        <Setter Property="LetterSpacing" Value="1.5"/>
+    </Style>
+
+    <!-- Card -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="#1C1C1E"/>
+        <Setter Property="CornerRadius" Value="12"/>
+        <Setter Property="Padding" Value="16"/>
+    </Style>
+
+    <!-- Input -->
+    <Style Selector="TextBox.chatInput">
+        <Setter Property="Background" Value="#1C1C1E"/>
+        <Setter Property="Foreground" Value="#EBEBF5"/>
+        <Setter Property="BorderBrush" Value="#2A2A2E"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="14,12"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="CaretBrush" Value="#A78BFA"/>
+    </Style>
+
+    <Style Selector="TextBox.chatInput:focus">
+        <Setter Property="BorderBrush" Value="#7C3AED"/>
+    </Style>
+
+    <!-- Tab button -->
+    <Style Selector="Button.tabBtn">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="#666672"/>
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style Selector="Button.tabBtn:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#222228"/>
+        <Setter Property="TextElement.Foreground" Value="#CCCCDD"/>
+    </Style>
+    <Style Selector="Button.tabBtn.activeTab /template/ ContentPresenter">
+        <Setter Property="Background" Value="#26263A"/>
+        <Setter Property="TextElement.Foreground" Value="#A78BFA"/>
+    </Style>
+    <Style Selector="Button.tabBtn.activeTab">
+        <Setter Property="Foreground" Value="#A78BFA"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+</Styles>

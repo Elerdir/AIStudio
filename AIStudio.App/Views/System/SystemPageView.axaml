@@ -1,0 +1,290 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AIStudio.App.ViewModels.SystemMonitor"
+             x:Class="AIStudio.App.Views.SystemMonitor.SystemPageView"
+             x:DataType="vm:SystemPageViewModel">
+
+    <DockPanel>
+
+        <!-- Header -->
+        <Border DockPanel.Dock="Top" Padding="28,22,28,16"
+                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="3">
+                    <TextBlock Text="Systém" Classes="pageTitle"/>
+                    <TextBlock Text="Využití hardwaru, správa VRAM a běžící procesy"
+                               FontSize="12" Foreground="#666672"/>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Classes="primary"
+                        Command="{Binding ReleaseVramCommand}"
+                        VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Uvolnit VRAM" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Padding="28,20,28,80">
+            <StackPanel Spacing="24">
+
+                <!-- Hardware stats row -->
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="16">
+
+                    <!-- CPU -->
+                    <Border Grid.Column="0" Classes="card">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="CPU" Classes="sectionHeader"/>
+                                    <TextBlock Text="{Binding CpuName}"
+                                               FontSize="11" Foreground="#666672"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip.Tip="{Binding CpuName}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding CpuLabel}"
+                                           FontSize="22"
+                                           FontWeight="Bold"
+                                           Foreground="#A78BFA"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                            <ProgressBar Value="{Binding CpuPercent}"
+                                         Minimum="0" Maximum="100"
+                                         Height="4"
+                                         CornerRadius="2"
+                                         Foreground="#7C3AED"
+                                         Background="#2A2A2E"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- RAM -->
+                    <Border Grid.Column="1" Classes="card">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="RAM" Classes="sectionHeader"/>
+                                    <TextBlock Text="{Binding RamLabel}" FontSize="11" Foreground="#444450"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding RamPercent, StringFormat={}{0:F0} %}"
+                                           FontSize="22"
+                                           FontWeight="Bold"
+                                           Foreground="#60A5FA"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                            <ProgressBar Value="{Binding RamPercent}"
+                                         Minimum="0" Maximum="100"
+                                         Height="4"
+                                         CornerRadius="2"
+                                         Foreground="#3B82F6"
+                                         Background="#2A2A2E"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- GPU -->
+                    <Border Grid.Column="2" Classes="card">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="GPU" Classes="sectionHeader"/>
+                                    <TextBlock Text="{Binding GpuName}"
+                                               FontSize="11"
+                                               Foreground="#444450"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding GpuUtilizationPercent, StringFormat={}{0:F0} %}"
+                                           FontSize="22"
+                                           FontWeight="Bold"
+                                           Foreground="#34D399"
+                                           VerticalAlignment="Center"/>
+                            </Grid>
+                            <ProgressBar Value="{Binding GpuUtilizationPercent}"
+                                         Minimum="0" Maximum="100"
+                                         Height="4"
+                                         CornerRadius="2"
+                                         Foreground="#10B981"
+                                         Background="#2A2A2E"/>
+                        </StackPanel>
+                    </Border>
+
+                </Grid>
+
+                <!-- VRAM detail -->
+                <Border Classes="card">
+                    <StackPanel Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="16">
+                            <StackPanel Grid.Column="0" Spacing="3">
+                                <TextBlock Text="VRAM" Classes="sectionHeader"/>
+                                <TextBlock Text="{Binding GpuName}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="#EBEBF5"/>
+                            </StackPanel>
+
+                            <!-- GPU toggle -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                <TextBlock Text="Inference přes GPU"
+                                           FontSize="12"
+                                           Foreground="#888896"
+                                           VerticalAlignment="Center"/>
+                                <ToggleSwitch IsChecked="{Binding UseGpu}"
+                                             OnContent="" OffContent=""
+                                             Width="44" Height="24"/>
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="2"
+                                       Text="{Binding VramLabel}"
+                                       FontSize="20"
+                                       FontWeight="Bold"
+                                       Foreground="#F59E0B"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- VRAM bar with segments -->
+                        <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+                            <ProgressBar Grid.Row="0"
+                                         Value="{Binding VramPercent}"
+                                         Minimum="0" Maximum="100"
+                                         Height="10"
+                                         CornerRadius="5"
+                                         Foreground="#F59E0B"
+                                         Background="#2A2A2E"/>
+                            <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding VramUsedGb, StringFormat={}Využito: {0:F1} GB}"
+                                           FontSize="11"
+                                           Foreground="#555560"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding VramTotalGb, StringFormat={}Celkem: {0:F0} GB}"
+                                           FontSize="11"
+                                           Foreground="#555560"/>
+                            </Grid>
+                        </Grid>
+
+                        <!-- Current AI model in VRAM -->
+                        <Border Background="#141416" CornerRadius="8" Padding="12,10">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                <TextBlock Grid.Column="0"
+                                           Text="&#xF158;"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="14"
+                                           Foreground="#666672"
+                                           VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="Načtený AI model"
+                                               FontSize="11"
+                                               Foreground="#555560"/>
+                                    <TextBlock Text="{Binding LoadedModel}"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="#EBEBF5"/>
+                                </StackPanel>
+                                <Button Grid.Column="2"
+                                        Classes="secondary"
+                                        IsVisible="{Binding IsModelLoaded}"
+                                        Command="{Binding ReleaseVramCommand}"
+                                        VerticalAlignment="Center"
+                                        Padding="10,6"
+                                        Content="Uvolnit"
+                                        Foreground="#F87171"/>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+                </Border>
+
+                <!-- GPU processes -->
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="PROCESY V GPU PAMĚTI" Classes="sectionHeader"/>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding GpuProcesses.Count, StringFormat={}{0} procesů}"
+                                   FontSize="11"
+                                   Foreground="#444450"/>
+                    </Grid>
+
+                    <!-- Empty state -->
+                    <Border Classes="card"
+                            IsVisible="{Binding GpuProcesses.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                        <TextBlock Text="Žádné procesy nevyužívají GPU paměť"
+                                   FontSize="13"
+                                   Foreground="#444450"
+                                   HorizontalAlignment="Center"
+                                   Padding="0,8"/>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding GpuProcesses}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GpuProcessItem">
+                                <Border Classes="card" Margin="0,0,0,4">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+
+                                        <!-- Icon -->
+                                        <TextBlock Grid.Column="0"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="16"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="#555560">
+                                            <TextBlock.Text>
+                                                <Binding Path="IsCurrentApp">
+                                                    <Binding.Converter>
+                                                        <x:Static Member="ObjectConverters.IsNotNull"/>
+                                                    </Binding.Converter>
+                                                </Binding>
+                                            </TextBlock.Text>
+                                        </TextBlock>
+
+                                        <!-- Process name + PID -->
+                                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#EBEBF5"/>
+                                                <Border IsVisible="{Binding IsCurrentApp}"
+                                                        Background="#172917"
+                                                        BorderBrush="#264726"
+                                                        BorderThickness="1"
+                                                        CornerRadius="4"
+                                                        Padding="6,1">
+                                                    <TextBlock Text="Tato aplikace" FontSize="10" Foreground="#4ADE80"/>
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Pid, StringFormat={}PID: {0}}"
+                                                       FontSize="11"
+                                                       Foreground="#555560"/>
+                                        </StackPanel>
+
+                                        <!-- VRAM usage -->
+                                        <TextBlock Grid.Column="2"
+                                                   Text="{Binding VramLabel}"
+                                                   FontSize="13"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#F59E0B"
+                                                   VerticalAlignment="Center"/>
+
+                                        <!-- Kill button (not for own process) -->
+                                        <Button Grid.Column="3"
+                                                Classes="secondary"
+                                                IsVisible="{Binding !IsCurrentApp}"
+                                                Command="{ReflectionBinding $parent[ItemsControl].DataContext.KillProcessCommand}"
+                                                CommandParameter="{Binding}"
+                                                VerticalAlignment="Center"
+                                                Padding="10,6"
+                                                Foreground="#F87171"
+                                                Content="Ukončit"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

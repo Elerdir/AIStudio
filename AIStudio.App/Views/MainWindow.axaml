@@ -1,0 +1,161 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AIStudio.App.ViewModels"
+        xmlns:enums="using:AIStudio.Core.Enums"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="AIStudio.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="AI Studio"
+        Width="1280" Height="800"
+        MinWidth="900" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#0D0D0D"
+        Icon="/Assets/app-icon.png">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid ColumnDefinitions="220,*">
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0"
+                Background="#161618"
+                BorderBrush="#2A2A2E"
+                BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+
+                <!-- Logo -->
+                <Border Grid.Row="0" Padding="20,22,20,12">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Image Source="/Assets/app-icon.png" Width="30" Height="30"/>
+                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Text="AI Studio"
+                                       FontSize="15"
+                                       FontWeight="Bold"
+                                       Foreground="#FFFFFF"/>
+                            <TextBlock Text="Lokální AI asistent"
+                                       FontSize="10"
+                                       Foreground="#55555F"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Divider -->
+                <Border Grid.Row="1" Height="1" Background="#2A2A2E" Margin="16,0,16,8"/>
+
+                <!-- Navigation (top items) -->
+                <Border Grid.Row="2" Padding="8,0" VerticalAlignment="Top">
+                    <StackPanel Spacing="2">
+
+                        <Button Command="{Binding NavigateCommand}"
+                                CommandParameter="{x:Static enums:NavigationPage.Chat}"
+                                Classes="navItem"
+                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Chat}}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                                <TextBlock Text="Chat" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding NavigateCommand}"
+                                CommandParameter="{x:Static enums:NavigationPage.ImageStudio}"
+                                Classes="navItem"
+                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.ImageStudio}}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                                <TextBlock Text="Image Studio" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding NavigateCommand}"
+                                CommandParameter="{x:Static enums:NavigationPage.Models}"
+                                Classes="navItem"
+                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Models}}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="&#xF158;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                                <TextBlock Text="Modely" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding NavigateCommand}"
+                                CommandParameter="{x:Static enums:NavigationPage.System}"
+                                Classes="navItem"
+                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.System}}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                                <TextBlock Text="Systém" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                    </StackPanel>
+                </Border>
+
+                <!-- Settings (pinned to bottom, above status bar) -->
+                <Border Grid.Row="3" Padding="8,4">
+                    <Button Command="{Binding NavigateCommand}"
+                            CommandParameter="{x:Static enums:NavigationPage.Settings}"
+                            Classes="navItem"
+                            Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Settings}}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                            <TextBlock Text="Nastavení" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+
+                <!-- Status bar (bottom of sidebar) s GPU / VRAM přehledem -->
+                <Border Grid.Row="4"
+                        Padding="14,8,14,10"
+                        BorderBrush="#2A2A2E"
+                        BorderThickness="0,1,0,0"
+                        Cursor="Hand">
+                    <StackPanel Spacing="4">
+                        <!-- Název GPU (jen pokud je dostupná) -->
+                        <TextBlock Text="{Binding GpuNameShort}"
+                                   FontSize="10"
+                                   Foreground="#555560"
+                                   TextTrimming="CharacterEllipsis"
+                                   IsVisible="{Binding GpuAvailable}"/>
+                        <!-- VRAM řádek: label + hodnota -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0"
+                                       Text="VRAM"
+                                       FontSize="10"
+                                       Foreground="#444450"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding VramCompact}"
+                                       FontSize="10"
+                                       Foreground="#666672"/>
+                        </Grid>
+                        <!-- VRAM progress bar -->
+                        <ProgressBar Value="{Binding VramPercent}"
+                                     Minimum="0" Maximum="100"
+                                     Height="3"
+                                     CornerRadius="2"
+                                     Foreground="#F59E0B"
+                                     Background="#222228"/>
+                        <!-- Model / stav -->
+                        <TextBlock Text="{Binding StatusText}"
+                                   FontSize="11"
+                                   Foreground="#444450"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="v0.1.0-beta"
+                                   FontSize="10"
+                                   Foreground="#333338"/>
+                    </StackPanel>
+                </Border>
+
+            </Grid>
+        </Border>
+
+        <!-- Main content -->
+        <Border Grid.Column="1" Background="#0D0D0D">
+            <ContentControl Content="{Binding CurrentPage}"/>
+        </Border>
+
+    </Grid>
+
+</Window>
