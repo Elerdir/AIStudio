@@ -34,7 +34,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(ISystemMonitorService monitor, ILlamaService llama,
                                IDownloadService downloader, ISettingsService settings,
                                IChatRepository chatRepo, IComfyService comfy,
-                               IImageRepository imageRepo, IComfyInstaller comfyInstaller)
+                               IImageRepository imageRepo, IComfyInstaller comfyInstaller,
+                               IHuggingFaceClient hfClient)
     {
         _monitor = monitor;
         _llama = llama;
@@ -44,7 +45,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _ = ChatPage.InitializeAsync();
         ImageStudioPage = new ImageStudioPageViewModel(comfy, settings, imageRepo);
         ImageStudioPage.RequestNavigate = page => Navigate(page);
-        ModelManagerPage = new ModelManagerPageViewModel(downloader, settings, llama);
+        ModelManagerPage = new ModelManagerPageViewModel(downloader, settings, llama, hfClient);
         SystemPage = new SystemPageViewModel(monitor, llama);
         SettingsPage = new SettingsPageViewModel(settings, comfyInstaller);
 

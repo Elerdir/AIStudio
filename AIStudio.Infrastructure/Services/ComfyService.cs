@@ -10,6 +10,7 @@ namespace AIStudio.Infrastructure.Services;
 public sealed class ComfyService : IComfyService, IAsyncDisposable
 {
     private readonly ISettingsService _settings;
+    private readonly IComfyInstaller  _installer;
     private static readonly HttpClient _http = new()
     {
         Timeout = TimeSpan.FromSeconds(30)
@@ -27,9 +28,10 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
 
     public event Action<ComfyStatus>? StatusChanged;
 
-    public ComfyService(ISettingsService settings)
+    public ComfyService(ISettingsService settings, IComfyInstaller installer)
     {
-        _settings = settings;
+        _settings  = settings;
+        _installer = installer;
     }
 
     // ── Init ──────────────────────────────────────────────────────────────────
@@ -91,11 +93,30 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             Log.Warning(ex, "ComfyService: zápis extra_model_paths.yaml selhal — ComfyUI nemusí vidět AIStudio modely");
         }
 
-        SetStatus(ComfyStatus.Starting, "Spouštím ComfyUI… (může trvat 1-3 minuty)");
-
+        // Cestu k Pythonu si určíme jednou — používáme ji jak pro install custom nodu,
+        // tak pro samotné spuštění ComfyUI procesu níž.
         var python = string.IsNullOrWhiteSpace(_settings.Settings.PythonPath)
             ? "python"
             : _settings.Settings.PythonPath;
+
+        // Ověříme + doinstalujeme custom node ComfyUI-GGUF (nutný pro FLUX GGUF).
+        // Nesmíme padnout pokud install selže — uživatel může používat SDXL i bez něj.
+        try
+        {
+            if (!_installer.IsGgufNodeInstalled(dir))
+            {
+                SetStatus(ComfyStatus.Starting, "Instaluji custom node ComfyUI-GGUF…");
+                await _installer.EnsureGgufNodeInstalledAsync(dir, python, progress: null, ct);
+                Log.Information("ComfyService: ComfyUI-GGUF nainstalován");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ComfyService: instalace ComfyUI-GGUF selhala — FLUX GGUF nebude k dispozici, " +
+                            "SDXL safetensors fungují i bez něj");
+        }
+
+        SetStatus(ComfyStatus.Starting, "Spouštím ComfyUI… (může trvat 1-3 minuty)");
 
         var port = _settings.Settings.ComfyUiPort;
 
@@ -256,12 +277,71 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
 
         using var content  = new StringContent(body, Encoding.UTF8, "application/json");
         using var response = await _http.PostAsync($"{BaseUrl}/prompt", content, ct);
-        response.EnsureSuccessStatusCode();
 
+        // ComfyUI při validation erroru vrací 400 + JSON s detailem v node_errors
+        // (např. „CheckpointLoaderSimple: ckpt_name not in []"). Bez parsování by
+        // uživatel viděl jen generický 400 Bad Request.
         var json = await response.Content.ReadAsStringAsync(ct);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(BuildValidationErrorMessage(json));
+        }
+
         using var doc = JsonDocument.Parse(json);
         return doc.RootElement.GetProperty("prompt_id").GetString()
                ?? throw new InvalidOperationException("ComfyUI nevratilo prompt_id");
+    }
+
+    /// <summary>
+    /// Z 400 odpovědi ComfyUI poskládá lidsky čitelnou hlášku.
+    /// Typický payload obsahuje <c>node_errors</c> mapu node_id → list chyb,
+    /// kde každá chyba má <c>message</c> a <c>details</c> (např.
+    /// "Value not in list: ckpt_name: 'flux1-dev.gguf' not in []").
+    /// </summary>
+    private static string BuildValidationErrorMessage(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            // Hlavní zpráva
+            var message = root.TryGetProperty("error", out var err) &&
+                          err.ValueKind == JsonValueKind.Object &&
+                          err.TryGetProperty("message", out var m)
+                ? m.GetString() ?? "Workflow validace selhala"
+                : "Workflow validace selhala";
+
+            // Sesbíráme node-level errory, pokud existují
+            var details = new List<string>();
+            if (root.TryGetProperty("node_errors", out var nodeErrors) &&
+                nodeErrors.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var node in nodeErrors.EnumerateObject())
+                {
+                    if (!node.Value.TryGetProperty("errors", out var errs)) continue;
+                    foreach (var e in errs.EnumerateArray())
+                    {
+                        var nodeMsg = e.TryGetProperty("message", out var em) ? em.GetString() : null;
+                        var det     = e.TryGetProperty("details", out var ed) ? ed.GetString() : null;
+                        if (!string.IsNullOrEmpty(nodeMsg))
+                            details.Add(string.IsNullOrEmpty(det) ? nodeMsg : $"{nodeMsg} — {det}");
+                    }
+                }
+            }
+
+            return details.Count == 0
+                ? message
+                : $"{message}: {string.Join("; ", details)}";
+        }
+        catch
+        {
+            // Pokud není parsovatelný JSON, vrátíme aspoň surovou odpověď
+            return string.IsNullOrWhiteSpace(json)
+                ? "ComfyUI vrátilo prázdnou chybovou odpověď"
+                : $"ComfyUI: {json[..Math.Min(json.Length, 300)]}";
+        }
     }
 
     public async Task<ComfyGenerationResult?> WaitForResultAsync(

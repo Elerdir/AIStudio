@@ -194,7 +194,7 @@
                     <Panel Grid.Column="0" VerticalAlignment="Center">
 
                         <!-- View mode -->
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="4"
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4"
                               IsVisible="{Binding !IsEditingTitle}">
                             <TextBlock Grid.Column="0"
                                        Text="{Binding SelectedConversation.Title}"
@@ -213,8 +213,27 @@
                                 <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"
                                            FontSize="12" Foreground="#444450"/>
                             </Button>
-                            <!-- Exportovat -->
+                            <!-- Kopírovat celou konverzaci do schránky (plain text, role: obsah) -->
                             <Button Grid.Column="2"
+                                    Background="Transparent" BorderThickness="0"
+                                    Padding="4" Width="26" Height="26" CornerRadius="6"
+                                    Command="{Binding CopyConversationCommand}"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding SelectedConversation.HasMessages}"
+                                    ToolTip.Tip="Zkopírovat celou konverzaci do schránky">
+                                <Panel>
+                                    <TextBlock IsVisible="{Binding !IsConversationCopied}"
+                                               Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="12" Foreground="#444450"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <TextBlock IsVisible="{Binding IsConversationCopied}"
+                                               Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="12" Foreground="#4ADE80"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Panel>
+                            </Button>
+                            <!-- Exportovat -->
+                            <Button Grid.Column="3"
                                     Background="Transparent" BorderThickness="0"
                                     Padding="4" Width="26" Height="26" CornerRadius="6"
                                     Command="{Binding ExportConversationCommand}"
@@ -225,7 +244,7 @@
                                            FontSize="12" Foreground="#444450"/>
                             </Button>
                             <!-- Systémový prompt toggle -->
-                            <Button Grid.Column="3"
+                            <Button Grid.Column="4"
                                     Background="Transparent" BorderThickness="0"
                                     Padding="4" Width="26" Height="26" CornerRadius="6"
                                     Command="{Binding ToggleSystemPromptCommand}"
@@ -244,7 +263,7 @@
                                 </Panel>
                             </Button>
                             <!-- Vymazat zprávy konverzace -->
-                            <Button Grid.Column="4"
+                            <Button Grid.Column="5"
                                     Background="Transparent" BorderThickness="0"
                                     Padding="4" Width="26" Height="26" CornerRadius="6"
                                     Command="{Binding ClearConversationCommand}"
@@ -430,7 +449,7 @@
 
             <!-- ── Row 2: Zprávy + FAB ── -->
             <Panel Grid.Row="2">
-              <ScrollViewer Padding="28,16,28,72" Name="MessagesScroll">
+              <ScrollViewer Padding="28,16,28,120" Name="MessagesScroll">
               <Panel>
 
                 <!-- Prázdný stav — žádná konverzace vůbec (vše smazáno) -->
@@ -845,45 +864,10 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Regenerate + Compare strip -->
-                <Border IsVisible="{Binding CanRegenerate}"
-                        Background="#0D0D0D"
-                        BorderBrush="#2A2A2E" BorderThickness="0,1,0,0"
-                        Padding="20,7,20,7">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Button Grid.Column="0"
-                                HorizontalAlignment="Center"
-                                Command="{Binding RegenerateLastResponseCommand}"
-                                Background="Transparent"
-                                BorderBrush="#2A2A2E" BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="14,6">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="12" Foreground="#666672"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Text="Regenerovat odpověď"
-                                           FontSize="12" Foreground="#666672"
-                                           VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                        <!-- Porovnat s jiným modelem -->
-                        <Button Grid.Column="1"
-                                Command="{Binding ToggleComparePickerCommand}"
-                                Background="Transparent"
-                                BorderBrush="#2A2A2E" BorderThickness="1"
-                                CornerRadius="8" Padding="10,6"
-                                ToolTip.Tip="Porovnat odpověď s jiným modelem">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="&#xE8C1;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="11" Foreground="#555560"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Text="Porovnat" FontSize="12" Foreground="#555560"
-                                           VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                    </Grid>
-                </Border>
+                <!-- Regenerate / Porovnat strip přesunut do Row 4 (input area) jako
+                     kompaktní ikonová tlačítka vlevo od Send. Šetří vertikální místo
+                     pro samotnou konverzaci. -->
+
 
                 <!-- Compare model picker strip -->
                 <Border IsVisible="{Binding IsComparePickerVisible}"
@@ -958,8 +942,8 @@
                         </Grid>
                     </Border>
 
-                    <!-- Input řádek: attach + textbox + send/stop -->
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <!-- Input řádek: attach + textbox + regenerate/compare + send/stop -->
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
 
                         <!-- Přiložit obrázek -->
                         <Button Grid.Column="0"
@@ -994,7 +978,33 @@
                                      KeyDown="InputBox_KeyDown"/>
                         </Border>
 
-                        <Panel Grid.Column="2" Width="46" Height="46">
+                        <!-- Regenerovat odpověď — kompaktní ikonové tlačítko -->
+                        <Button Grid.Column="2"
+                                Command="{Binding RegenerateLastResponseCommand}"
+                                IsVisible="{Binding CanRegenerate}"
+                                Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                                Width="46" Height="46" Padding="0" CornerRadius="12"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="Regenerovat poslední odpověď">
+                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="14" Foreground="#888896"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+
+                        <!-- Porovnat s jiným modelem — kompaktní ikonové tlačítko -->
+                        <Button Grid.Column="3"
+                                Command="{Binding ToggleComparePickerCommand}"
+                                IsVisible="{Binding CanRegenerate}"
+                                Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                                Width="46" Height="46" Padding="0" CornerRadius="12"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="Porovnat odpověď s jiným modelem">
+                            <TextBlock Text="&#xE8C1;" FontFamily="Segoe MDL2 Assets"
+                                       FontSize="14" Foreground="#888896"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Button>
+
+                        <Panel Grid.Column="4" Width="46" Height="46">
                             <!-- Odeslat -->
                             <Button Classes="primary"
                                     Command="{Binding SendMessageCommand}"

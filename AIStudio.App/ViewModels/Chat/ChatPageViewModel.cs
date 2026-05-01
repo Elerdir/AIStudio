@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Text;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
@@ -134,6 +135,13 @@ public partial class ChatPageViewModel : ViewModelBase
             ["Qwen3 14B Q4_K_M"]                = "Qwen3-14B-Q4_K_M.gguf",
             ["Qwen3 32B Q4_K_M"]                = "Qwen3-32B-Q4_K_M.gguf",
             ["Qwen3 30B-A3B Q4_K_M"]            = "Qwen3-30B-A3B-Q4_K_M.gguf",
+            // Tvůrčí psaní / méně cenzurované fine-tuny
+            ["Mistral Nemo Instruct 2407 Q4_K_M"]            = "Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+            ["Magnum v4 22B Q4_K_M"]                         = "magnum-v4-22b-Q4_K_M.gguf",
+            ["Cydonia 22B v1 Q4_K_M"]                        = "Cydonia-22B-v1-Q4_K_M.gguf",
+            ["Lumimaid v0.2 12B Q4_K_M"]                     = "Lumimaid-v0.2-12B-Q4_K_M.gguf",
+            ["L3 Stheno v3.2 8B Q4_K_M"]                     = "L3-8B-Stheno-v3.2-Q4_K_M.gguf",
+            ["Llama 3.3 70B Instruct abliterated Q4_K_M"]    = "Llama-3.3-70B-Instruct-abliterated-Q4_K_M.gguf",
         };
 
     public ObservableCollection<ConversationViewModel> Conversations { get; } = new();
@@ -171,6 +179,7 @@ public partial class ChatPageViewModel : ViewModelBase
         try
         {
             var records = await _repo.LoadAllConversationsAsync();
+            Log.Information("ChatPage.Init: načteno {Count} konverzací z DB", records.Count);
 
             var tasks = records.Select(async r =>
             {
@@ -178,6 +187,12 @@ public partial class ChatPageViewModel : ViewModelBase
                 return (Record: r, Messages: msgs);
             });
             var loaded = await Task.WhenAll(tasks);
+
+            foreach (var (record, messages) in loaded)
+            {
+                Log.Information("ChatPage.Init: '{Title}' (id={Id}) — {MsgCount} zpráv",
+                                record.Title, record.Id, messages.Count);
+            }
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
@@ -204,8 +219,9 @@ public partial class ChatPageViewModel : ViewModelBase
                 IsLoading = false;
             });
         }
-        catch
+        catch (Exception ex)
         {
+            Log.Error(ex, "ChatPage.Init: načtení konverzací z DB selhalo");
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 if (Conversations.Count == 0)
@@ -241,6 +257,14 @@ public partial class ChatPageViewModel : ViewModelBase
                                  modelsDir, "*.gguf", SearchOption.AllDirectories))
                     {
                         var fn = Path.GetFileName(path).ToLowerInvariant();
+
+                        // Skip image GGUF (FLUX) — patří do Image Studia, ne sem.
+                        // Heuristika podle názvu, dokud nemáme bohatší metadata o souboru.
+                        if (fn.StartsWith("flux", StringComparison.OrdinalIgnoreCase) ||
+                            fn.Contains("-flux",  StringComparison.OrdinalIgnoreCase) ||
+                            fn.StartsWith("sd",   StringComparison.OrdinalIgnoreCase))
+                            continue;
+
                         found.Add(fileToName.TryGetValue(fn, out var name)
                             ? name
                             : Path.GetFileNameWithoutExtension(path));
@@ -262,16 +286,26 @@ public partial class ChatPageViewModel : ViewModelBase
             {
                 HasDownloadedModels = hasReal;
 
-                var current = SelectedConversation?.SelectedModelName;
                 AvailableModels.Clear();
                 foreach (var m in list)
                     AvailableModels.Add(m);
 
-                // Aktuální model konverzace zachováme v seznamu i kdyby nebyl stažený —
-                // jinak by ComboBox vypadal prázdný a uživatel by ztratil vizuální kontext,
-                // jaký model je k dané konverzaci nastavený.
-                if (current is not null && !AvailableModels.Contains(current))
-                    AvailableModels.Insert(0, current);
+                // Pokud byl smazán model, na který odkazuje aktuální konverzace,
+                // přepneme ji na první dostupný. Bez toho by SelectedModelName
+                // dál ukazoval na neexistující soubor a další pokus o odeslání by
+                // padl na ModelNotAvailableException.
+                var conv = SelectedConversation;
+                if (conv is not null &&
+                    !string.IsNullOrEmpty(conv.SelectedModelName) &&
+                    !AvailableModels.Contains(conv.SelectedModelName))
+                {
+                    var replacement = AvailableModels.FirstOrDefault() ?? string.Empty;
+                    Log.Information(
+                        "RefreshAvailableModels: model '{Old}' už není dostupný, " +
+                        "přepínám konverzaci '{Title}' na '{New}'",
+                        conv.SelectedModelName, conv.Title, replacement);
+                    conv.SelectedModelName = replacement;
+                }
             });
         });
     }
@@ -510,6 +544,54 @@ public partial class ChatPageViewModel : ViewModelBase
         // chat area zobrazí empty state s pokynem kliknout na „+ Nový chat".
     }
 
+    // ── Copy whole conversation to clipboard ──────────────────────────────────
+
+    /// <summary>Krátký vizuální feedback po stisknutí „Kopírovat celou" — ikona ✓ na 1.5 s.</summary>
+    [ObservableProperty] private bool _isConversationCopied;
+
+    [RelayCommand]
+    private async Task CopyConversationAsync()
+    {
+        var conv = SelectedConversation;
+        if (conv is null || conv.Messages.Count == 0) return;
+
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } win }) return;
+
+        var clipboard = Avalonia.Controls.TopLevel.GetTopLevel(win)?.Clipboard;
+        if (clipboard is null) return;
+
+        // Plain text: každá zpráva ve formátu „Role: obsah" oddělená prázdným řádkem.
+        // Pro export do MD/TXT existuje samostatný command — tohle je rychlá varianta
+        // pro paste třeba do Slacku / Notion / mailu.
+        var sb = new StringBuilder();
+        foreach (var m in conv.Messages)
+        {
+            var roleLabel = m.Role switch
+            {
+                MessageRole.User      => "Já",
+                MessageRole.Assistant => "Asistent",
+                MessageRole.System    => "Systém",
+                _                     => "?"
+            };
+            sb.AppendLine($"{roleLabel}:");
+            sb.AppendLine(m.Content);
+            sb.AppendLine();
+        }
+
+        try
+        {
+            await clipboard.SetTextAsync(sb.ToString().TrimEnd());
+            IsConversationCopied = true;
+            await Task.Delay(1500);
+            IsConversationCopied = false;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "CopyConversation: clipboard SetTextAsync selhalo");
+        }
+    }
+
     // ── Export conversation ───────────────────────────────────────────────────
 
     [RelayCommand]
@@ -629,9 +711,13 @@ public partial class ChatPageViewModel : ViewModelBase
     {
         var text = InputText.Trim();
         if (string.IsNullOrEmpty(text) || SelectedConversation is null || IsSending)
+        {
+            Log.Information("SendMessage: bail-out empty={Empty} convNull={ConvNull} sending={Sending}",
+                string.IsNullOrEmpty(text), SelectedConversation is null, IsSending);
             return;
+        }
 
-        Log.Debug("SendMessage: conv={Id} model={Model} textLen={Len}",
+        Log.Information("SendMessage: ENTER conv={Id} model={Model} textLen={Len}",
             SelectedConversation.Id, SelectedConversation.SelectedModelName, text.Length);
 
         using var cts = new CancellationTokenSource();
@@ -649,15 +735,22 @@ public partial class ChatPageViewModel : ViewModelBase
 
         var userMsg = new ChatMessage { Role = MessageRole.User, Content = content };
         conv.Messages.Add(userMsg);
+        Log.Information("SendMessage: user msg added to UI, calling SaveMessageAsync (orderIndex={Idx})",
+            conv.Messages.Count - 1);
 
-        try   { await _repo.SaveMessageAsync(userMsg.ToRecord(conv.Id, conv.Messages.Count - 1)); }
-        catch (Exception ex) { Log.Error(ex, "Failed to save user message"); }
-
-        if (conv.Messages.Count == 1)
+        try
         {
-            conv.Title = text.Length > 45 ? text[..45] + "…" : text;
-            _ = TrySaveConversationAsync(conv);
+            await _repo.SaveMessageAsync(userMsg.ToRecord(conv.Id, conv.Messages.Count - 1));
+            Log.Information("SendMessage: user msg uložen úspěšně");
         }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "SendMessage: SaveMessageAsync (user) selhalo");
+        }
+
+        // Title se z prvního dotazu nepřepisuje — uživatel si ho přejmenovává ručně
+        // (F2 nebo ikonkou tužky v hlavičce). UpdatedAt se aktualizuje po dokončení
+        // streamu níž přes TrySaveConversationAsync.
 
         var assistantMsg = new ChatMessage { Role = MessageRole.Assistant, Content = "", IsStreaming = true };
         conv.Messages.Add(assistantMsg);

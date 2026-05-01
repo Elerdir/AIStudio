@@ -89,6 +89,15 @@
                             <TextBlock Text="Staženo" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+                    <Button Classes="tabBtn"
+                            Classes.activeTab="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=4}"
+                            Command="{Binding SelectTabCommand}"
+                            CommandParameter="4">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <TextBlock Text="Najít online" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
 
                 <!-- Search -->
@@ -127,7 +136,13 @@
         </Border>
 
         <!-- ═══════════════════════ MODEL LIST ═══════════════════════════════ -->
-        <ScrollViewer Grid.Row="2" Grid.Column="0" Padding="20,12,20,80">
+        <!-- ScrollViewer.Padding se v některých velikostech viewportu nepočítá
+             do extentu (Avalonia kvirk), takže poslední item může vykuknout pod
+             spodek okna bez toho aby vznikl scrollbar. Místo paddingu používáme
+             vnitřní StackPanel se spolehlivým Border-spacerem na konci. -->
+        <ScrollViewer Grid.Row="2" Grid.Column="0" Padding="20,12,20,12"
+                      IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.NotEqual}, ConverterParameter=4}">
+            <StackPanel>
             <ItemsControl ItemsSource="{Binding DisplayedModels}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:ModelItemViewModel">
@@ -278,6 +293,125 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <!-- Spacer na konci listu — zaručí, že poslední položka má pod sebou
+                 viditelnou rezervu a ScrollViewer dostane správný extent. -->
+            <Border Height="80"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ═══════════════════════ HUGGINGFACE ONLINE SEARCH ═══════════════════ -->
+        <ScrollViewer Grid.Row="2" Grid.Column="0" Padding="20,12,20,12"
+                      IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=4}">
+            <StackPanel Spacing="14">
+
+                <!-- Vyhledávací řádek -->
+                <Border Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                        CornerRadius="10" Padding="6">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                        <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" Foreground="#666672"
+                                   VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <TextBox Grid.Column="1"
+                                 Text="{Binding HfSearchQuery}"
+                                 PlaceholderText="Hledat na HuggingFace — např. magnum 22b, qwen 14b, llama 70b uncensored"
+                                 Background="Transparent" BorderThickness="0"
+                                 Foreground="#EBEBF5" CaretBrush="#A78BFA"
+                                 Padding="8,8" FontSize="13">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding SearchHuggingFaceCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                        <Button Grid.Column="2"
+                                Classes="primary"
+                                Command="{Binding SearchHuggingFaceCommand}"
+                                IsEnabled="{Binding !IsSearchingHf}"
+                                Padding="14,8">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text="Hledat" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Loading indicator -->
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
+                            IsVisible="{Binding IsSearchingHf}">
+                    <ProgressBar IsIndeterminate="True" Width="200" Height="3"
+                                 Foreground="#7C3AED" Background="#222228"/>
+                    <TextBlock Text="Vyhledávám…" FontSize="12" Foreground="#888896"/>
+                </StackPanel>
+
+                <!-- Error -->
+                <Border IsVisible="{Binding HfSearchError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
+                        CornerRadius="8" Padding="12,8">
+                    <TextBlock Text="{Binding HfSearchError}" FontSize="11"
+                               Foreground="#F87171" TextWrapping="Wrap"/>
+                </Border>
+
+                <!-- Onboarding hint, dokud uživatel nehledal -->
+                <Border IsVisible="{Binding HfSearchResults.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                        Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
+                        CornerRadius="10" Padding="14,12">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <TextBlock Grid.Column="0" Text="&#xE946;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="14" Foreground="#A78BFA"
+                                   VerticalAlignment="Top" Margin="0,1,0,0"/>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="Hledej GGUF modely přímo z HuggingFace"
+                                       FontSize="13" FontWeight="SemiBold" Foreground="#C4B5FD"/>
+                            <TextBlock FontSize="11" Foreground="#7c7398" TextWrapping="Wrap"
+                                       Text="Zadej název modelu, autora nebo téma. Ukážou se nejstahovanější repos s GGUF kvantizacemi. Po kliknutí na výsledek vidíš dostupné varianty (Q4, Q5, Q8…) a můžeš si vybrat, kterou stáhnout. Pro privátní/gated modely (Llama, Gemma) potřebuješ HF token v Nastavení."/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Výsledky vyhledávání -->
+                <ItemsControl ItemsSource="{Binding HfSearchResults}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HfModelInfoVm">
+                            <Border Margin="0,0,0,6" CornerRadius="10" Background="#1C1C1E"
+                                    BorderBrush="#2A2A2E" BorderThickness="1">
+                                <Button Background="Transparent" BorderThickness="0" Padding="14,12"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                        Command="{ReflectionBinding $parent[UserControl].DataContext.SelectHfModelCommand}"
+                                        CommandParameter="{Binding}">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="14">
+                                        <StackPanel Grid.Column="0" Spacing="3">
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="#EBEBF5" TextTrimming="CharacterEllipsis"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#666672"/>
+                                                <TextBlock Text="·" FontSize="11" Foreground="#444450"/>
+                                                <TextBlock Text="HuggingFace" FontSize="11" Foreground="#666672"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="11" Foreground="#666672"/>
+                                            <TextBlock Text="{Binding DownloadsLabel}"
+                                                       FontSize="12" Foreground="#9999AA"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="&#xEB52;" FontFamily="Segoe MDL2 Assets"
+                                                       FontSize="11" Foreground="#666672"/>
+                                            <TextBlock Text="{Binding LikesLabel}"
+                                                       FontSize="12" Foreground="#9999AA"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Dolní spacer aby spodní bublina nebyla zakrytá -->
+                <Border Height="80"/>
+            </StackPanel>
         </ScrollViewer>
 
         <!-- ═══════════════════════ DETAIL PANEL ═══════════════════════════════ -->
@@ -286,6 +420,82 @@
                 BorderBrush="#2A2A2E"
                 BorderThickness="1,0,0,0">
             <Panel>
+
+                <!-- HuggingFace files panel — viditelný když je v Online tabu vybraný model -->
+                <ScrollViewer Padding="20,20,20,80">
+                    <ScrollViewer.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="SelectedTabIndex" Converter="{x:Static ObjectConverters.Equal}" ConverterParameter="4"/>
+                            <Binding Path="SelectedHfModel" Converter="{x:Static ObjectConverters.IsNotNull}"/>
+                        </MultiBinding>
+                    </ScrollViewer.IsVisible>
+                    <StackPanel Spacing="14" DataContext="{Binding SelectedHfModel}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding DisplayName}"
+                                       FontSize="15" FontWeight="Bold" Foreground="#FFFFFF"
+                                       TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding Author}" FontSize="11" Foreground="#888896"/>
+                                <TextBlock Text="·" FontSize="11" Foreground="#444450"/>
+                                <TextBlock Text="{Binding DownloadsLabel, StringFormat={}{0} stažení}"
+                                           FontSize="11" Foreground="#888896"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border Height="1" Background="#222228"/>
+
+                        <TextBlock Text="DOSTUPNÉ VARIANTY" Classes="sectionHeader"/>
+
+                        <!-- Loading -->
+                        <StackPanel Orientation="Horizontal" Spacing="8"
+                                    HorizontalAlignment="Center"
+                                    IsVisible="{ReflectionBinding $parent[UserControl].DataContext.IsLoadingHfFiles}">
+                            <ProgressBar IsIndeterminate="True" Width="120" Height="3"
+                                         Foreground="#7C3AED" Background="#222228"/>
+                            <TextBlock Text="Načítám…" FontSize="12" Foreground="#888896"/>
+                        </StackPanel>
+
+                        <!-- Files list — kvantizace -->
+                        <ItemsControl ItemsSource="{ReflectionBinding $parent[UserControl].DataContext.HfFiles}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:HfFileInfoVm">
+                                    <Border Margin="0,0,0,6" CornerRadius="8"
+                                            Background="#141416" BorderBrush="#222228" BorderThickness="1"
+                                            Padding="12,10">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <StackPanel Grid.Column="0" Spacing="2">
+                                                <TextBlock Text="{Binding Path}"
+                                                           FontSize="12" Foreground="#EBEBF5"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{Binding Path}"/>
+                                                <TextBlock Text="{Binding SizeLabel}"
+                                                           FontSize="11" Foreground="#666672"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1"
+                                                    Classes="primary"
+                                                    Padding="14,6"
+                                                    IsEnabled="{Binding !IsDownloading}"
+                                                    Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadHfFileCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
+                                                               FontSize="11" VerticalAlignment="Center"
+                                                               IsVisible="{Binding !IsDownloading}"/>
+                                                    <TextBlock Text="Stáhnout"
+                                                               FontSize="12" VerticalAlignment="Center"
+                                                               IsVisible="{Binding !IsDownloading}"/>
+                                                    <TextBlock Text="Stahuji…"
+                                                               FontSize="12" VerticalAlignment="Center"
+                                                               IsVisible="{Binding IsDownloading}"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
 
                 <!-- Empty state -->
                 <StackPanel VerticalAlignment="Center"

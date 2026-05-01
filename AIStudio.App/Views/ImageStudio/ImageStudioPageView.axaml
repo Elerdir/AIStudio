@@ -399,6 +399,11 @@
                                 </StackPanel>
                             </Grid>
 
+                            <!-- Spacer na konci formuláře — zaručí, že poslední ovládací prvek
+                                 má pod sebou rezervu i v případě, že ScrollViewer.Padding
+                                 (Avalonia kvirk) extent správně nezahrne. -->
+                            <Border Height="40"/>
+
                         </StackPanel>
                     </ScrollViewer>
 
@@ -415,11 +420,14 @@
                                     <TextBlock Grid.Column="0"
                                                Text="{Binding GenerationStatus}"
                                                FontSize="11"
-                                               Foreground="#888896"/>
+                                               Foreground="#888896"
+                                               TextWrapping="Wrap"
+                                               TextTrimming="None"/>
                                     <TextBlock Grid.Column="1"
                                                Text="{Binding GenerationProgress, StringFormat={}{0} %}"
                                                FontSize="11"
-                                               Foreground="#666672"/>
+                                               Foreground="#666672"
+                                               VerticalAlignment="Top"/>
                                 </Grid>
                                 <ProgressBar Value="{Binding GenerationProgress}"
                                              Minimum="0" Maximum="100"
@@ -428,12 +436,18 @@
                                              Background="#222228"/>
                             </StackPanel>
 
-                            <!-- Status text when idle with an error/message -->
+                            <!-- Status text when idle (chyby, pre-flight hlášky atd.) -->
+                            <!-- HorizontalAlignment=Stretch + TextAlignment=Center místo
+                                 HorizontalAlignment=Center: jinak by se TextBlock smrsknul
+                                 na natural width a delší texty (např. info o chybějících
+                                 závislostech) by se ořezávaly. -->
                             <TextBlock Text="{Binding GenerationStatus}"
                                        FontSize="11"
                                        Foreground="#888896"
                                        IsVisible="{Binding !IsGenerating}"
-                                       HorizontalAlignment="Center"/>
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       HorizontalAlignment="Stretch"/>
 
                             <Panel>
                                 <!-- Generate -->
@@ -518,6 +532,9 @@
                         <TextBlock Text="{Binding GenerationStatus}"
                                    FontSize="13"
                                    Foreground="#888896"
+                                   MaxWidth="500"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
 
@@ -544,6 +561,9 @@
                                 <TextBlock Text="{Binding GenerationStatus}"
                                            FontSize="13"
                                            Foreground="#EBEBF5"
+                                           MaxWidth="500"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"
                                            HorizontalAlignment="Center"/>
                             </StackPanel>
                         </Border>

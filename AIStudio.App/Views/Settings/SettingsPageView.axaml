@@ -357,17 +357,20 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- Info box -->
+                            <!-- Info box: Grid s Auto,* místo Horizontal StackPanelu, ať se text
+                                 zalomí. V StackPanelu by si TextBlock vzal "neomezenou" šířku
+                                 a TextWrapping by neměl efekt. -->
                             <Border Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                    <TextBlock Grid.Column="0" Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
                                                FontSize="14" Foreground="#F59E0B" VerticalAlignment="Top"
                                                Margin="0,1,0,0"/>
-                                    <TextBlock Text="Některé modely na Civitai vyžadují přihlášení nebo věkové ověření. Bez API klíče může stahování selhat s chybou 401."
+                                    <TextBlock Grid.Column="1"
+                                               Text="Některé modely na Civitai vyžadují přihlášení nebo věkové ověření. Bez API klíče může stahování selhat s chybou 401."
                                                FontSize="11" Foreground="#7A6A40"
                                                TextWrapping="Wrap"/>
-                                </StackPanel>
+                                </Grid>
                             </Border>
 
                         </StackPanel>
@@ -657,9 +660,9 @@
                 </StackPanel>
 
                 <!-- Spolehlivý spacer aby spodní bublina nebyla nalepená na okraji
-                     viewportu — Padding=80 na ScrollVieweru se občas chová nepředvídatelně,
+                     viewportu — Padding na ScrollVieweru se občas chová nepředvídatelně,
                      prázdný Border s Height to vyřeší stoprocentně. -->
-                <Border Height="40"/>
+                <Border Height="100"/>
 
             </StackPanel>
         </ScrollViewer>

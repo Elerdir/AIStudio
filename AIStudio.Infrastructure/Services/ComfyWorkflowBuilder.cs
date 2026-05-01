@@ -141,6 +141,98 @@ public static class ComfyWorkflowBuilder
         };
     }
 
+    // ── FLUX GGUF / split-files ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Standardní názvy závislostí pro FLUX (CLIP-L, T5 XXL, VAE).
+    /// Workflow počítá s tím, že tyto soubory leží v Models adresáři
+    /// a ComfyUI je vidí přes extra_model_paths.yaml.
+    /// </summary>
+    public const string DefaultFluxClipL  = "clip_l.safetensors";
+    public const string DefaultFluxT5     = "t5xxl_fp8_e4m3fn.safetensors";
+    public const string DefaultFluxVae    = "ae.safetensors";
+
+    /// <summary>
+    /// Workflow pro FLUX GGUF kvantizace. Vyžaduje custom node ComfyUI-GGUF
+    /// (UnetLoaderGGUF) a samostatné soubory CLIP-L + T5 + VAE v Models složce.
+    /// </summary>
+    public static Dictionary<string, object> BuildFluxGguf(
+        string unetGgufFile,
+        string clipLFile,
+        string t5File,
+        string vaeFile,
+        string prompt,
+        int    width,
+        int    height,
+        int    steps,
+        double guidance,
+        long   seed,
+        int    batchSize = 1)
+    {
+        return new Dictionary<string, object>
+        {
+            ["1"] = Node("UnetLoaderGGUF", new()
+            {
+                ["unet_name"] = unetGgufFile,
+            }),
+            ["2"] = Node("DualCLIPLoader", new()
+            {
+                ["clip_name1"] = clipLFile,
+                ["clip_name2"] = t5File,
+                ["type"]       = "flux",
+            }),
+            ["3"] = Node("VAELoader", new()
+            {
+                ["vae_name"] = vaeFile,
+            }),
+            ["4"] = Node("EmptyLatentImage", new()
+            {
+                ["width"]      = width,
+                ["height"]     = height,
+                ["batch_size"] = batchSize,
+            }),
+            ["5"] = Node("CLIPTextEncode", new()
+            {
+                ["text"] = prompt,
+                ["clip"] = Ref("2", 0),
+            }),
+            // FLUX nepoužívá negative prompt, ale KSampler ho očekává — dáme prázdný
+            ["6"] = Node("CLIPTextEncode", new()
+            {
+                ["text"] = "",
+                ["clip"] = Ref("2", 0),
+            }),
+            ["7"] = Node("FluxGuidance", new()
+            {
+                ["conditioning"] = Ref("5", 0),
+                ["guidance"]     = guidance,
+            }),
+            ["8"] = Node("KSampler", new()
+            {
+                ["seed"]         = seed,
+                ["steps"]        = steps,
+                ["cfg"]          = 1.0,
+                ["sampler_name"] = "euler",
+                ["scheduler"]    = "simple",
+                ["denoise"]      = 1.0,
+                ["model"]        = Ref("1", 0),
+                ["positive"]     = Ref("7", 0),
+                ["negative"]     = Ref("6", 0),
+                ["latent_image"] = Ref("4", 0),
+            }),
+            ["9"] = Node("VAEDecode", new()
+            {
+                ["samples"] = Ref("8", 0),
+                ["vae"]     = Ref("3", 0),
+            }),
+            ["10"] = Node("SaveImage", new()
+            {
+                ["filename_prefix"] = "AIStudio",
+                ["images"]          = Ref("9", 0),
+            }),
+        };
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static Dictionary<string, object> Node(string classType,
@@ -156,6 +248,10 @@ public static class ComfyWorkflowBuilder
     public static bool IsFluxModel(string modelName) =>
         modelName.Contains("FLUX",  StringComparison.OrdinalIgnoreCase) ||
         modelName.Contains("flux",  StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>True pro GGUF kvantizace — vyžadují <c>UnetLoaderGGUF</c> custom node.</summary>
+    public static bool IsGgufModel(string modelName) =>
+        modelName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Odhadne rozumné výchozí hodnoty steps a guidance pro FLUX Schnell vs Dev.</summary>
     public static (int Steps, double Guidance) FluxDefaults(string modelName) =>

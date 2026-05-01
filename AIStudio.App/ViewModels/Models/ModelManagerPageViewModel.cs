@@ -13,9 +13,23 @@ namespace AIStudio.App.ViewModels.Models;
 
 public partial class ModelManagerPageViewModel : ViewModelBase
 {
-    private readonly IDownloadService _downloader;
-    private readonly ISettingsService _settings;
-    private readonly ILlamaService    _llama;
+    private readonly IDownloadService    _downloader;
+    private readonly ISettingsService    _settings;
+    private readonly ILlamaService       _llama;
+    private readonly IHuggingFaceClient  _hf;
+
+    // ── Online search (HuggingFace) ───────────────────────────────────────────
+    [ObservableProperty] private string  _hfSearchQuery       = string.Empty;
+    [ObservableProperty] private bool    _isSearchingHf;
+    [ObservableProperty] private string  _hfSearchError       = string.Empty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHfFiles))]
+    private HfModelInfoVm? _selectedHfModel;
+    [ObservableProperty] private bool    _isLoadingHfFiles;
+
+    public ObservableCollection<HfModelInfoVm> HfSearchResults { get; } = new();
+    public ObservableCollection<HfFileInfoVm>  HfFiles         { get; } = new();
+    public bool HasHfFiles => HfFiles.Count > 0;
 
     [ObservableProperty] private ModelItemViewModel? _selectedModel;
     [ObservableProperty] private string _searchText = string.Empty;
@@ -41,13 +55,15 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         }
     }
 
-    public ModelManagerPageViewModel(IDownloadService downloader,
-                                     ISettingsService settings,
-                                     ILlamaService    llama)
+    public ModelManagerPageViewModel(IDownloadService    downloader,
+                                     ISettingsService    settings,
+                                     ILlamaService       llama,
+                                     IHuggingFaceClient  hf)
     {
         _downloader = downloader;
         _settings   = settings;
         _llama      = llama;
+        _hf         = hf;
 
         _allModels = BuildModelCatalog();
         ScanExistingDownloads();
@@ -381,6 +397,125 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         catch { /* Ignorujeme — prohlížeč nemusí být k dispozici */ }
     }
 
+    // ── HuggingFace online search ────────────────────────────────────────────
+
+    [RelayCommand]
+    private async Task SearchHuggingFaceAsync()
+    {
+        if (IsSearchingHf || string.IsNullOrWhiteSpace(HfSearchQuery)) return;
+
+        IsSearchingHf  = true;
+        HfSearchError  = string.Empty;
+        HfSearchResults.Clear();
+        HfFiles.Clear();
+        SelectedHfModel = null;
+
+        try
+        {
+            var results = await _hf.SearchGgufModelsAsync(HfSearchQuery.Trim(), limit: 30);
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                foreach (var r in results)
+                    HfSearchResults.Add(new HfModelInfoVm(r));
+            });
+        }
+        catch (Exception ex)
+        {
+            HfSearchError = $"Vyhledávání selhalo: {ex.Message}";
+        }
+        finally
+        {
+            IsSearchingHf = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SelectHfModelAsync(HfModelInfoVm model)
+    {
+        if (model is null) return;
+
+        SelectedHfModel = model;
+        HfFiles.Clear();
+        IsLoadingHfFiles = true;
+
+        try
+        {
+            var files = await _hf.ListGgufFilesAsync(model.RepoId);
+            Dispatcher.UIThread.Post(() =>
+            {
+                foreach (var f in files)
+                    HfFiles.Add(new HfFileInfoVm(f, model.RepoId));
+                OnPropertyChanged(nameof(HasHfFiles));
+            });
+        }
+        catch (Exception ex)
+        {
+            HfSearchError = $"Načtení souborů selhalo: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingHfFiles = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadHfFileAsync(HfFileInfoVm file)
+    {
+        if (file is null || file.IsDownloading || file.IsDownloaded) return;
+
+        // Sestavíme katalogovou položku z HF metadat — recyklujeme stávající
+        // download flow (DownloadAsync), takže UX je identické s katalogem:
+        // progress, rychlost, ETA, možnost zrušit a ulož do Models adresáře.
+        var displayName = file.RepoId.Contains('/') ? file.RepoId.Split('/')[1] : file.RepoId;
+
+        var item = new ModelItemViewModel
+        {
+            Name           = $"{displayName} · {Path.GetFileNameWithoutExtension(file.Path)}",
+            Description    = $"Staženo z HuggingFace: {file.RepoId}",
+            FileName       = file.Path,
+            Category       = ModelCategory.Chat,           // heuristika — uživatel může později změnit
+            Source         = ModelSource.HuggingFace,
+            Quantization   = ExtractQuantizationFromName(file.Path),
+            DownloadUrl    = _hf.BuildDownloadUrl(file.RepoId, file.Path),
+            ModelPageUrl   = _hf.BuildModelPageUrl(file.RepoId),
+            Size           = FormatFileSize(file.SizeBytes),
+            VramRequiredGb = (int)Math.Ceiling(file.SizeBytes / 1_073_741_824.0 * 1.3),
+        };
+
+        // Přidáme ho do katalogu (na začátek, ať ho uživatel vidí)
+        _allModels.Insert(0, item);
+        RefreshDisplayed();
+        SelectedModel = item;
+
+        // Stáhneme stejnou cestou jako katalogové modely
+        file.IsDownloading = true;
+        try
+        {
+            await DownloadAsync(item);
+            file.IsDownloaded = item.IsDownloaded;
+        }
+        finally
+        {
+            file.IsDownloading = false;
+        }
+    }
+
+    /// <summary>Vytáhne kvantizaci z file name, např. "model-Q4_K_M.gguf" → "Q4_K_M".</summary>
+    private static string ExtractQuantizationFromName(string fileName)
+    {
+        var noExt = Path.GetFileNameWithoutExtension(fileName);
+        // Najdi posledních pár znaků za poslední pomlčkou — typicky "Q4_K_M", "Q5_K_S", "Q8_0", "F16"
+        var dash = noExt.LastIndexOf('-');
+        if (dash >= 0 && dash < noExt.Length - 1)
+        {
+            var tail = noExt[(dash + 1)..];
+            if (tail.StartsWith('Q') || tail.StartsWith('F') || tail.StartsWith('B'))
+                return tail.ToUpperInvariant();
+        }
+        return string.Empty;
+    }
+
     [RelayCommand]
     private async Task DeleteModelAsync(ModelItemViewModel model)
     {
@@ -606,11 +741,89 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             ModelPageUrl = "https://huggingface.co/bartowski/Qwen3-30B-A3B-GGUF"
         },
 
+        // ═══════════════════════ CHAT — KREATIVNÍ / NSFW ═══════════════════════
+        // Modely vhodné pro tvůrčí psaní, román, dialogy, romantiku i explicitní
+        // beletrii. Většinou jsou to fine-tuny Mistral nebo Llama base s natrénovanou
+        // permisivnější narativní stránkou. Pro češtinu je nejlepší Mistral-Nemo
+        // a Mistral Small base; pure-Llama fine-tuny umí česky hůř.
+        new()
+        {
+            Name         = "Mistral Nemo Instruct 2407 Q4_K_M",
+            Description  = "12B model od Mistral AI, výborná čeština a tvůrčí psaní. Jen mírně filtrovaný defaultně, narativ zvládne bez problémů.",
+            Size         = "7.1 GB",  Version = "2407",
+            Category     = ModelCategory.Chat,   Source = ModelSource.HuggingFace,
+            VramRequiredGb = 9,     ContextLength = 131072,  Quantization = "Q4_K_M",
+            FileName     = "Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+            DownloadUrl  = "https://huggingface.co/bartowski/Mistral-Nemo-Instruct-2407-GGUF" +
+                           "/resolve/main/Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
+            ModelPageUrl = "https://huggingface.co/bartowski/Mistral-Nemo-Instruct-2407-GGUF"
+        },
+        new()
+        {
+            Name         = "Magnum v4 22B Q4_K_M",
+            Description  = "Mistral Small fine-tune trénovaný na Claude Opus výstupech — prózy a dialogy ve stylu velkého modelu. Vhodný pro román.",
+            Size         = "13 GB",   Version = "4",
+            Category     = ModelCategory.Chat,   Source = ModelSource.HuggingFace,
+            VramRequiredGb = 14,    ContextLength = 32768,   Quantization = "Q4_K_M",
+            FileName     = "magnum-v4-22b-Q4_K_M.gguf",
+            DownloadUrl  = "https://huggingface.co/bartowski/magnum-v4-22b-GGUF" +
+                           "/resolve/main/magnum-v4-22b-Q4_K_M.gguf",
+            ModelPageUrl = "https://huggingface.co/bartowski/magnum-v4-22b-GGUF"
+        },
+        new()
+        {
+            Name         = "Cydonia 22B v1 Q4_K_M",
+            Description  = "TheDrummer fine-tune Mistral Small. Výslovně uncensored, romantika i explicit. Solidní čeština, výborná angličtina.",
+            Size         = "13 GB",   Version = "1",
+            Category     = ModelCategory.Chat,   Source = ModelSource.HuggingFace,
+            VramRequiredGb = 14,    ContextLength = 32768,   Quantization = "Q4_K_M",
+            FileName     = "Cydonia-22B-v1-Q4_K_M.gguf",
+            DownloadUrl  = "https://huggingface.co/bartowski/Cydonia-22B-v1-GGUF" +
+                           "/resolve/main/Cydonia-22B-v1-Q4_K_M.gguf",
+            ModelPageUrl = "https://huggingface.co/bartowski/Cydonia-22B-v1-GGUF"
+        },
+        new()
+        {
+            Name         = "Lumimaid v0.2 12B Q4_K_M",
+            Description  = "NeverSleep fine-tune nad Mistral Nemo. Specializovaný na roleplay a delší prózu, dobré dialogy postav.",
+            Size         = "7.1 GB",  Version = "0.2",
+            Category     = ModelCategory.Chat,   Source = ModelSource.HuggingFace,
+            VramRequiredGb = 9,     ContextLength = 131072,  Quantization = "Q4_K_M",
+            FileName     = "Lumimaid-v0.2-12B-Q4_K_M.gguf",
+            DownloadUrl  = "https://huggingface.co/bartowski/Lumimaid-v0.2-12B-GGUF" +
+                           "/resolve/main/Lumimaid-v0.2-12B-Q4_K_M.gguf",
+            ModelPageUrl = "https://huggingface.co/bartowski/Lumimaid-v0.2-12B-GGUF"
+        },
+        new()
+        {
+            Name         = "L3 Stheno v3.2 8B Q4_K_M",
+            Description  = "Sao10K fine-tune nad Llama 3 8B. Malý, rychlý, hodně permisivní. Pro češtinu slabší než Mistral varianty.",
+            Size         = "4.9 GB",  Version = "3.2",
+            Category     = ModelCategory.Chat,   Source = ModelSource.HuggingFace,
+            VramRequiredGb = 6,     ContextLength = 8192,    Quantization = "Q4_K_M",
+            FileName     = "L3-8B-Stheno-v3.2-Q4_K_M.gguf",
+            DownloadUrl  = "https://huggingface.co/bartowski/L3-8B-Stheno-v3.2-GGUF" +
+                           "/resolve/main/L3-8B-Stheno-v3.2-Q4_K_M.gguf",
+            ModelPageUrl = "https://huggingface.co/bartowski/L3-8B-Stheno-v3.2-GGUF"
+        },
+        new()
+        {
+            Name         = "Llama 3.3 70B Instruct abliterated Q4_K_M",
+            Description  = "Komunitní úprava Llama 3.3 s odstraněnými refuse vektory. Stejně chytrá, mnohem ochotnější. Velký model — vyžaduje VRAM offload na 24 GB GPU.",
+            Size         = "43 GB",   Version = "3.3",
+            Category     = ModelCategory.Chat,   Source = ModelSource.HuggingFace,
+            VramRequiredGb = 40,    ContextLength = 131072,  Quantization = "Q4_K_M",
+            FileName     = "Llama-3.3-70B-Instruct-abliterated-Q4_K_M.gguf",
+            DownloadUrl  = "https://huggingface.co/mradermacher/Llama-3.3-70B-Instruct-abliterated-GGUF" +
+                           "/resolve/main/Llama-3.3-70B-Instruct-abliterated.Q4_K_M.gguf",
+            ModelPageUrl = "https://huggingface.co/mradermacher/Llama-3.3-70B-Instruct-abliterated-GGUF"
+        },
+
         // ═══════════════════════ IMAGE — FLUX GGUF ══════════════════════════════
         new()
         {
             Name         = "FLUX.1 Schnell Q4_K_S",
-            Description  = "Rychlá GGUF kvantizace FLUX.1 Schnell. 4 kroky stačí, skvělé pro náhledy.",
+            Description  = "Rychlá GGUF kvantizace FLUX.1 Schnell. 4 kroky stačí, skvělé pro náhledy. Vyžaduje FLUX závislosti (CLIP-L, T5, VAE).",
             Size         = "8.0 GB",  Version = "1.0",
             Category     = ModelCategory.Image,  Source = ModelSource.HuggingFace,
             VramRequiredGb = 10,    Quantization = "Q4_K_S",
@@ -623,7 +836,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         new()
         {
             Name         = "FLUX.1 Dev Q4_K_S",
-            Description  = "Hlavní FLUX.1 Dev GGUF — lepší kvalita než Schnell, 20–30 kroků.",
+            Description  = "Hlavní FLUX.1 Dev GGUF — lepší kvalita než Schnell, 20–30 kroků. Vyžaduje FLUX závislosti (CLIP-L, T5, VAE).",
             Size         = "15 GB",   Version = "1.0",
             Category     = ModelCategory.Image,  Source = ModelSource.HuggingFace,
             VramRequiredGb = 18,    Quantization = "Q4_K_S",
@@ -631,6 +844,47 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             DownloadUrl  = "https://huggingface.co/city96/FLUX.1-dev-gguf" +
                            "/resolve/main/flux1-dev-Q4_K_S.gguf",
             ModelPageUrl = "https://huggingface.co/city96/FLUX.1-dev-gguf"
+        },
+
+        // ═══════════════════════ IMAGE — FLUX závislosti ════════════════════════
+        // FLUX modely nejsou „all-in-one" jako SDXL — UNET je oddělený od textových
+        // enkodérů (CLIP-L + T5) a VAE. Tyto tři soubory jsou společné pro Schnell
+        // i Dev a uživatel je musí stáhnout pokud chce FLUX používat.
+        new()
+        {
+            Name         = "FLUX CLIP-L (povinné)",
+            Description  = "Textový enkodér CLIP-L pro FLUX. Stáhni před prvním FLUX generováním.",
+            Size         = "246 MB",  Version = "1.0",
+            Category     = ModelCategory.Image,  Source = ModelSource.HuggingFace,
+            VramRequiredGb = 1,     Quantization = "FP16",
+            FileName     = "clip_l.safetensors",
+            DownloadUrl  = "https://huggingface.co/comfyanonymous/flux_text_encoders" +
+                           "/resolve/main/clip_l.safetensors",
+            ModelPageUrl = "https://huggingface.co/comfyanonymous/flux_text_encoders"
+        },
+        new()
+        {
+            Name         = "FLUX T5 XXL FP8 (povinné)",
+            Description  = "Textový enkodér T5-XXL pro FLUX, FP8 kvantizace (5 GB vs. 10 GB FP16). Lepší pro 12+ GB VRAM.",
+            Size         = "5.0 GB",  Version = "1.0",
+            Category     = ModelCategory.Image,  Source = ModelSource.HuggingFace,
+            VramRequiredGb = 6,     Quantization = "FP8",
+            FileName     = "t5xxl_fp8_e4m3fn.safetensors",
+            DownloadUrl  = "https://huggingface.co/comfyanonymous/flux_text_encoders" +
+                           "/resolve/main/t5xxl_fp8_e4m3fn.safetensors",
+            ModelPageUrl = "https://huggingface.co/comfyanonymous/flux_text_encoders"
+        },
+        new()
+        {
+            Name         = "FLUX VAE (povinné)",
+            Description  = "Variational Autoencoder pro FLUX. Stáhni před prvním FLUX generováním.",
+            Size         = "335 MB",  Version = "1.0",
+            Category     = ModelCategory.Image,  Source = ModelSource.HuggingFace,
+            VramRequiredGb = 1,     Quantization = "FP16",
+            FileName     = "ae.safetensors",
+            DownloadUrl  = "https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged" +
+                           "/resolve/main/split_files/vae/ae.safetensors",
+            ModelPageUrl = "https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged"
         },
 
         // ═══════════════════════ IMAGE — SDXL SAFETENSORS ═══════════════════════

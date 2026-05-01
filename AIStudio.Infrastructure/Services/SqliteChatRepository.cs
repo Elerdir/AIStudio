@@ -11,8 +11,13 @@ public sealed class SqliteChatRepository : IChatRepository
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "AIStudio", "conversations.db");
 
+    // Pooling=False — chceme garanci, že connection.Close() opravdu zavře file handle
+    // a sync transakce na disk. S poolem zůstává connection v paměti a poslední
+    // transakce mohou uvíznout v WAL.
+    // Cache=Shared záměrně NE — sdílená cache může držet uncommit data v paměti
+    // mezi connectiony jen v rámci jednoho procesu, mizí při exit.
     private readonly string _connectionString =
-        $"Data Source={DbPath};Mode=ReadWriteCreate;Cache=Shared";
+        $"Data Source={DbPath};Mode=ReadWriteCreate;Pooling=False";
 
     // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -26,8 +31,8 @@ public sealed class SqliteChatRepository : IChatRepository
             await using var cmd  = conn.CreateCommand();
 
             cmd.CommandText = """
-                PRAGMA journal_mode = WAL;
-                PRAGMA synchronous  = NORMAL;
+                PRAGMA journal_mode = DELETE;
+                PRAGMA synchronous  = FULL;
                 PRAGMA cache_size   = -16384;
                 PRAGMA temp_store   = MEMORY;
 
@@ -55,6 +60,15 @@ public sealed class SqliteChatRepository : IChatRepository
                 """;
 
             await cmd.ExecuteNonQueryAsync();
+
+            // Debug: kolik zpráv máme v DB? Pomáhá detekovat scénáře, kdy se Conversations
+            // ukládají, ale Messages se z nějakého důvodu nezapisují.
+            await using var statCmd = conn.CreateCommand();
+            statCmd.CommandText = "SELECT (SELECT COUNT(*) FROM Conversations), (SELECT COUNT(*) FROM Messages)";
+            await using var statReader = await statCmd.ExecuteReaderAsync();
+            if (await statReader.ReadAsync())
+                Log.Information("SQLite stats: {Convs} konverzací, {Msgs} zpráv",
+                                statReader.GetInt64(0), statReader.GetInt64(1));
 
             // ── Migrace: přidej sloupce pokud ještě neexistují ──────────────────────
             await using var mig1 = conn.CreateCommand();
@@ -148,6 +162,7 @@ public sealed class SqliteChatRepository : IChatRepository
                     DateTime.Parse(reader.GetString(4)),
                     reader.GetInt32(5)));
             }
+            Log.Information("LoadMessages: conv={ConvId} → {Count} zpráv", conversationId, list.Count);
             return list;
         }
         catch (Exception ex)
@@ -165,11 +180,26 @@ public sealed class SqliteChatRepository : IChatRepository
         {
             await using var conn = await OpenAsync();
             await using var cmd  = conn.CreateCommand();
+            // UPSERT místo INSERT OR REPLACE — REPLACE dělá DELETE+INSERT, což
+            // by spustilo ON DELETE CASCADE na Messages a smazalo všechny zprávy
+            // této konverzace! UPSERT (ON CONFLICT … DO UPDATE) provede UPDATE
+            // bez DELETE, takže FK CASCADE neproběhne. Tohle byl ten záhadný
+            // důvod, proč se zprávy „nezapisovaly".
             cmd.CommandText = """
-                INSERT OR REPLACE INTO Conversations
+                INSERT INTO Conversations
                     (Id, Title, ModelName, MaxTokens, SystemPrompt, CreatedAt, UpdatedAt, IsPinned, Temperature, IsThinkingEnabled, Draft)
                 VALUES
                     ($id, $title, $model, $tokens, $sysPrompt, $created, $updated, $pinned, $temp, $thinking, $draft)
+                ON CONFLICT(Id) DO UPDATE SET
+                    Title             = excluded.Title,
+                    ModelName         = excluded.ModelName,
+                    MaxTokens         = excluded.MaxTokens,
+                    SystemPrompt      = excluded.SystemPrompt,
+                    UpdatedAt         = excluded.UpdatedAt,
+                    IsPinned          = excluded.IsPinned,
+                    Temperature       = excluded.Temperature,
+                    IsThinkingEnabled = excluded.IsThinkingEnabled,
+                    Draft             = excluded.Draft
                 """;
             cmd.Parameters.AddWithValue("$id",        conversation.Id);
             cmd.Parameters.AddWithValue("$title",     conversation.Title);
@@ -209,7 +239,25 @@ public sealed class SqliteChatRepository : IChatRepository
             cmd.Parameters.AddWithValue("$content", message.Content);
             cmd.Parameters.AddWithValue("$ts",      message.Timestamp.ToString("o"));
             cmd.Parameters.AddWithValue("$order",   message.OrderIndex);
-            await cmd.ExecuteNonQueryAsync();
+            var rows = await cmd.ExecuteNonQueryAsync();
+
+            // Read-back verify ve stejné connection: ihned se zeptáme, jestli
+            // zápis je v DB. Pokud rows=1 ale verify=0, máme problém s transakcí.
+            await using var verifyCmd = conn.CreateCommand();
+            verifyCmd.CommandText = "SELECT COUNT(*) FROM Messages WHERE Id = $id";
+            verifyCmd.Parameters.AddWithValue("$id", message.Id);
+            var verifyCount = (long)(await verifyCmd.ExecuteScalarAsync() ?? 0L);
+
+            // Plus: kolik celkem zpráv má teď ta konverzace v DB?
+            await using var countCmd = conn.CreateCommand();
+            countCmd.CommandText = "SELECT COUNT(*) FROM Messages WHERE ConversationId = $cid";
+            countCmd.Parameters.AddWithValue("$cid", message.ConversationId);
+            var convCount = (long)(await countCmd.ExecuteScalarAsync() ?? 0L);
+
+            Log.Information("SaveMessage: conv={ConvId} role={Role} order={Order} len={Len} " +
+                            "→ {Rows} řádků (verify={Verify}, conv má teď {ConvCount} zpráv)",
+                message.ConversationId, message.Role, message.OrderIndex,
+                message.Content?.Length ?? 0, rows, verifyCount, convCount);
         }
         catch (Exception ex)
         {
@@ -227,8 +275,9 @@ public sealed class SqliteChatRepository : IChatRepository
             await using var cmd  = conn.CreateCommand();
             cmd.CommandText = "DELETE FROM Conversations WHERE Id = $id";
             cmd.Parameters.AddWithValue("$id", conversationId);
-            await cmd.ExecuteNonQueryAsync();
-            Log.Debug("Deleted conversation {Id} (CASCADE removed messages)", conversationId);
+            var rows = await cmd.ExecuteNonQueryAsync();
+            Log.Information("DeleteConversation: id={Id} → {Rows} řádků (CASCADE smazal zprávy)",
+                conversationId, rows);
         }
         catch (Exception ex)
         {
@@ -247,8 +296,9 @@ public sealed class SqliteChatRepository : IChatRepository
                 "DELETE FROM Messages WHERE ConversationId = $cid AND OrderIndex >= $idx";
             cmd.Parameters.AddWithValue("$cid", conversationId);
             cmd.Parameters.AddWithValue("$idx", fromOrderIndex);
-            await cmd.ExecuteNonQueryAsync();
-            Log.Debug("Deleted messages from index {Idx} in {ConvId}", fromOrderIndex, conversationId);
+            var rows = await cmd.ExecuteNonQueryAsync();
+            Log.Information("DeleteMessagesFromIndex: conv={ConvId} fromIdx={Idx} → {Rows} řádků",
+                conversationId, fromOrderIndex, rows);
         }
         catch (Exception ex)
         {

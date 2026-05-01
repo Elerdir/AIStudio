@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Embed ikona do .exe — zobrazí se v Průzkumníku, Start Menu, taskbaru, Task Manageru.
+         Pokud chceš vlastní ikonu, prostě přepiš soubor Assets\avalonia-logo.ico. -->
+    <ApplicationIcon>Assets\avalonia-logo.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- Potlačí chybu NETSDK1152 při publish (LLamaSharp.Backend.Cpu AVX varianty) -->
     <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>

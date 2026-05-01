@@ -179,10 +179,12 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             foreach (var cp in combined)
                 AvailableCheckpoints.Add(cp);
 
-            if (AvailableCheckpoints.Count > 0 &&
-                !AvailableCheckpoints.Contains(SelectedModel))
+            // Pokud byl smazán právě zvolený checkpoint, přepneme se na první
+            // dostupný. Bez toho by SelectedModel dál ukazoval na neexistující
+            // soubor a další pokus o generování by selhal validation errorem.
+            if (!AvailableCheckpoints.Contains(SelectedModel))
             {
-                SelectedModel = AvailableCheckpoints[0];
+                SelectedModel = AvailableCheckpoints.FirstOrDefault() ?? string.Empty;
             }
         });
     }
@@ -251,12 +253,51 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             var res    = Resolution;
             var seed   = Seed < 0 ? (long)Random.Shared.Next(1, int.MaxValue) : Seed;
             var isFlux = ComfyWorkflowBuilder.IsFluxModel(SelectedModel);
+            var isGguf = ComfyWorkflowBuilder.IsGgufModel(SelectedModel);
 
-            var workflow = isFlux
-                ? ComfyWorkflowBuilder.BuildFlux(
-                    SelectedModel, Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount)
-                : ComfyWorkflowBuilder.BuildStandard(
+            // Pre-flight check: FLUX GGUF potřebuje samostatné CLIP-L + T5 + VAE
+            // soubory v Models složce. Když chybí, ušetříme kruhovou cestu přes
+            // ComfyUI validation error a uživateli rovnou řekneme, co stáhnout.
+            if (isFlux && isGguf)
+            {
+                var missing = FindMissingFluxDependencies();
+                if (missing.Count > 0)
+                {
+                    GenerationStatus =
+                        $"Chybí FLUX závislosti: {string.Join(", ", missing)}. " +
+                        "Stáhni je v sekci Modely — položky s označením povinné.";
+                    return;
+                }
+            }
+
+            // Workflow router:
+            //   • FLUX GGUF  → UnetLoaderGGUF + DualCLIPLoader + VAELoader (4-loader workflow)
+            //   • FLUX safetensors → klasický CheckpointLoaderSimple (all-in-one)
+            //   • SDXL / SD  → klasický CheckpointLoaderSimple
+            //
+            // FLUX GGUF předpokládá, že uživatel má v Models složce CLIP-L, T5 a VAE
+            // (najde je přes extra_model_paths.yaml). Pokud chybí, ComfyUI vrátí
+            // validation error a my ho v UI ukážeme.
+            Dictionary<string, object> workflow;
+            if (isFlux && isGguf)
+            {
+                workflow = ComfyWorkflowBuilder.BuildFluxGguf(
+                    SelectedModel,
+                    ComfyWorkflowBuilder.DefaultFluxClipL,
+                    ComfyWorkflowBuilder.DefaultFluxT5,
+                    ComfyWorkflowBuilder.DefaultFluxVae,
+                    Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount);
+            }
+            else if (isFlux)
+            {
+                workflow = ComfyWorkflowBuilder.BuildFlux(
+                    SelectedModel, Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount);
+            }
+            else
+            {
+                workflow = ComfyWorkflowBuilder.BuildStandard(
                     SelectedModel, Prompt, NegativePrompt, res.W, res.H, Steps, Cfg, seed, VariantCount);
+            }
 
             var promptId = await _comfy.QueuePromptAsync(workflow, cts.Token);
             GenerationStatus = "Generuji…";
@@ -451,5 +492,40 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.MyPictures),
             "AIStudio");
+    }
+
+    /// <summary>
+    /// Zkontroluje, jestli v Models složce existují soubory potřebné pro FLUX GGUF
+    /// workflow (CLIP-L, T5, VAE). Vrátí seznam přátelských názvů těch chybějících.
+    /// Hledá pohledem do Models adresáře — extra_model_paths.yaml mapuje subdirs
+    /// (clip/, vae/) i samotný root, takže to opravdu pokrývá obě varianty.
+    /// </summary>
+    private List<string> FindMissingFluxDependencies()
+    {
+        var modelsDir = string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                           "AIStudio", "Models")
+            : _settings.Settings.ModelsDirectory;
+
+        var missing = new List<string>();
+
+        var deps = new (string Label, string FileName, string Subdir)[]
+        {
+            ("CLIP-L", ComfyWorkflowBuilder.DefaultFluxClipL, "clip"),
+            ("T5",     ComfyWorkflowBuilder.DefaultFluxT5,    "clip"),
+            ("VAE",    ComfyWorkflowBuilder.DefaultFluxVae,   "vae"),
+        };
+
+        foreach (var (label, file, sub) in deps)
+        {
+            // Zkontrolujeme primární umístění (root) i podsložku — přesně tak,
+            // jak ComfyUI hledá přes extra_model_paths.yaml.
+            var inRoot = Path.Combine(modelsDir, file);
+            var inSub  = Path.Combine(modelsDir, sub, file);
+            if (!File.Exists(inRoot) && !File.Exists(inSub))
+                missing.Add(label);
+        }
+
+        return missing;
     }
 }

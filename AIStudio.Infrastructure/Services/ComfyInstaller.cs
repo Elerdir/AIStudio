@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Serilog;
@@ -32,6 +33,11 @@ public sealed class ComfyInstaller : IComfyInstaller
 
     private const string LatestReleaseUrl =
         "https://api.github.com/repos/comfyanonymous/ComfyUI/releases/latest";
+
+    private const string GgufNodeZipUrl =
+        "https://github.com/city96/ComfyUI-GGUF/archive/refs/heads/main.zip";
+
+    private const string GgufNodeFolderName = "ComfyUI-GGUF";
 
     public string DefaultInstallDirectory =>
         Path.Combine(
@@ -477,5 +483,178 @@ public sealed class ComfyInstaller : IComfyInstaller
                     pct, 0, 0, 0, null));
             }
         }
+    }
+
+    // ── ComfyUI-GGUF custom node ──────────────────────────────────────────────
+
+    public bool IsGgufNodeInstalled(string comfyUiDir)
+    {
+        if (string.IsNullOrWhiteSpace(comfyUiDir)) return false;
+
+        var nodePath = Path.Combine(comfyUiDir, "custom_nodes", GgufNodeFolderName);
+        if (!Directory.Exists(nodePath)) return false;
+
+        // Detekujeme přítomnost typických souborů ComfyUI-GGUF (nodes.py + __init__.py).
+        return File.Exists(Path.Combine(nodePath, "nodes.py"))
+            || File.Exists(Path.Combine(nodePath, "__init__.py"));
+    }
+
+    public async Task EnsureGgufNodeInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default)
+    {
+        if (IsGgufNodeInstalled(comfyUiDir))
+        {
+            Log.Information("ComfyInstaller: ComfyUI-GGUF custom node už nainstalovaný");
+            return;
+        }
+
+        var customNodesDir = Path.Combine(comfyUiDir, "custom_nodes");
+        Directory.CreateDirectory(customNodesDir);
+
+        // ── 1) Stáhneme ZIP z GitHubu (~80 KB, žádné API throttling problémy) ───
+        progress?.Report(new(ComfyInstallStage.Downloading,
+            "Stahuji ComfyUI-GGUF custom node…", 0, 0, 0, 0, null));
+
+        var tempZip = Path.Combine(Path.GetTempPath(), $"ComfyUI-GGUF-{Guid.NewGuid():N}.zip");
+
+        try
+        {
+            using (var resp = await Http.GetAsync(GgufNodeZipUrl,
+                                                   HttpCompletionOption.ResponseHeadersRead, ct))
+            {
+                resp.EnsureSuccessStatusCode();
+                await using var src = await resp.Content.ReadAsStreamAsync(ct);
+                await using var dst = new FileStream(tempZip, FileMode.Create, FileAccess.Write,
+                                                      FileShare.None, 81_920, useAsync: true);
+                await src.CopyToAsync(dst, ct);
+            }
+
+            Log.Information("ComfyInstaller: ComfyUI-GGUF ZIP stažen ({Size} KB)",
+                            new FileInfo(tempZip).Length / 1024);
+
+            // ── 2) Rozbalíme do custom_nodes/ComfyUI-GGUF/ ──────────────────────
+            // ZIP obsahuje root složku „ComfyUI-GGUF-main" — přesouváme obsah o úroveň níž
+            progress?.Report(new(ComfyInstallStage.Extracting,
+                "Rozbaluji ComfyUI-GGUF…", 50, 0, 0, 0, null));
+
+            var targetDir = Path.Combine(customNodesDir, GgufNodeFolderName);
+
+            // Pro idempotenci: pokud už cíl existuje (např. částečná předchozí instalace),
+            // smažeme ho — chceme čistou instalaci aktuální verze
+            if (Directory.Exists(targetDir))
+                Directory.Delete(targetDir, recursive: true);
+
+            using (var archive = ZipFile.OpenRead(tempZip))
+            {
+                // Najdeme prefix root složky (typicky „ComfyUI-GGUF-main/")
+                var rootEntry = archive.Entries
+                    .FirstOrDefault(e => e.FullName.EndsWith('/') &&
+                                         e.FullName.Count(c => c == '/') == 1);
+                var rootPrefix = rootEntry?.FullName ?? "";
+
+                Directory.CreateDirectory(targetDir);
+
+                foreach (var entry in archive.Entries)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    // Vynech root složku samotnou
+                    if (entry.FullName == rootPrefix) continue;
+
+                    // Strip prefix → path relative to repo root
+                    var relativePath = entry.FullName.StartsWith(rootPrefix)
+                        ? entry.FullName[rootPrefix.Length..]
+                        : entry.FullName;
+                    if (string.IsNullOrEmpty(relativePath)) continue;
+
+                    var destPath = Path.Combine(targetDir, relativePath);
+
+                    // Adresář
+                    if (entry.FullName.EndsWith('/'))
+                    {
+                        Directory.CreateDirectory(destPath);
+                        continue;
+                    }
+
+                    // Soubor
+                    var destDirName = Path.GetDirectoryName(destPath);
+                    if (!string.IsNullOrEmpty(destDirName))
+                        Directory.CreateDirectory(destDirName);
+
+                    entry.ExtractToFile(destPath, overwrite: true);
+                }
+            }
+
+            Log.Information("ComfyInstaller: ComfyUI-GGUF rozbaleno → {Dir}", targetDir);
+
+            // ── 3) Doinstalujeme pip závislost gguf přes embedded Python ────────
+            progress?.Report(new(ComfyInstallStage.Finishing,
+                "Instaluji pip závislost gguf… (může chvíli trvat)", 80, 0, 0, 0, null));
+
+            await RunPipInstallAsync(pythonExe, "gguf", ct);
+
+            progress?.Report(new(ComfyInstallStage.Done,
+                "ComfyUI-GGUF nainstalován", 100, 0, 0, 0, null));
+        }
+        finally
+        {
+            try { if (File.Exists(tempZip)) File.Delete(tempZip); }
+            catch (Exception ex) { Log.Warning(ex, "ComfyInstaller: nelze smazat {Path}", tempZip); }
+        }
+    }
+
+    /// <summary>
+    /// Spustí <c>python.exe -s -m pip install &lt;package&gt;</c> na embedded pythonu
+    /// ComfyUI Portable. Stdout/stderr loguje pro diagnostiku.
+    /// </summary>
+    private static async Task RunPipInstallAsync(
+        string            pythonExe,
+        string            packageName,
+        CancellationToken ct)
+    {
+        if (!File.Exists(pythonExe))
+            throw new InvalidOperationException($"Python interpreter nenalezen: {pythonExe}");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName               = pythonExe,
+            // -s = nečíst user site-packages (vyžadováno embedded buildem)
+            // --no-warn-script-location = potlačí PATH varování
+            Arguments              = $"-s -m pip install --no-warn-script-location {packageName}",
+            UseShellExecute        = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+            CreateNoWindow         = true,
+        };
+
+        Log.Information("ComfyInstaller: pip install {Pkg}", packageName);
+
+        using var proc = Process.Start(psi)
+            ?? throw new InvalidOperationException("Nelze spustit pip");
+
+        proc.OutputDataReceived += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data)) Log.Information("[pip] {Line}", e.Data);
+        };
+        proc.ErrorDataReceived += (_, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data)) Log.Warning("[pip] {Line}", e.Data);
+        };
+        proc.BeginOutputReadLine();
+        proc.BeginErrorReadLine();
+
+        // Pip občas zatuhne na DNS / TLS handshake — 5 minut hard cap.
+        var done = await Task.Run(() => proc.WaitForExit(5 * 60 * 1000), ct);
+        if (!done)
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { }
+            throw new InvalidOperationException("pip install timeout (5 min)");
+        }
+
+        if (proc.ExitCode != 0)
+            throw new InvalidOperationException($"pip install skončilo s kódem {proc.ExitCode} — viz log");
     }
 }

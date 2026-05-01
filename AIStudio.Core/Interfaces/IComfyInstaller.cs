@@ -29,4 +29,21 @@ public interface IComfyInstaller
         string                            installDir,
         IProgress<ComfyInstallProgress>?  progress = null,
         CancellationToken                 ct       = default);
+
+    /// <summary>
+    /// True pokud je v ComfyUI nainstalovaný custom node ComfyUI-GGUF
+    /// (potřebný pro FLUX GGUF kvantizace).
+    /// </summary>
+    bool IsGgufNodeInstalled(string comfyUiDir);
+
+    /// <summary>
+    /// Pokud chybí custom node ComfyUI-GGUF, stáhne ho z GitHubu, rozbalí
+    /// do <c>custom_nodes/ComfyUI-GGUF/</c> a doinstaluje pip závislost
+    /// <c>gguf</c> přes embedded Python. Pokud už existuje, vrátí ihned.
+    /// </summary>
+    Task EnsureGgufNodeInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default);
 }

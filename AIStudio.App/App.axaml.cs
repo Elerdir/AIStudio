@@ -77,6 +77,7 @@ public partial class App : Application
         services.AddSingleton<IComfyService, ComfyService>();
         services.AddSingleton<IComfyInstaller, ComfyInstaller>();
         services.AddSingleton<IImageRepository, SqliteImageRepository>();
+        services.AddSingleton<IHuggingFaceClient, HuggingFaceClient>();
 
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();
@@ -105,9 +106,14 @@ public partial class App : Application
             var settings = Services.GetRequiredService<ISettingsService>();
             var monitor  = (SystemMonitorService)Services.GetRequiredService<ISystemMonitorService>();
 
-            // Při zavření AIStudio zabij ComfyUI (pokud jsme ho my spustili) —
-            // jinak by zůstal zombie proces na portu 8188 a další pokus o start
-            // by skončil [Errno 10048] bind conflict.
+            // Při zavření AIStudio:
+            //   1) Zabij ComfyUI (pokud jsme ho my spustili) — jinak by zůstal zombie
+            //      proces na portu 8188 a další pokus o start by skončil [Errno 10048].
+            //   2) Force-flushni SQLite connection pool — Microsoft.Data.Sqlite drží
+            //      physical connections v poolu i po `using` bloku a WAL checkpoint
+            //      se provede až při jejich fyzickém uzavření. Bez tohoto by mohly
+            //      poslední transakce uvíznout v db-wal a nebýt commitnuté.
+            //   3) Flushni Serilog buffery, ať máme kompletní log i při kill.
             desktop.Exit += (_, _) =>
             {
                 try
@@ -121,6 +127,18 @@ public partial class App : Application
                 {
                     Log.Warning(ex, "App.Exit: ComfyUI cleanup selhal — zombie proces může zůstat");
                 }
+
+                try
+                {
+                    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+                    Log.Information("App.Exit: SQLite pool flushed");
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "App.Exit: SQLite pool flush selhal — riziko ztráty posledních zpráv");
+                }
+
+                try { Log.CloseAndFlush(); } catch { /* nemůžeme udělat víc */ }
             };
 
             if (!settings.Settings.SetupCompleted)

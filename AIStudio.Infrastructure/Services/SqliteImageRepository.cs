@@ -12,7 +12,7 @@ public sealed class SqliteImageRepository : IImageRepository
         "AIStudio", "images.db");
 
     private readonly string _connectionString =
-        $"Data Source={DbPath};Mode=ReadWriteCreate;Cache=Shared";
+        $"Data Source={DbPath};Mode=ReadWriteCreate;Pooling=False";
 
     // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -26,8 +26,8 @@ public sealed class SqliteImageRepository : IImageRepository
             await using var cmd  = conn.CreateCommand();
 
             cmd.CommandText = """
-                PRAGMA journal_mode = WAL;
-                PRAGMA synchronous  = NORMAL;
+                PRAGMA journal_mode = DELETE;
+                PRAGMA synchronous  = FULL;
                 PRAGMA cache_size   = -8192;
                 PRAGMA temp_store   = MEMORY;
 
