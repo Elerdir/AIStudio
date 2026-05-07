@@ -822,6 +822,30 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     [RelayCommand]
     private void RandomizeSeed() => Seed = Random.Shared.Next(1, int.MaxValue);
 
+    /// <summary>
+    /// Přidá obrázky z externího zdroje (drag &amp; drop, clipboard).
+    /// Duplicity a neobrázkové soubory jsou tiše přeskočeny.
+    /// </summary>
+    public void AddReferenceImages(IEnumerable<string> paths)
+    {
+        var imageExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { ".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif" };
+
+        foreach (var path in paths)
+        {
+            if (!imageExts.Contains(System.IO.Path.GetExtension(path))) continue;
+            if (!File.Exists(path)) continue;
+            if (ReferenceImages.Any(r => string.Equals(r.Path, path, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            ReferenceImages.Add(new ReferenceImageItem(path));
+        }
+
+        ReferenceImagePath = ReferenceImages.FirstOrDefault()?.Path;
+        HasReferenceImage  = ReferenceImages.Count > 0;
+        OnPropertyChanged(nameof(HasReferenceImages));
+    }
+
     // ── DB helpers ────────────────────────────────────────────────────────────
 
     private async Task TrySaveImageAsync(ImageRecord record)

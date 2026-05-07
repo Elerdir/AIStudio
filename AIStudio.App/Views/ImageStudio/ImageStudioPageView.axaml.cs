@@ -1,4 +1,7 @@
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Platform.Storage;
+using AIStudio.App.ViewModels.ImageStudio;
 
 namespace AIStudio.App.Views.ImageStudio;
 
@@ -7,11 +10,33 @@ public partial class ImageStudioPageView : UserControl
     public ImageStudioPageView()
     {
         InitializeComponent();
-
-        // TODO: Drag & Drop pro reference image.
-        // Avalonia 12 dramaticky změnila DragDrop API (DataTransfer / DataFormat /
-        // Items), ale konkrétní metody pro získání IStorageFile z eventu se mezi
-        // minor verzemi mění. Zatím zde držíme jen file picker (tlačítko v UI),
-        // drag&drop doplníme až budeme mít cíleně otestováno proti konkrétní verzi.
     }
+
+    private void OnReferenceImageDragOver(object? sender, DragEventArgs e)
+    {
+        e.DragEffects = e.DataTransfer.TryGetFiles() != null
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnReferenceImageDrop(object? sender, DragEventArgs e)
+    {
+        var files = e.DataTransfer.TryGetFiles();
+        if (files is null) return;
+
+        var vm = GetActiveGenerator();
+        if (vm is null) return;
+
+        var paths = files
+            .Select(f => f.TryGetLocalPath())
+            .Where(p => p is not null)
+            .Cast<string>();
+
+        vm.AddReferenceImages(paths);
+        e.Handled = true;
+    }
+
+    private ImageGeneratorViewModel? GetActiveGenerator()
+        => (DataContext as ImageStudioPageViewModel)?.ActiveGenerator;
 }

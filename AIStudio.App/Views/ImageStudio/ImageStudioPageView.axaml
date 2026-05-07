@@ -316,7 +316,10 @@
                                      Sdílí ReferenceImages collection a Pick/Remove commands
                                      s Manual módem; pipeline upload + workflow injection
                                      už multi-reference podporují (viz GenerateAsync). -->
-                                <StackPanel Spacing="6">
+                                <StackPanel Spacing="6"
+                                            DragDrop.AllowDrop="True"
+                                            DragDrop.Drop="OnReferenceImageDrop"
+                                            DragDrop.DragOver="OnReferenceImageDragOver">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <TextBlock Grid.Column="0" Text="REFERENČNÍ OBRÁZKY (volitelné)"
                                                    Classes="sectionHeader" VerticalAlignment="Center"/>
@@ -518,7 +521,10 @@
                             </StackPanel>
 
                             <!-- Reference images (multi) -->
-                            <StackPanel Spacing="6">
+                            <StackPanel Spacing="6"
+                                        DragDrop.AllowDrop="True"
+                                        DragDrop.Drop="OnReferenceImageDrop"
+                                        DragDrop.DragOver="OnReferenceImageDragOver">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Grid.Column="0" Text="REFERENČNÍ OBRÁZKY" Classes="sectionHeader"
                                                VerticalAlignment="Center"/>
