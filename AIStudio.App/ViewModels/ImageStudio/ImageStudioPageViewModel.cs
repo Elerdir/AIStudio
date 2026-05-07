@@ -8,9 +8,12 @@ namespace AIStudio.App.ViewModels.ImageStudio;
 
 public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
 {
-    private readonly IComfyService    _comfy;
-    private readonly ISettingsService _settings;
-    private readonly IImageRepository _imageRepo;
+    private readonly IComfyService        _comfy;
+    private readonly ISettingsService     _settings;
+    private readonly IImageRepository     _imageRepo;
+    private readonly IImageIntentParser   _intentParser;
+    private readonly IImageModelMatcher   _modelMatcher;
+    private readonly ILlamaService        _llama;
 
     [ObservableProperty] private ImageGeneratorViewModel? _activeGenerator;
 
@@ -45,13 +48,19 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     public ObservableCollection<ImageGeneratorViewModel> Generators { get; } = new();
 
     public ImageStudioPageViewModel(
-        IComfyService    comfy,
-        ISettingsService settings,
-        IImageRepository imageRepo)
+        IComfyService        comfy,
+        ISettingsService     settings,
+        IImageRepository     imageRepo,
+        IImageIntentParser   intentParser,
+        IImageModelMatcher   modelMatcher,
+        ILlamaService        llama)
     {
-        _comfy     = comfy;
-        _settings  = settings;
-        _imageRepo = imageRepo;
+        _comfy        = comfy;
+        _settings     = settings;
+        _imageRepo    = imageRepo;
+        _intentParser = intentParser;
+        _modelMatcher = modelMatcher;
+        _llama        = llama;
 
         _comfy.StatusChanged += OnComfyStatusChanged;
         SyncComfyStatus(_comfy.Status, _comfy.StatusMessage);
@@ -178,10 +187,12 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
 
     private ImageGeneratorViewModel CreateGenerator()
     {
-        var gen = new ImageGeneratorViewModel(_comfy, _settings, _imageRepo);
+        var gen = new ImageGeneratorViewModel(_comfy, _settings, _imageRepo,
+                                               _intentParser, _modelMatcher, _llama);
         // LoadCheckpointsAsync sloučí ComfyUI i lokální sken — voláme ho vždy,
         // aby uživatel hned viděl stažené modely v dropdownu (ať už ComfyUI běží či ne).
         _ = gen.LoadCheckpointsAsync();
+        _ = gen.LoadSavedImagesAsync();
         return gen;
     }
 

@@ -349,48 +349,127 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
     {
         progress?.Report(0);
 
-        while (!ct.IsCancellationRequested)
+        // WebSocket real-time progress — při selhání přepneme na polling
+        try
         {
-            // Zkontrolujeme historii
+            return await WaitViaWebSocketAsync(promptId, progress, ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ComfyService: WebSocket progress selhal, přepínám na polling");
+            return await WaitViaPollingAsync(promptId, progress, ct);
+        }
+    }
+
+    private async Task<ComfyGenerationResult?> WaitViaWebSocketAsync(
+        string promptId, IProgress<int>? progress, CancellationToken ct)
+    {
+        using var ws = new System.Net.WebSockets.ClientWebSocket();
+        var wsUri    = new Uri($"ws://localhost:{_settings.Settings.ComfyUiPort}/ws?clientId={_clientId}");
+        await ws.ConnectAsync(wsUri, ct);
+
+        var buffer = new byte[16_384];
+
+        while (!ct.IsCancellationRequested &&
+               ws.State == System.Net.WebSockets.WebSocketState.Open)
+        {
+            var recv = await ws.ReceiveAsync(buffer, ct);
+            if (recv.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
+                break;
+
+            var text = Encoding.UTF8.GetString(buffer, 0, recv.Count);
+
             try
             {
-                var resp = await _http.GetAsync($"{BaseUrl}/history/{promptId}", ct);
-                if (resp.IsSuccessStatusCode)
-                {
-                    var json = await resp.Content.ReadAsStringAsync(ct);
-                    using var doc = JsonDocument.Parse(json);
-                    if (doc.RootElement.TryGetProperty(promptId, out var entry))
-                    {
-                        var images = new List<ComfyImageRef>();
-                        if (entry.TryGetProperty("outputs", out var outputs))
-                        {
-                            foreach (var node in outputs.EnumerateObject())
-                            {
-                                if (!node.Value.TryGetProperty("images", out var imgs)) continue;
-                                foreach (var img in imgs.EnumerateArray())
-                                {
-                                    images.Add(new ComfyImageRef(
-                                        img.GetProperty("filename").GetString() ?? "",
-                                        img.TryGetProperty("subfolder", out var sf)
-                                            ? sf.GetString() ?? "" : "",
-                                        img.TryGetProperty("type", out var t)
-                                            ? t.GetString() ?? "output" : "output"));
-                                }
-                            }
-                        }
+                using var doc  = JsonDocument.Parse(text);
+                var root       = doc.RootElement;
+                var type       = root.TryGetProperty("type", out var t) ? t.GetString() : null;
+                var data       = root.TryGetProperty("data", out var d) ? d : default;
 
-                        if (images.Count > 0)
+                switch (type)
+                {
+                    case "progress":
+                        var value = data.GetProperty("value").GetInt32();
+                        var max   = data.GetProperty("max").GetInt32();
+                        if (max > 0)
+                            progress?.Report(Math.Min(99, value * 99 / max));
+                        break;
+
+                    case "execution_success":
+                        var pid = data.TryGetProperty("prompt_id", out var pidEl)
+                            ? pidEl.GetString() : null;
+                        if (pid == promptId)
                         {
                             progress?.Report(100);
-                            return new ComfyGenerationResult(promptId, images, DateTime.Now);
+                            return await FetchHistoryResultAsync(promptId, ct);
                         }
-                    }
+                        break;
+
+                    case "execution_error":
+                        var ePid = data.TryGetProperty("prompt_id", out var ePidEl)
+                            ? ePidEl.GetString() : null;
+                        if (ePid == promptId)
+                        {
+                            var msg = data.TryGetProperty("exception_message", out var em)
+                                ? em.GetString() : "neznámá chyba";
+                            throw new InvalidOperationException($"ComfyUI chyba: {msg}");
+                        }
+                        break;
+                }
+            }
+            catch (JsonException) { /* ignoruj neplatný JSON frame */ }
+        }
+
+        return null;
+    }
+
+    private async Task<ComfyGenerationResult?> FetchHistoryResultAsync(
+        string promptId, CancellationToken ct)
+    {
+        var resp = await _http.GetAsync($"{BaseUrl}/history/{promptId}", ct);
+        if (!resp.IsSuccessStatusCode) return null;
+
+        var json = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty(promptId, out var entry)) return null;
+
+        var images = new List<ComfyImageRef>();
+        if (entry.TryGetProperty("outputs", out var outputs))
+        {
+            foreach (var node in outputs.EnumerateObject())
+            {
+                if (!node.Value.TryGetProperty("images", out var imgs)) continue;
+                foreach (var img in imgs.EnumerateArray())
+                {
+                    images.Add(new ComfyImageRef(
+                        img.GetProperty("filename").GetString() ?? "",
+                        img.TryGetProperty("subfolder", out var sf) ? sf.GetString() ?? "" : "",
+                        img.TryGetProperty("type", out var t2) ? t2.GetString() ?? "output" : "output"));
+                }
+            }
+        }
+
+        return images.Count > 0 ? new ComfyGenerationResult(promptId, images, DateTime.Now) : null;
+    }
+
+    private async Task<ComfyGenerationResult?> WaitViaPollingAsync(
+        string promptId, IProgress<int>? progress, CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                var result = await FetchHistoryResultAsync(promptId, ct);
+                if (result is not null)
+                {
+                    progress?.Report(100);
+                    return result;
                 }
             }
             catch (OperationCanceledException) { throw; }
             catch { /* přejdeme */ }
 
-            // Zkontrolujeme, jestli prompt stále běží (progress ~50%)
             try
             {
                 var queueResp = await _http.GetAsync($"{BaseUrl}/queue", ct);
@@ -398,13 +477,11 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                 {
                     var queueJson = await queueResp.Content.ReadAsStringAsync(ct);
                     using var queueDoc = JsonDocument.Parse(queueJson);
-
                     var isRunning = queueDoc.RootElement
                         .GetProperty("queue_running")
                         .EnumerateArray()
                         .Any(item => item.GetArrayLength() > 1
                                   && item[1].GetString() == promptId);
-
                     progress?.Report(isRunning ? 50 : 10);
                 }
             }
@@ -426,6 +503,69 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                   $"&type={Uri.EscapeDataString(type)}";
 
         return await _http.GetByteArrayAsync(url, ct);
+    }
+
+    /// <summary>
+    /// POST /upload/image — multipart upload do ComfyUI <c>input/</c>.
+    /// Volně podle dokumentace ComfyUI server.py: pole <c>image</c> = soubor,
+    /// <c>type</c> = "input"|"temp"|"output", <c>overwrite</c> = "true"|"false".
+    /// Server v odpovědi vrací JSON <c>{"name":"…","subfolder":"","type":"input"}</c>;
+    /// jméno může být upravené, pokud už soubor existoval (přidá se suffix), proto
+    /// nikdy nepoužívat lokální Path.GetFileName, ale vrácenou hodnotu.
+    /// </summary>
+    public async Task<string> UploadImageAsync(string localPath, CancellationToken ct = default)
+    {
+        if (!File.Exists(localPath))
+            throw new FileNotFoundException("Reference image nebyl nalezen", localPath);
+
+        var fileName = Path.GetFileName(localPath);
+
+        // Pošleme stream místo načtení do paměti — kvůli velkým 4K referenčním obrázkům.
+        await using var stream = File.OpenRead(localPath);
+        using var streamContent = new StreamContent(stream);
+        streamContent.Headers.ContentType =
+            new System.Net.Http.Headers.MediaTypeHeaderValue(GuessMime(localPath));
+
+        using var form = new MultipartFormDataContent
+        {
+            { streamContent,                "image",     fileName },
+            { new StringContent("input"),    "type"               },
+            { new StringContent("true"),     "overwrite"          },
+        };
+
+        using var resp = await _http.PostAsync($"{BaseUrl}/upload/image", form, ct);
+        var json = await resp.Content.ReadAsStringAsync(ct);
+
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"ComfyUI upload selhal ({(int)resp.StatusCode}): {json}");
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var name = doc.RootElement.TryGetProperty("name", out var n) ? n.GetString() : null;
+            return string.IsNullOrEmpty(name) ? fileName : name!;
+        }
+        catch
+        {
+            // Pokud ComfyUI vrátí něco neočekávaného, použijeme alespoň lokální jméno —
+            // bude to fungovat, dokud se ve stejné session jméno nemění.
+            return fileName;
+        }
+    }
+
+    private static string GuessMime(string path)
+    {
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        return ext switch
+        {
+            ".png"           => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp"          => "image/webp",
+            ".bmp"           => "image/bmp",
+            ".gif"           => "image/gif",
+            _                => "application/octet-stream",
+        };
     }
 
     // ── Internals ─────────────────────────────────────────────────────────────

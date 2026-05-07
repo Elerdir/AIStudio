@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AvaloniaProject">
+    <option name="projectPerEditor">
+      <map>
+        <entry key="AIStudio.App/Views/Models/ModelManagerPageView.axaml" value="AIStudio.App/AIStudio.App.csproj" />
+        <entry key="AIStudio.App/Views/Settings/LogViewerWindow.axaml" value="AIStudio.App/AIStudio.App.csproj" />
+      </map>
+    </option>
+  </component>
+</project>

@@ -8,6 +8,7 @@
     <UserControl.Resources>
         <conv:AspectRatioLabelConverter x:Key="AspectRatioLabel"/>
         <conv:ImageQualityLabelConverter x:Key="QualityLabel"/>
+        <conv:FileNameWithoutExtensionConverter x:Key="StripExt"/>
     </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,Auto,Auto,*">
@@ -178,21 +179,294 @@
         </Border>
 
         <!-- ── Active generator ─────────────────────────────────────────────── -->
-        <Grid Grid.Row="3" ColumnDefinitions="320,*"
+        <!-- Form column = 360 px (bylo 320) — dává Smart UI dost místa pro
+             3-tlačítkový aspect picker bez stísnění. Canvas vpravo má přesto
+             dost prostoru pro 1024×1024 obrázek. -->
+        <Grid Grid.Row="3" ColumnDefinitions="360,*"
               DataContext="{Binding ActiveGenerator}">
 
             <!-- ── Left panel – controls ──────────────────────────────────── -->
+            <!-- ClipToBounds=True kruciální: bez toho mohou Border s vnořeným
+                 TextBoxem/Buttonem (které mají intrinsic measure logiku v FluentTheme)
+                 vykreslit svůj obsah PŘES hranice form column, do canvas oblasti.
+                 Tohle byla příčina „bubliny utíkají doprava" — měřily se širší než
+                 sloupec a v default Avalonia chování renderovaly přes okraj. -->
             <Border Background="#111113"
                     BorderBrush="#2A2A2E"
-                    BorderThickness="0,0,1,0">
-                <Grid RowDefinitions="*,Auto">
+                    BorderThickness="0,0,1,0"
+                    ClipToBounds="True">
+                <Grid RowDefinitions="*,Auto" ClipToBounds="True">
 
-                    <ScrollViewer Grid.Row="0" Padding="18,16,18,80">
-                        <StackPanel Spacing="16">
+                    <!-- ScrollViewer + horizontální clip přes Disabled, aby žádný child
+                         nemohl horizontálně přesáhnout viewport (TextBox s placeholder
+                         to dříve dělal). Vertikální scrollbar je default Auto. -->
+                    <ScrollViewer Grid.Row="0" Padding="18,16,18,80"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Spacing="16" HorizontalAlignment="Stretch">
+
+                            <!-- Smart / Manual toggle — segmented switch nahoře, vždy viditelný.
+                                 Name="ToggleAnchor" je sentinel: ostatní Smart UI elementy
+                                 si přes Width="{Binding #ToggleAnchor.Bounds.Width}"
+                                 vynucují přesně stejnou šířku. Avalonia StackPanel by JINAK
+                                 měl všem children dát stejný arrange-rect, ale v praxi
+                                 různé controls (Border, TextBox, FluentTheme Button) si
+                                 do měření přimíchají vlastní MinWidth/Padding logiku
+                                 a výsledné renderované šířky se mírně liší. -->
+                            <Border Name="ToggleAnchor"
+                                    Background="#0F0F11" BorderBrush="#1E1E22" BorderThickness="1"
+                                    CornerRadius="8" Padding="3">
+                                <Grid ColumnDefinitions="*,*">
+                                    <Button Grid.Column="0" Classes="tabBtn"
+                                            Classes.activeTab="{Binding IsSmartMode}"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                            Command="{Binding SetSmartModeCommand}"
+                                            CommandParameter="True">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="Smart" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Grid.Column="1" Classes="tabBtn"
+                                            Classes.activeTab="{Binding !IsSmartMode}"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                            Command="{Binding SetSmartModeCommand}"
+                                            CommandParameter="False">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="Manuál" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!-- ═══════════════════ SMART MODE ═══════════════════ -->
+                            <StackPanel Spacing="14" IsVisible="{Binding IsSmartMode}">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="POPIS OBRÁZKU" Classes="sectionHeader"/>
+                                    <!-- Width pevně bound na ToggleAnchor — vynutí přesně
+                                         stejnou šířku jako Smart/Manuál toggle. -->
+                                    <Border Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                                            CornerRadius="8" MinHeight="100"
+                                            ClipToBounds="True"
+                                            HorizontalAlignment="Left"
+                                            Width="{Binding #ToggleAnchor.Bounds.Width}">
+                                        <TextBox Classes="chatInputInner"
+                                                 Text="{Binding SmartPrompt}"
+                                                 PlaceholderText="Popíš obrázek česky nebo anglicky…"
+                                                 Foreground="#EBEBF5"
+                                                 CaretBrush="#A78BFA"
+                                                 Padding="12,10"
+                                                 FontSize="13"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="Wrap"
+                                                 MinLines="3"
+                                                 MaxLines="8"
+                                                 MaxLength="2000"/>
+                                    </Border>
+                                    <!-- Hint pod bublinou — také pevně bound na ToggleAnchor,
+                                         jinak by stejně jako bublina utíkal mimo viewport
+                                         a TextWrapping=Wrap by se neuplatnil (text by měl
+                                         k dispozici nekonečnou šířku). -->
+                                    <TextBlock Text="Smart vybere model, přepíše prompt do angličtiny, doplní negative tagy. Aspect a kvalitu detekuje z popisu, dolaď je níž pokud chceš."
+                                               FontSize="11" Foreground="#555560"
+                                               TextWrapping="Wrap"
+                                               HorizontalAlignment="Left"
+                                               Width="{Binding #ToggleAnchor.Bounds.Width}"/>
+                                </StackPanel>
+
+                                <!-- Aspect override — 3 ikony -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="POMĚR STRAN" Classes="sectionHeader"/>
+                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6"
+                                          HorizontalAlignment="Left"
+                                          Width="{Binding #ToggleAnchor.Bounds.Width}">
+                                        <Button Grid.Column="0" Classes="tabBtn" Padding="0,10"
+                                                Classes.activeTab="{Binding IsAspectSquare}"
+                                                Command="{Binding SetAspectCommand}" CommandParameter="R1x1"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="◻" FontSize="14" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Čtverec" FontSize="11" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="1" Classes="tabBtn" Padding="0,10"
+                                                Classes.activeTab="{Binding IsAspectLandscape}"
+                                                Command="{Binding SetAspectCommand}" CommandParameter="R16x9"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="▭" FontSize="14" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Šířka" FontSize="11" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="2" Classes="tabBtn" Padding="0,10"
+                                                Classes.activeTab="{Binding IsAspectPortrait}"
+                                                Command="{Binding SetAspectCommand}" CommandParameter="R9x16"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="▯" FontSize="14" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Výška" FontSize="11" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Reference images — kompaktní verze pro Smart mód.
+                                     Sdílí ReferenceImages collection a Pick/Remove commands
+                                     s Manual módem; pipeline upload + workflow injection
+                                     už multi-reference podporují (viz GenerateAsync). -->
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="REFERENČNÍ OBRÁZKY (volitelné)"
+                                                   Classes="sectionHeader" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding ReferenceImages.Count, StringFormat={}{0} ks}"
+                                                   FontSize="10" Foreground="#444450"
+                                                   VerticalAlignment="Center"
+                                                   IsVisible="{Binding HasReferenceImages}"/>
+                                    </Grid>
+
+                                    <!-- Empty state — Width pevně bound na ToggleAnchor. -->
+                                    <Button IsVisible="{Binding !HasReferenceImages}"
+                                            HorizontalAlignment="Left"
+                                            Width="{Binding #ToggleAnchor.Bounds.Width}"
+                                            HorizontalContentAlignment="Center"
+                                            Background="#141416" BorderBrush="#2A2A30" BorderThickness="1"
+                                            CornerRadius="8" Padding="0,12"
+                                            Command="{Binding PickReferenceImageCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                                                <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="14" Foreground="#666672"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Text="Přidat referenční obrázky"
+                                                           FontSize="11" Foreground="#888896"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+
+                                    <!-- List vybraných — Width pevně bound na ToggleAnchor. -->
+                                    <Border IsVisible="{Binding HasReferenceImages}"
+                                            HorizontalAlignment="Left"
+                                            Width="{Binding #ToggleAnchor.Bounds.Width}"
+                                            Background="#141416" BorderBrush="#2A2A30" BorderThickness="1"
+                                            CornerRadius="8" Padding="6">
+                                        <StackPanel Spacing="6">
+                                            <ScrollViewer MaxHeight="200"
+                                                          VerticalScrollBarVisibility="Auto">
+                                            <ItemsControl ItemsSource="{Binding ReferenceImages}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:ReferenceImageItem">
+                                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+                                                              Margin="0,0,0,4">
+                                                            <Border Grid.Column="0"
+                                                                    Width="36" Height="36"
+                                                                    CornerRadius="4"
+                                                                    ClipToBounds="True"
+                                                                    Background="#1C1C1E">
+                                                                <Image Source="{Binding Thumbnail}"
+                                                                       Stretch="UniformToFill"/>
+                                                            </Border>
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding FileName}"
+                                                                       FontSize="11" Foreground="#9999AA"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       VerticalAlignment="Center"
+                                                                       ToolTip.Tip="{Binding Path}"/>
+                                                            <Button Grid.Column="2"
+                                                                    Background="Transparent" BorderThickness="0"
+                                                                    Padding="4" Width="22" Height="22"
+                                                                    CornerRadius="4"
+                                                                    VerticalAlignment="Center"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    ToolTip.Tip="Odebrat"
+                                                                    Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.RemoveReferenceImageCommand}"
+                                                                    CommandParameter="{Binding}">
+                                                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                                                                           FontSize="9" Foreground="#F87171"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"/>
+                                                            </Button>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            </ScrollViewer>
+
+                                            <!-- Přidat další + reference strength slider -->
+                                            <Button HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Center"
+                                                    Background="Transparent"
+                                                    BorderBrush="#2A2A30" BorderThickness="1"
+                                                    CornerRadius="6" Padding="0,6"
+                                                    Command="{Binding PickReferenceImageCommand}">
+                                                <StackPanel Orientation="Horizontal" Spacing="6"
+                                                            HorizontalAlignment="Center">
+                                                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
+                                                               FontSize="10" Foreground="#888896"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Přidat další"
+                                                               FontSize="11" Foreground="#888896"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+
+                                            <StackPanel Spacing="3" Margin="2,4,2,2">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="Síla reference"
+                                                               FontSize="10" Foreground="#666672"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding ReferenceStrength, StringFormat={}{0:F2}}"
+                                                               FontSize="10" Foreground="#A78BFA"
+                                                               FontWeight="SemiBold"/>
+                                                </Grid>
+                                                <Slider Value="{Binding ReferenceStrength}"
+                                                        Minimum="0.0" Maximum="1.0"
+                                                        TickFrequency="0"
+                                                        IsSnapToTickEnabled="False"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+
+                                <!-- Reasoning badge — Width pevně bound na ToggleAnchor. -->
+                                <Border IsVisible="{Binding SmartReasoning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                        HorizontalAlignment="Left"
+                                        Width="{Binding #ToggleAnchor.Bounds.Width}"
+                                        Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
+                                        CornerRadius="8" Padding="12,8">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                        <TextBlock Grid.Column="0" Text="&#xE946;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="12" Foreground="#A78BFA"
+                                                   VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding SmartReasoning}"
+                                                   FontSize="11" Foreground="#A78BFA" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Spinner při LLM parsování -->
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
+                                            IsVisible="{Binding IsParsingIntent}">
+                                    <ProgressBar IsIndeterminate="True" Width="180" Height="2"
+                                                 Foreground="#7C3AED" Background="#222228"/>
+                                    <TextBlock Text="Analyzuji popis…" FontSize="11" Foreground="#888896"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- ═══════════════════ MANUÁL MODE ═══════════════════ -->
+                            <!-- Stávající form schovaný pod tlačítkem „Manuál". V Smart módu zůstává
+                                 v paměti, takže když Smart auto-vyplní pole, uživatel je v Manuálu
+                                 přesně vidí — užitečné pro dolaďování po prvním návrhu. -->
+                            <StackPanel Spacing="16" IsVisible="{Binding !IsSmartMode}">
 
                             <!-- Model -->
                             <StackPanel Spacing="6">
                                 <TextBlock Text="MODEL" Classes="sectionHeader"/>
+                                <!-- ItemTemplate strippuje příponu pro display — uživatel vidí
+                                     „flux1-schnell-Q4_K_S" místo „…gguf". SelectedItem ale
+                                     drží plný name (s příponou), což ComfyUI potřebuje pro load. -->
                                 <ComboBox ItemsSource="{Binding AvailableCheckpoints}"
                                           SelectedItem="{Binding SelectedModel}"
                                           HorizontalAlignment="Stretch"
@@ -201,7 +475,14 @@
                                           BorderBrush="#2A2A2E"
                                           CornerRadius="8"
                                           FontSize="13"
-                                          PlaceholderText="Vybrat checkpoint…"/>
+                                          PlaceholderText="Vybrat checkpoint…">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <TextBlock Text="{Binding Converter={StaticResource StripExt}}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                             </StackPanel>
 
                             <!-- Prompt -->
@@ -236,11 +517,21 @@
                                          FontSize="13"/>
                             </StackPanel>
 
-                            <!-- Reference image -->
+                            <!-- Reference images (multi) -->
                             <StackPanel Spacing="6">
-                                <TextBlock Text="REFERENČNÍ OBRÁZEK" Classes="sectionHeader"/>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="REFERENČNÍ OBRÁZKY" Classes="sectionHeader"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding ReferenceImages.Count, StringFormat={}{0} ks}"
+                                               FontSize="10" Foreground="#444450"
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding HasReferenceImages}"/>
+                                </Grid>
+
+                                <!-- Empty state — žádný obrázek nepřidán -->
                                 <Border Classes="card" Padding="12"
-                                        IsVisible="{Binding !HasReferenceImage}">
+                                        IsVisible="{Binding !HasReferenceImages}">
                                     <Button HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Center"
                                             Background="Transparent"
@@ -255,30 +546,91 @@
                                                        FontSize="24"
                                                        Foreground="#444450"
                                                        HorizontalAlignment="Center"/>
-                                            <TextBlock Text="Přidat referenční obrázek"
+                                            <TextBlock Text="Přidat referenční obrázky"
                                                        FontSize="12"
-                                                       Foreground="#555560"/>
+                                                       Foreground="#555560"
+                                                       HorizontalAlignment="Center"/>
+                                            <TextBlock Text="(jeden i víc, Ctrl+klik pro multiselect)"
+                                                       FontSize="10"
+                                                       Foreground="#3A3A44"
+                                                       HorizontalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
                                 </Border>
-                                <Border Classes="card" Padding="12"
-                                        IsVisible="{Binding HasReferenceImage}">
+
+                                <!-- List vybraných obrázků -->
+                                <Border Classes="card" Padding="8"
+                                        IsVisible="{Binding HasReferenceImages}">
                                     <StackPanel Spacing="8">
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <TextBlock Grid.Column="0" Text="{Binding ReferenceImagePath}"
-                                                       FontSize="12" Foreground="#9999AA"
-                                                       TextTrimming="CharacterEllipsis"/>
-                                            <Button Grid.Column="1"
-                                                    Background="Transparent"
-                                                    BorderThickness="0"
-                                                    Padding="4"
-                                                    Foreground="#666672"
-                                                    Content="✕"
-                                                    Command="{Binding ClearReferenceImageCommand}"/>
-                                        </Grid>
-                                        <StackPanel Spacing="4">
+                                        <ScrollViewer MaxHeight="220"
+                                                      VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding ReferenceImages}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:ReferenceImageItem">
+                                                    <Border Background="#141416" CornerRadius="6"
+                                                            Padding="6" Margin="0,0,0,4">
+                                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                                            <Border Grid.Column="0"
+                                                                    Width="40" Height="40"
+                                                                    CornerRadius="4"
+                                                                    ClipToBounds="True"
+                                                                    Background="#1C1C1E">
+                                                                <Image Source="{Binding Thumbnail}"
+                                                                       Stretch="UniformToFill"/>
+                                                            </Border>
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding FileName}"
+                                                                       FontSize="11" Foreground="#9999AA"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       VerticalAlignment="Center"
+                                                                       ToolTip.Tip="{Binding Path}"/>
+                                                            <Button Grid.Column="2"
+                                                                    Background="Transparent" BorderThickness="0"
+                                                                    Padding="6" Width="26" Height="26"
+                                                                    CornerRadius="4"
+                                                                    VerticalAlignment="Center"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    ToolTip.Tip="Odebrat"
+                                                                    Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.RemoveReferenceImageCommand}"
+                                                                    CommandParameter="{Binding}">
+                                                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
+                                                                           FontSize="10" Foreground="#F87171"
+                                                                           HorizontalAlignment="Center"
+                                                                           VerticalAlignment="Center"/>
+                                                            </Button>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        </ScrollViewer>
+
+                                        <!-- Tlačítko přidat další -->
+                                        <Button HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Center"
+                                                Background="Transparent"
+                                                BorderBrush="#2A2A30"
+                                                BorderThickness="1"
+                                                CornerRadius="6"
+                                                Padding="0,8"
+                                                Command="{Binding PickReferenceImageCommand}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6"
+                                                        HorizontalAlignment="Center">
+                                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="11" Foreground="#888896"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Text="Přidat další"
+                                                           FontSize="11" Foreground="#888896"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+
+                                        <!-- Slider síly reference (společný pro všechny) -->
+                                        <StackPanel Spacing="4" Margin="0,4,0,0">
                                             <Grid ColumnDefinitions="*,Auto">
-                                                <TextBlock Grid.Column="0" Text="Síla reference" FontSize="11" Foreground="#555560"/>
+                                                <TextBlock Grid.Column="0" Text="Síla reference"
+                                                           FontSize="11" Foreground="#555560"/>
                                                 <TextBlock Grid.Column="1"
                                                            Text="{Binding ReferenceStrength, StringFormat={}{0:P0}}"
                                                            FontSize="11" Foreground="#888896"/>
@@ -400,9 +752,11 @@
                             </Grid>
 
                             <!-- Spacer na konci formuláře — zaručí, že poslední ovládací prvek
-                                 má pod sebou rezervu i v případě, že ScrollViewer.Padding
-                                 (Avalonia kvirk) extent správně nezahrne. -->
-                            <Border Height="40"/>
+                                 (POČET VARIANT + Seed) má pod sebou rezervu i v případě, že
+                                 ScrollViewer.Padding (Avalonia kvirk) extent správně nezahrne. -->
+                            <Border Height="100"/>
+
+                            </StackPanel>  <!-- konec MANUAL wrap (IsSmartMode=false) -->
 
                         </StackPanel>
                     </ScrollViewer>
@@ -450,12 +804,15 @@
                                        HorizontalAlignment="Stretch"/>
 
                             <Panel>
-                                <!-- Generate -->
+                                <!-- Generate — routed command podle IsSmartMode rozhodne,
+                                     jestli se má použít Smart pipeline (intent parser →
+                                     auto-fill → generování) nebo Manual (přímé spuštění
+                                     s aktuálními poli). -->
                                 <Button Classes="primary"
                                         HorizontalAlignment="Stretch"
                                         HorizontalContentAlignment="Center"
                                         Padding="0,14"
-                                        Command="{Binding GenerateCommand}"
+                                        Command="{Binding GenerateRoutedCommand}"
                                         IsVisible="{Binding !IsGenerating}">
                                     <TextBlock Text="Generovat" FontSize="14" FontWeight="SemiBold"/>
                                 </Button>
@@ -541,10 +898,16 @@
                     <!-- State C: Existují obrázky — zobraz poslední + overlay při generování -->
                     <Grid IsVisible="{Binding HasGeneratedImages}" RowDefinitions="*,Auto">
                         <Border Grid.Row="0" Padding="24" Background="#0D0D0D">
-                            <Image Source="{Binding LatestImage.Thumbnail}"
+                            <!-- FullBitmap = plná originální velikost (lazy). Bez toho by
+                                 canvas zobrazoval 220 px thumbnail upscalovaný na ~700 px →
+                                 rozmazaný. RenderOptions.BitmapInterpolationMode=HighQuality
+                                 navíc použije ostřejší interpolation kernel pro downscale,
+                                 takže 1024×1024 → 700×700 vypadá křišťálově. -->
+                            <Image Source="{Binding LatestImage.FullBitmap}"
                                    Stretch="Uniform"
                                    HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
                         </Border>
 
                         <!-- Generating overlay over existing image -->
@@ -568,49 +931,75 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Image metadata bar -->
+                        <!-- Image metadata bar — prompt + Model · Seed · Datum + akce -->
                         <Border Grid.Row="1"
                                 Background="#0A0A0C"
                                 BorderBrush="#1E1E24"
                                 BorderThickness="0,1,0,0"
                                 Padding="16,8">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6"
                                   DataContext="{Binding LatestImage}">
-                                <TextBlock Grid.Column="0"
-                                           Text="{Binding Prompt}"
-                                           FontSize="11"
-                                           Foreground="#666672"
-                                           TextTrimming="CharacterEllipsis"
-                                           VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Prompt}"
+                                               FontSize="11"
+                                               Foreground="#888896"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding Model}"
+                                                   FontSize="10" Foreground="#555560"
+                                                   IsVisible="{Binding Model, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        <TextBlock Text="·" FontSize="10" Foreground="#3A3A44"
+                                                   IsVisible="{Binding Model, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        <TextBlock Text="{Binding Seed, StringFormat={}seed {0}}"
+                                                   FontSize="10" Foreground="#555560"/>
+                                        <TextBlock Text="·" FontSize="10" Foreground="#3A3A44"/>
+                                        <TextBlock Text="{Binding FullDateLabel}"
+                                                   FontSize="10" Foreground="#555560"/>
+                                    </StackPanel>
+                                </StackPanel>
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding ResolutionLabel}"
                                            FontSize="11"
-                                           Foreground="#555560"
+                                           Foreground="#A78BFA"
+                                           FontWeight="SemiBold"
                                            Margin="12,0"
                                            VerticalAlignment="Center"/>
                                 <!-- Copy prompt -->
                                 <Button Grid.Column="2"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="6,4"
+                                        Background="Transparent" BorderThickness="0"
+                                        Padding="6,4" CornerRadius="6"
                                         ToolTip.Tip="Kopírovat prompt"
                                         Command="{Binding CopyPromptCommand}">
-                                    <TextBlock Text="&#xE8C8;"
-                                               FontFamily="Segoe MDL2 Assets"
-                                               FontSize="13"
-                                               Foreground="#555560"/>
+                                    <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="13" Foreground="#555560"/>
+                                </Button>
+                                <!-- Copy seed -->
+                                <Button Grid.Column="3"
+                                        Background="Transparent" BorderThickness="0"
+                                        Padding="6,4" CornerRadius="6"
+                                        ToolTip.Tip="Kopírovat seed"
+                                        Command="{Binding CopySeedCommand}">
+                                    <TextBlock Text="&#xE8AB;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="13" Foreground="#555560"/>
                                 </Button>
                                 <!-- Open in Explorer -->
-                                <Button Grid.Column="3"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="6,4"
-                                        ToolTip.Tip="Otevřít ve Průzkumníku"
+                                <Button Grid.Column="4"
+                                        Background="Transparent" BorderThickness="0"
+                                        Padding="6,4" CornerRadius="6"
+                                        ToolTip.Tip="Otevřít v Průzkumníku"
                                         Command="{Binding OpenInExplorerCommand}">
-                                    <TextBlock Text="&#xEC50;"
-                                               FontFamily="Segoe MDL2 Assets"
-                                               FontSize="13"
-                                               Foreground="#555560"/>
+                                    <TextBlock Text="&#xEC50;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="13" Foreground="#555560"/>
+                                </Button>
+                                <!-- Delete -->
+                                <Button Grid.Column="5"
+                                        Background="Transparent" BorderThickness="0"
+                                        Padding="6,4" CornerRadius="6"
+                                        ToolTip.Tip="Smazat obrázek"
+                                        Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.DeleteImageCommand}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="13" Foreground="#7A4040"/>
                                 </Button>
                             </Grid>
                         </Border>
@@ -638,7 +1027,7 @@
                                     <Border CornerRadius="6"
                                             BorderThickness="2"
                                             Cursor="Hand"
-                                            ToolTip.Tip="{Binding TimeLabel}"
+                                            ToolTip.Tip="{Binding FullDateLabel}"
                                             Classes.selected="{Binding IsSelected}">
                                         <Border.Styles>
                                             <Style Selector="Border.selected">
@@ -651,6 +1040,42 @@
                                                 <Setter Property="BorderBrush" Value="#5B21B6"/>
                                             </Style>
                                         </Border.Styles>
+                                        <!-- Kontextové menu (pravý klik) — Kopírovat prompt/seed,
+                                             Otevřít v Explorer, Smazat. Delete je destruktivní,
+                                             takže červený štítek nahoře vizuálně varuje. -->
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Kopírovat prompt"
+                                                          Command="{Binding CopyPromptCommand}">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem Header="Kopírovat seed"
+                                                          Command="{Binding CopySeedCommand}">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <Separator/>
+                                                <MenuItem Header="Otevřít v Průzkumníku"
+                                                          Command="{Binding OpenInExplorerCommand}">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock Text="&#xEC50;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <Separator/>
+                                                <MenuItem Header="Smazat"
+                                                          Foreground="#F87171"
+                                                          Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.DeleteImageCommand}"
+                                                          CommandParameter="{Binding}">
+                                                    <MenuItem.Icon>
+                                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
+                                                                   FontSize="12" Foreground="#F87171"/>
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
                                         <Button Background="Transparent"
                                                 BorderThickness="0"
                                                 Padding="0"
