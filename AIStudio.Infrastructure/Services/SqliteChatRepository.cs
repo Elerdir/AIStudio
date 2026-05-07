@@ -286,6 +286,48 @@ public sealed class SqliteChatRepository : IChatRepository
         }
     }
 
+    public async Task ClearAllConversationsAsync()
+    {
+        try
+        {
+            await using var conn = await OpenAsync();
+            // Pořadí: nejdřív zprávy (jistota i bez CASCADE), pak konverzace.
+            // Použijeme transakci, aby se obě tabulky updatovaly atomicky;
+            // jinak by se mohlo stát, že napůl smazaná data zůstanou v DB.
+            await using var tx = (Microsoft.Data.Sqlite.SqliteTransaction)await conn.BeginTransactionAsync();
+            try
+            {
+                await using (var cmdMsg = conn.CreateCommand())
+                {
+                    cmdMsg.Transaction = tx;
+                    cmdMsg.CommandText = "DELETE FROM Messages";
+                    var rowsMsg = await cmdMsg.ExecuteNonQueryAsync();
+                    Log.Information("ClearAll: smazáno {Rows} zpráv", rowsMsg);
+                }
+
+                await using (var cmdConv = conn.CreateCommand())
+                {
+                    cmdConv.Transaction = tx;
+                    cmdConv.CommandText = "DELETE FROM Conversations";
+                    var rowsConv = await cmdConv.ExecuteNonQueryAsync();
+                    Log.Information("ClearAll: smazáno {Rows} konverzací", rowsConv);
+                }
+
+                await tx.CommitAsync();
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "ClearAllConversations selhalo");
+            throw;
+        }
+    }
+
     public async Task DeleteMessagesFromIndexAsync(string conversationId, int fromOrderIndex)
     {
         try

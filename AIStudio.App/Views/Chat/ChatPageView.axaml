@@ -29,15 +29,20 @@
                             Content="+ Nový chat"/>
                 </Border>
 
-                <!-- Vyhledávání v konverzacích -->
+                <!-- Vyhledávání v konverzacích — wrapper Border drží pozadí,
+                     TextBox má chatInputInner class (transparentní + override
+                     fluent fokus stavů). -->
                 <Border DockPanel.Dock="Top" Padding="8,0,8,6">
-                    <TextBox Text="{Binding SidebarSearch}"
-                             PlaceholderText="&#xE721; Hledat…"
-                             Background="#1C1C1E"
-                             BorderBrush="#2A2A2E" BorderThickness="1"
-                             Foreground="#CCCCDD" CaretBrush="#A78BFA"
-                             CornerRadius="8" Padding="10,6"
-                             FontSize="12"/>
+                    <Border Background="#1C1C1E"
+                            BorderBrush="#2A2A2E" BorderThickness="1"
+                            CornerRadius="8">
+                        <TextBox Classes="chatInputInner"
+                                 Text="{Binding SidebarSearch}"
+                                 PlaceholderText="&#xE721; Hledat…"
+                                 Foreground="#CCCCDD" CaretBrush="#A78BFA"
+                                 Padding="10,6"
+                                 FontSize="12"/>
+                    </Border>
                 </Border>
 
                 <Border DockPanel.Dock="Top" Padding="14,2,14,4">
@@ -406,9 +411,9 @@
                     Background="#0A0A0C"
                     BorderBrush="#2A2A2E" BorderThickness="0,0,0,1"
                     Padding="20,10,20,12">
-                <Grid RowDefinitions="Auto,8,Auto" >
+                <StackPanel Spacing="8">
                     <!-- Hlavička panelu -->
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                    <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets"
                                        FontSize="11" Foreground="#555560"
@@ -429,27 +434,63 @@
                                        FontSize="10" Foreground="#444450"/>
                         </Button>
                     </Grid>
-                    <!-- TextBox -->
-                    <TextBox Grid.Row="2"
-                             Text="{Binding SelectedConversation.SystemPrompt}"
-                             PlaceholderText="Instrukce pro model (např. 'Odpovídej vždy česky a stručně')…"
-                             Background="#161618"
-                             BorderBrush="#2A2A2E" BorderThickness="1"
-                             Foreground="#CCCCDD"
-                             CaretBrush="#A78BFA"
-                             Padding="12,8"
-                             FontSize="12"
-                             AcceptsReturn="True"
-                             MaxLines="6"
-                             MaxLength="2000"
-                             TextWrapping="Wrap"
-                             CornerRadius="8"/>
-                </Grid>
+
+                    <!-- Presety — klik naplní SystemPrompt aktuální konverzace.
+                         Wrap+horizontal panel se přizpůsobí šířce, aby se na úzkém
+                         okně tlačítka zalomila místo odřezání. -->
+                    <ItemsControl ItemsSource="{Binding SystemPromptPresets}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" ItemSpacing="6" LineSpacing="6"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SystemPromptPreset">
+                                <Button Command="{ReflectionBinding $parent[UserControl].DataContext.ApplySystemPromptPresetCommand}"
+                                        CommandParameter="{Binding}"
+                                        Background="#161624"
+                                        BorderBrush="#2A2A3E" BorderThickness="1"
+                                        CornerRadius="6"
+                                        Padding="10,4"
+                                        FontSize="11"
+                                        Foreground="#A78BFA"
+                                        Cursor="Hand"
+                                        ToolTip.Tip="{Binding Prompt}">
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- TextBox — wrap Border drží pozadí, chatInputInner class
+                         drží vnitřní fluent backplate transparentní (jinak by
+                         při fokusu zbělalo v dark módu). -->
+                    <Border Background="#161618"
+                            BorderBrush="#2A2A2E" BorderThickness="1"
+                            CornerRadius="8">
+                        <TextBox Classes="chatInputInner"
+                                 Text="{Binding SelectedConversation.SystemPrompt}"
+                                 PlaceholderText="Instrukce pro model (např. 'Odpovídej vždy česky a stručně')…"
+                                 Foreground="#CCCCDD"
+                                 CaretBrush="#A78BFA"
+                                 Padding="12,8"
+                                 FontSize="12"
+                                 AcceptsReturn="True"
+                                 MaxLines="6"
+                                 MaxLength="2000"
+                                 TextWrapping="Wrap"/>
+                    </Border>
+                </StackPanel>
             </Border>
 
             <!-- ── Row 2: Zprávy + FAB ── -->
             <Panel Grid.Row="2">
-              <ScrollViewer Padding="28,16,28,120" Name="MessagesScroll">
+              <!-- ScrollViewer.Padding bottom se v některých velikostech viewportu
+                   nepočítá do extentu (Avalonia kvirk), takže poslední bublina mohla
+                   vykuknout pod spodek okna bez možnosti doscrollovat. Spolehlivější
+                   je obalit obsah do StackPanelu se spacer-Borderem na konci. -->
+              <ScrollViewer Padding="28,16,28,16" Name="MessagesScroll">
+              <StackPanel>
               <Panel>
 
                 <!-- Prázdný stav — žádná konverzace vůbec (vše smazáno) -->
@@ -809,6 +850,10 @@
                 </ItemsControl>
 
               </Panel>
+              <!-- Spolehlivý spacer na konci konverzace — zaručí, že poslední
+                   bublina má pod sebou volný prostor a uživatel ji vidí celou. -->
+              <Border Height="140"/>
+              </StackPanel>
               </ScrollViewer>
 
               <!-- FAB: Scroll na konec (zobrazí se, když uživatel scrolloval nahoru) -->
@@ -943,6 +988,8 @@
                     </Border>
 
                     <!-- Input řádek: attach + textbox + regenerate/compare + send/stop -->
+                    <!-- Multi-line: TextBox roste do max 6 řádků; tlačítka kotvíme
+                         k spodku (VerticalAlignment=Bottom), aby se neroztahovala. -->
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
 
                         <!-- Přiložit obrázek -->
@@ -950,7 +997,7 @@
                                 Command="{Binding AttachImageCommand}"
                                 Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
                                 Width="46" Height="46" Padding="0" CornerRadius="12"
-                                VerticalAlignment="Center"
+                                VerticalAlignment="Bottom"
                                 ToolTip.Tip="Přiložit obrázek">
                             <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets"
                                        FontSize="16" Foreground="#444450"
@@ -961,50 +1008,63 @@
                                 Background="#1C1C1E"
                                 BorderBrush="#2A2A2E"
                                 BorderThickness="1"
-                                CornerRadius="12">
+                                CornerRadius="12"
+                                MinHeight="46">
                             <TextBox Name="ChatInputBox"
+                                     Classes="chatInputInner"
                                      Text="{Binding InputText}"
-                                     PlaceholderText="Napiš zprávu… (Enter = odeslat)"
-                                     Background="Transparent"
-                                     BorderThickness="0"
+                                     PlaceholderText="Napiš zprávu… (Enter = odeslat, Shift+Enter = nový řádek)"
                                      Foreground="#EBEBF5"
                                      CaretBrush="#A78BFA"
-                                     Padding="16,12"
+                                     Padding="16,11"
                                      FontSize="14"
-                                     AcceptsReturn="False"
-                                     MaxLines="1"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     MinLines="1"
+                                     MaxLines="6"
                                      MaxLength="8000"
+                                     VerticalContentAlignment="Center"
                                      IsEnabled="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
-                                     KeyDown="InputBox_KeyDown"/>
+                                     KeyDown="InputBox_KeyDown">
+                                <!-- KeyBindings běží před vnitřní TextBox logikou (která by jinak
+                                     plain Enter zpracovala jako nový řádek dřív, než to chytne náš
+                                     code-behind). Shift+Enter sem nepatří (jiný gesture) → TextBox
+                                     ho v pořádku zpracuje jako insert newline. Ctrl+Enter je
+                                     bonusová zkratka — některé klávesnice/IME mají Enter problém. -->
+                                <TextBox.KeyBindings>
+                                    <KeyBinding Gesture="Enter"      Command="{Binding SendMessageCommand}"/>
+                                    <KeyBinding Gesture="Ctrl+Enter" Command="{Binding SendMessageCommand}"/>
+                                </TextBox.KeyBindings>
+                            </TextBox>
                         </Border>
 
-                        <!-- Regenerovat odpověď — kompaktní ikonové tlačítko -->
+                        <!-- Regenerovat odpověď — vždy viditelné, disabled když nedává smysl -->
                         <Button Grid.Column="2"
                                 Command="{Binding RegenerateLastResponseCommand}"
-                                IsVisible="{Binding CanRegenerate}"
+                                IsEnabled="{Binding CanRegenerate}"
                                 Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
                                 Width="46" Height="46" Padding="0" CornerRadius="12"
-                                VerticalAlignment="Center"
+                                VerticalAlignment="Bottom"
                                 ToolTip.Tip="Regenerovat poslední odpověď">
                             <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets"
                                        FontSize="14" Foreground="#888896"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
-                        <!-- Porovnat s jiným modelem — kompaktní ikonové tlačítko -->
+                        <!-- Porovnat s jiným modelem — vždy viditelné, disabled když nedává smysl -->
                         <Button Grid.Column="3"
                                 Command="{Binding ToggleComparePickerCommand}"
-                                IsVisible="{Binding CanRegenerate}"
+                                IsEnabled="{Binding CanRegenerate}"
                                 Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
                                 Width="46" Height="46" Padding="0" CornerRadius="12"
-                                VerticalAlignment="Center"
+                                VerticalAlignment="Bottom"
                                 ToolTip.Tip="Porovnat odpověď s jiným modelem">
                             <TextBlock Text="&#xE8C1;" FontFamily="Segoe MDL2 Assets"
                                        FontSize="14" Foreground="#888896"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
-                        <Panel Grid.Column="4" Width="46" Height="46">
+                        <Panel Grid.Column="4" Width="46" Height="46" VerticalAlignment="Bottom">
                             <!-- Odeslat -->
                             <Button Classes="primary"
                                     Command="{Binding SendMessageCommand}"

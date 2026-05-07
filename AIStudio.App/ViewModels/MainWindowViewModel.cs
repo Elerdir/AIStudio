@@ -35,7 +35,10 @@ public partial class MainWindowViewModel : ViewModelBase
                                IDownloadService downloader, ISettingsService settings,
                                IChatRepository chatRepo, IComfyService comfy,
                                IImageRepository imageRepo, IComfyInstaller comfyInstaller,
-                               IHuggingFaceClient hfClient)
+                               IHuggingFaceClient hfClient,
+                               IModelDiscoveryService discovery,
+                               IImageIntentParser imageIntentParser,
+                               IImageModelMatcher imageModelMatcher)
     {
         _monitor = monitor;
         _llama = llama;
@@ -43,11 +46,13 @@ public partial class MainWindowViewModel : ViewModelBase
         ChatPage = new ChatPageViewModel(llama, chatRepo, settings);
         ChatPage.RequestNavigate = page => Navigate(page);
         _ = ChatPage.InitializeAsync();
-        ImageStudioPage = new ImageStudioPageViewModel(comfy, settings, imageRepo);
+        ImageStudioPage = new ImageStudioPageViewModel(comfy, settings, imageRepo,
+                                                       imageIntentParser, imageModelMatcher,
+                                                       llama);
         ImageStudioPage.RequestNavigate = page => Navigate(page);
-        ModelManagerPage = new ModelManagerPageViewModel(downloader, settings, llama, hfClient);
+        ModelManagerPage = new ModelManagerPageViewModel(downloader, settings, llama, hfClient, discovery);
         SystemPage = new SystemPageViewModel(monitor, llama);
-        SettingsPage = new SettingsPageViewModel(settings, comfyInstaller);
+        SettingsPage = new SettingsPageViewModel(settings, comfyInstaller, chatRepo);
 
         _currentPage = ChatPage;
 

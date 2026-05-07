@@ -33,4 +33,29 @@ public interface IHuggingFaceClient
     /// URL na webovou stránku modelu (pro tlačítko „Otevřít stránku modelu").
     /// </summary>
     string BuildModelPageUrl(string repoId);
+
+    /// <summary>
+    /// Obecnější vyhledávání. Na rozdíl od <see cref="SearchGgufModelsAsync"/>
+    /// neforsuje filter=gguf — discovery service ho používá pro různé typy
+    /// (text-generation, image-to-text, embedding…) a sám si filtruje výsledky.
+    /// </summary>
+    /// <param name="query">Vyhledávací řetězec; když je prázdný, vrátí top-N.</param>
+    /// <param name="filter">HF tag filtr (např. <c>"gguf"</c>, <c>"text-generation"</c>); null = bez filtru.</param>
+    /// <param name="task">Pipeline task (<c>"text-generation"</c>, <c>"image-to-text"</c>); null = jakýkoliv.</param>
+    /// <param name="sort">Pole pro řazení (<c>"downloads"</c>, <c>"likes"</c>, <c>"trendingScore"</c>).</param>
+    /// <param name="direction">-1 = sestupně, 1 = vzestupně.</param>
+    Task<IReadOnlyList<HfModelInfo>> SearchModelsAsync(
+        string?           query     = null,
+        string?           filter    = null,
+        string?           task      = null,
+        string            sort      = "downloads",
+        int               direction = -1,
+        int               limit     = 20,
+        CancellationToken ct        = default);
+
+    /// <summary>
+    /// Načte popis modelu z <c>/api/models/{id}</c>. Vrací krátký výtah z
+    /// model card (cardData.summary) nebo prvních ~400 znaků markdown popisu.
+    /// </summary>
+    Task<string> GetModelDescriptionAsync(string repoId, CancellationToken ct = default);
 }

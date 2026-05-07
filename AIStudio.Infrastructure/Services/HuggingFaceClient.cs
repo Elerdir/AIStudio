@@ -126,6 +126,114 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
     public string BuildModelPageUrl(string repoId) =>
         $"{BaseUrl}/{repoId}";
 
+    public async Task<IReadOnlyList<HfModelInfo>> SearchModelsAsync(
+        string?           query     = null,
+        string?           filter    = null,
+        string?           task      = null,
+        string            sort      = "downloads",
+        int               direction = -1,
+        int               limit     = 20,
+        CancellationToken ct        = default)
+    {
+        var parts = new List<string>
+        {
+            $"limit={Math.Clamp(limit, 1, 100)}",
+            $"sort={Uri.EscapeDataString(sort)}",
+            $"direction={direction}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(query))
+            parts.Add($"search={Uri.EscapeDataString(query)}");
+
+        if (!string.IsNullOrWhiteSpace(filter))
+            parts.Add($"filter={Uri.EscapeDataString(filter)}");
+
+        if (!string.IsNullOrWhiteSpace(task))
+            parts.Add($"pipeline_tag={Uri.EscapeDataString(task)}");
+
+        var url = $"{BaseUrl}/api/models?{string.Join('&', parts)}";
+
+        try
+        {
+            using var req  = BuildAuthorizedRequest(HttpMethod.Get, url);
+            using var resp = await Http.SendAsync(req, ct);
+            resp.EnsureSuccessStatusCode();
+
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+
+            var list = new List<HfModelInfo>();
+            foreach (var item in doc.RootElement.EnumerateArray())
+            {
+                var id = item.TryGetProperty("id",        out var idEl) ? idEl.GetString() ?? "" : "";
+                var dl = item.TryGetProperty("downloads", out var dlEl) ? dlEl.GetInt64()       : 0;
+                var lk = item.TryGetProperty("likes",     out var lkEl) ? lkEl.GetInt64()       : 0;
+                var lm = item.TryGetProperty("lastModified", out var lmEl) &&
+                         lmEl.ValueKind == JsonValueKind.String &&
+                         DateTime.TryParse(lmEl.GetString(), out var dt)
+                    ? dt
+                    : DateTime.MinValue;
+
+                if (string.IsNullOrEmpty(id)) continue;
+                list.Add(new HfModelInfo(id, dl, lk, lm));
+            }
+
+            Log.Information("HF search query='{Q}' filter='{F}' task='{T}' → {Count}",
+                            query ?? "*", filter ?? "*", task ?? "*", list.Count);
+            return list;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "HF search query='{Q}' filter='{F}' task='{T}' selhal",
+                        query, filter, task);
+            return Array.Empty<HfModelInfo>();
+        }
+    }
+
+    public async Task<string> GetModelDescriptionAsync(string repoId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(repoId)) return string.Empty;
+
+        var url = $"{BaseUrl}/api/models/{repoId}";
+        try
+        {
+            using var req  = BuildAuthorizedRequest(HttpMethod.Get, url);
+            using var resp = await Http.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode) return string.Empty;
+
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(json);
+
+            // Preferujeme cardData.summary (krátký výtah), pokud autor doplnil.
+            if (doc.RootElement.TryGetProperty("cardData", out var card) &&
+                card.ValueKind == JsonValueKind.Object &&
+                card.TryGetProperty("summary", out var sum) &&
+                sum.ValueKind == JsonValueKind.String)
+            {
+                var s = sum.GetString();
+                if (!string.IsNullOrWhiteSpace(s)) return s.Trim();
+            }
+
+            // Fallback: tags joined — málo, ale lepší než nic.
+            if (doc.RootElement.TryGetProperty("tags", out var tags) &&
+                tags.ValueKind == JsonValueKind.Array)
+            {
+                var tagList = tags.EnumerateArray()
+                                  .Select(t => t.GetString())
+                                  .Where(s => !string.IsNullOrEmpty(s))
+                                  .Take(8)
+                                  .ToArray();
+                if (tagList.Length > 0)
+                    return string.Join(" · ", tagList!);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "HF GetModelDescriptionAsync '{Repo}' selhal", repoId);
+        }
+        return string.Empty;
+    }
+
     /// <summary>
     /// Pokud má uživatel v Nastavení HF token, přidá ho jako Bearer Auth header —
     /// umožní stahování gated modelů (Llama, Gemma…). Bez tokenu jen veřejné.

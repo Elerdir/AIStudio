@@ -14,6 +14,7 @@ public partial class SettingsPageViewModel : ViewModelBase
 {
     private readonly ISettingsService _settings;
     private readonly IComfyInstaller  _comfyInstaller;
+    private readonly IChatRepository  _chatRepo;
     private CancellationTokenSource? _saveDebounceCts;
     private CancellationTokenSource? _installCts;
 
@@ -62,6 +63,11 @@ public partial class SettingsPageViewModel : ViewModelBase
     [ObservableProperty] private bool _showCivitaiToken;
     [ObservableProperty] private bool _isSaved;
 
+    // ── Smazání chatů — inline confirm ────────────────────────────────────────
+    [ObservableProperty] private bool _isConfirmingChatClear;
+    [ObservableProperty] private bool _isClearingChats;
+    [ObservableProperty] private string _chatClearStatus = string.Empty;
+
     public IReadOnlyList<AppTheme>    Themes    { get; } = Enum.GetValues<AppTheme>();
     public IReadOnlyList<AppLanguage> Languages { get; } = Enum.GetValues<AppLanguage>();
 
@@ -70,10 +76,13 @@ public partial class SettingsPageViewModel : ViewModelBase
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                      "AIStudio", "Models");
 
-    public SettingsPageViewModel(ISettingsService settings, IComfyInstaller comfyInstaller)
+    public SettingsPageViewModel(ISettingsService settings,
+                                 IComfyInstaller comfyInstaller,
+                                 IChatRepository chatRepo)
     {
         _settings        = settings;
         _comfyInstaller  = comfyInstaller;
+        _chatRepo        = chatRepo;
 
         // Načteme hodnoty ze stávajících nastavení
         var s = _settings.Settings;
@@ -94,6 +103,7 @@ public partial class SettingsPageViewModel : ViewModelBase
     partial void OnSelectedThemeChanged(AppTheme value)
     {
         _settings.Settings.Theme = value;
+        AIStudio.App.App.ApplyTheme(value);   // ihned přepni — bez čekání na restart
         ScheduleSave();
     }
 
@@ -312,6 +322,17 @@ public partial class SettingsPageViewModel : ViewModelBase
         catch { /* prohlížeč nemusí být k dispozici */ }
     }
 
+    /// <summary>Otevře samostatné okno s diagnostickým prohlížečem logů.</summary>
+    [RelayCommand]
+    private void OpenLogViewer()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } owner }) return;
+
+        var window = new AIStudio.App.Views.Settings.LogViewerWindow();
+        window.Show(owner);
+    }
+
     // ── Auto-instalace ComfyUI Portable ───────────────────────────────────────
 
     /// <summary>
@@ -387,6 +408,66 @@ public partial class SettingsPageViewModel : ViewModelBase
 
     [RelayCommand]
     private void CancelInstallComfyUi() => _installCts?.Cancel();
+
+    // ── Smazání všech chatů ───────────────────────────────────────────────────
+
+    /// <summary>První klik na „Smazat všechny chaty" — zapne confirm panel.</summary>
+    [RelayCommand]
+    private void BeginChatClearConfirmation() => IsConfirmingChatClear = true;
+
+    /// <summary>Zruš confirmaci — zavře potvrzovací panel bez akce.</summary>
+    [RelayCommand]
+    private void CancelChatClear()
+    {
+        IsConfirmingChatClear = false;
+        ChatClearStatus       = string.Empty;
+    }
+
+    /// <summary>
+    /// Vymaže všechny konverzace + zprávy z SQLite. Pak fíruje
+    /// <see cref="ISettingsService.NotifyConversationsCleared"/>, aby
+    /// ChatPageViewModel synchronizoval svou in-memory ObservableCollection.
+    /// </summary>
+    [RelayCommand]
+    private async Task ConfirmChatClearAsync()
+    {
+        if (IsClearingChats) return;
+
+        IsClearingChats = true;
+        ChatClearStatus = "Mažu konverzace…";
+
+        try
+        {
+            await _chatRepo.ClearAllConversationsAsync();
+
+            ChatClearStatus       = "Hotovo — všechny konverzace smazány.";
+            IsConfirmingChatClear = false;
+
+            // Synchronizace UI: ChatPageViewModel poslouchá tenhle event a
+            // vyčistí svou Conversations kolekci. Bez toho by uživatel viděl
+            // staré chaty v sidebaru, dokud aplikaci nerestartuje.
+            _settings.NotifyConversationsCleared();
+
+            // Status hláška zmizí po pár sekundách — žádný permanent banner.
+            _ = HideClearStatusAfterDelayAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "ChatClear: SQL operace selhala");
+            ChatClearStatus = $"Chyba: {ex.Message}";
+        }
+        finally
+        {
+            IsClearingChats = false;
+        }
+    }
+
+    private async Task HideClearStatusAfterDelayAsync()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(4));
+        if (string.IsNullOrEmpty(ChatClearStatus)) return;
+        Dispatcher.UIThread.Post(() => ChatClearStatus = string.Empty);
+    }
 
     private static string FormatSpeed(double bytesPerSec) => bytesPerSec switch
     {

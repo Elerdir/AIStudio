@@ -14,8 +14,10 @@ public class SettingsService : ISettingsService
 
     public event Action? ModelLibraryChanged;
     public event Action? SettingsSaved;
+    public event Action? ConversationsCleared;
 
-    public void NotifyModelLibraryChanged() => ModelLibraryChanged?.Invoke();
+    public void NotifyModelLibraryChanged()  => ModelLibraryChanged?.Invoke();
+    public void NotifyConversationsCleared() => ConversationsCleared?.Invoke();
 
     public async Task LoadAsync()
     {

@@ -3,12 +3,14 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using AIStudio.App.ViewModels;
 using AIStudio.App.ViewModels.Setup;
 using AIStudio.App.Views;
 using AIStudio.App.Views.Setup;
+using AIStudio.Core.Enums;
 using AIStudio.Core.Interfaces;
 using AIStudio.Infrastructure.Services;
 
@@ -78,6 +80,10 @@ public partial class App : Application
         services.AddSingleton<IComfyInstaller, ComfyInstaller>();
         services.AddSingleton<IImageRepository, SqliteImageRepository>();
         services.AddSingleton<IHuggingFaceClient, HuggingFaceClient>();
+        services.AddSingleton<ICivitaiClient,     CivitaiClient>();
+        services.AddSingleton<IModelDiscoveryService, ModelDiscoveryService>();
+        services.AddSingleton<IImageIntentParser, ImageIntentParser>();
+        services.AddSingleton<IImageModelMatcher, ImageModelMatcher>();
 
         // ViewModels
         services.AddSingleton<MainWindowViewModel>();
@@ -100,6 +106,11 @@ public partial class App : Application
             await Services.GetRequiredService<IImageRepository>().InitializeAsync();
         }).GetAwaiter().GetResult();
         Log.Information("Settings + DB ready");
+
+        // Aplikuj uložený theme. Pozn.: pro plný light mode by chtělo refaktor
+        // všech custom hardcoded barev (#161618 atd.) na DynamicResource — to je
+        // další iterace. Pro teď přepneme aspoň ovládací prvky FluentTheme.
+        ApplyTheme(Services.GetRequiredService<ISettingsService>().Settings.Theme);
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -183,6 +194,36 @@ public partial class App : Application
                 _ = Task.Run(() => Services.GetRequiredService<IComfyService>().InitializeAsync());
             }
         }
+    }
+
+    /// <summary>
+    /// Aplikuje theme variant na běžící aplikaci. Voláno při startu (z LoadAsync)
+    /// a kdykoliv uživatel změní hodnotu v Nastavení (přes <c>SettingsService</c>).
+    ///
+    /// Pozn.: Aktuálně funguje jen na FluentTheme controly (combobox, scrollbar,
+    /// titulek okna na Windows). Custom hardcoded barvy v naší AppStyles.axaml
+    /// (#0D0D0D pozadí, #161618 sidebar, #1C1C1E karty, …) zůstávají tmavé,
+    /// takže Light variant je v tuhle chvíli kompromisní. Plný light theme
+    /// vyžaduje refactor všech barev na DynamicResource.
+    /// </summary>
+    public static void ApplyTheme(AppTheme theme)
+    {
+        if (Avalonia.Application.Current is null) return;
+
+        // Pozn.: AppTheme.System → Dark, ne Default. Aplikace má hard-coded dark
+        // barvy v AppStyles.axaml (#0D0D0D, #1C1C1E, …); když uživatel běží
+        // Windows v Light módu, FluentTheme by jinak ze System udělal Light
+        // variant a TextBoxy/ComboBoxy by byly bílé na našem tmavém pozadí.
+        // Light variant vyřešíme až plným DynamicResource refactorem.
+        Avalonia.Application.Current.RequestedThemeVariant = theme switch
+        {
+            AppTheme.Light  => ThemeVariant.Light,
+            AppTheme.Dark   => ThemeVariant.Dark,
+            AppTheme.System => ThemeVariant.Dark,
+            _               => ThemeVariant.Dark,
+        };
+
+        Log.Information("App: applied theme variant {Theme}", theme);
     }
 
     /// <summary>

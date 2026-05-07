@@ -13,7 +13,11 @@ public partial class ModelItemViewModel : ViewModelBase
     [ObservableProperty] private string _description = string.Empty;
     [ObservableProperty] private string _version = string.Empty;
     [ObservableProperty] private ModelCategory _category;
-    [ObservableProperty] private ModelSource _source;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowHfFilePicker), nameof(ShowDirectDownloadButton),
+                              nameof(IsHuggingFace), nameof(IsCivitai))]
+    private ModelSource _source;
     [ObservableProperty] private int _vramRequiredGb;
 
     [ObservableProperty]
@@ -26,7 +30,9 @@ public partial class ModelItemViewModel : ViewModelBase
     [ObservableProperty] private string _fileName = string.Empty;
 
     /// <summary>Přímé URL pro stažení (HuggingFace resolve/main nebo Civitai api/download).</summary>
-    [ObservableProperty] private string _downloadUrl = string.Empty;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDirectDownloadButton))]
+    private string _downloadUrl = string.Empty;
 
     /// <summary>URL stránky modelu na HuggingFace nebo Civitai (pro zobrazení v prohlížeči).</summary>
     [ObservableProperty] private string _modelPageUrl = string.Empty;
@@ -34,20 +40,76 @@ public partial class ModelItemViewModel : ViewModelBase
     /// <summary>Velikost souboru jako text (např. "4.7 GB") — slouží jen pro zobrazení v UI.</summary>
     [ObservableProperty] private string _size = string.Empty;
 
+    /// <summary>
+    /// Reference na model v původním zdroji — pro HF "owner/repo", pro Civitai číselné ID.
+    /// Používá se pro pozdější dohledání (např. nahrání souborů z HF tree po výběru).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowHfFilePicker), nameof(ShowDirectDownloadButton))]
+    private string _providerRef = string.Empty;
+
+    /// <summary>URL náhledového obrázku (Civitai) — pro thumb v UI.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasThumbnail))]
+    private string _thumbnailUrl = string.Empty;
+
+    /// <summary>Civitai base model label, např. "SDXL 1.0", "Pony", "Flux.1 D".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasBaseModel))]
+    private string _baseModel = string.Empty;
+
+    /// <summary>True pokud Civitai označil model jako NSFW. Pro UI badge.</summary>
+    [ObservableProperty] private bool _isNsfw;
+
+    /// <summary>Počet stažení (HF + Civitai). Pro popisek pod modelem.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DownloadCountLabel))]
+    private long _downloadCount;
+
+    /// <summary>Civitai rating 0-5 (0 = N/A).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRating), nameof(RatingLabel))]
+    private double _rating;
+
+    public bool HasThumbnail   => !string.IsNullOrEmpty(ThumbnailUrl);
+    public bool HasBaseModel   => !string.IsNullOrEmpty(BaseModel);
+    public bool HasRating      => Rating > 0;
+    public string RatingLabel  => Rating > 0 ? $"{Rating:F1}" : "";
+
+    /// <summary>True pro HF položku — v detailu se ukáže seznam GGUF souborů (kvantizací).</summary>
+    public bool IsHuggingFace      => Source == ModelSource.HuggingFace;
+    /// <summary>True pro Civitai položku — má přímý DownloadUrl, není co rozbalovat.</summary>
+    public bool IsCivitai          => Source == ModelSource.Civitai;
+    /// <summary>HF položka s naplněným ProviderRef — ukázat list dostupných variant.</summary>
+    public bool ShowHfFilePicker   => IsHuggingFace && !string.IsNullOrEmpty(ProviderRef);
+    /// <summary>Položky s přímou DownloadUrl (Civitai, HF po výběru souboru, lokální import).</summary>
+    public bool ShowDirectDownloadButton =>
+        ShowDownloadButton && !string.IsNullOrEmpty(DownloadUrl);
+
+    public string DownloadCountLabel => DownloadCount switch
+    {
+        >= 1_000_000 => $"{DownloadCount / 1_000_000.0:F1}M",
+        >= 1_000     => $"{DownloadCount / 1_000.0:F1}k",
+        _            => DownloadCount.ToString()
+    };
+
     // ── Stav modelu ──────────────────────────────────────────────────────────
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowDownloaded), nameof(ShowDownloadButton))]
     private bool _isActive;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowDownloaded), nameof(ShowDownloadButton))]
+    [NotifyPropertyChangedFor(nameof(ShowDownloaded), nameof(ShowDownloadButton),
+                              nameof(ShowDirectDownloadButton))]
     private bool _isDownloaded;
 
     [ObservableProperty] private bool _isSelected;
 
     // ── Stav stahování ───────────────────────────────────────────────────────
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowDownloading), nameof(ShowDownloadButton), nameof(ShowDownloaded), nameof(ShowDownloadError))]
+    [NotifyPropertyChangedFor(nameof(ShowDownloading), nameof(ShowDownloadButton),
+                              nameof(ShowDownloaded), nameof(ShowDownloadError),
+                              nameof(ShowDirectDownloadButton))]
     private bool _isDownloading;
 
     [ObservableProperty]
@@ -67,7 +129,9 @@ public partial class ModelItemViewModel : ViewModelBase
     private double _downloadSpeedBytesPerSec;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasError), nameof(ShowDownloadError), nameof(ShowDownloadButton), nameof(ShowDownloaded))]
+    [NotifyPropertyChangedFor(nameof(HasError), nameof(ShowDownloadError),
+                              nameof(ShowDownloadButton), nameof(ShowDownloaded),
+                              nameof(ShowDirectDownloadButton))]
     private string _downloadError = string.Empty;
 
     /// <summary>Skutečná velikost souboru na disku — nastaví se při skenování složky.</summary>

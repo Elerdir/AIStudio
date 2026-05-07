@@ -21,15 +21,22 @@ namespace AIStudio.Infrastructure.Services;
 /// </summary>
 public sealed class ComfyInstaller : IComfyInstaller
 {
+    private readonly IDownloadService _downloader;
+
     private static readonly HttpClient Http = new()
     {
-        // 30 minut hard cap — i 2 GB stažení by mělo být dávno hotové na běžné lince
+        // 30 minut hard cap — pro GitHub API a malé ZIPy custom nodů
         Timeout = TimeSpan.FromMinutes(30),
         DefaultRequestHeaders =
         {
             { "User-Agent", "AIStudio/1.0 (https://github.com/aistudio)" }
         }
     };
+
+    public ComfyInstaller(IDownloadService downloader)
+    {
+        _downloader = downloader;
+    }
 
     private const string LatestReleaseUrl =
         "https://api.github.com/repos/comfyanonymous/ComfyUI/releases/latest";
@@ -90,12 +97,26 @@ public sealed class ComfyInstaller : IComfyInstaller
         Log.Information("ComfyInstaller: latest portable = {Name} ({Size} MB)",
                         assetName, assetSize / 1_048_576);
 
-        // ── 2) Stáhni .7z ─────────────────────────────────────────────────────
-        var sevenZipPath = Path.Combine(installDir, $"{assetName}.partial");
+        // ── 2) Stáhni .7z přes IDownloadService (Range request resume support).
+        //    Pokud stažení spadne nebo uživatel cancel, .tmp zůstane na disku
+        //    a další pokus pokračuje od dosažené pozice.
+        var sevenZipPath = Path.Combine(installDir, assetName);
+
+        // Adapter: DownloadProgressInfo → ComfyInstallProgress.
+        // Stahování drží 0–80 % celkového progress baru, rozbalování zbylých 20 %.
+        var downloadProgress = new Progress<DownloadProgressInfo>(info =>
+        {
+            var pct = info.Total > 0 ? (int)(info.Downloaded * 80 / info.Total) : 0;
+            progress?.Report(new ComfyInstallProgress(
+                ComfyInstallStage.Downloading,
+                BuildDownloadStatus(info.Downloaded, info.Total, info.BytesPerSecond),
+                pct, info.Downloaded, info.Total, info.BytesPerSecond, null));
+        });
 
         try
         {
-            await DownloadWithProgressAsync(assetUrl, sevenZipPath, progress, ct);
+            await _downloader.DownloadFileAsync(
+                assetUrl, sevenZipPath, downloadProgress, apiToken: null, ct);
 
             // ── 3) Rozbal ─────────────────────────────────────────────────────
             // Extract běží na background threadu — SharpCompress je sync API
@@ -231,61 +252,7 @@ public sealed class ComfyInstaller : IComfyInstaller
         return (best.Url, best.Name, best.Size);
     }
 
-    // ── Stahování s progress reportem ─────────────────────────────────────────
-
-    private static async Task DownloadWithProgressAsync(
-        string                            url,
-        string                            destPath,
-        IProgress<ComfyInstallProgress>?  progress,
-        CancellationToken                 ct)
-    {
-        using var resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
-        resp.EnsureSuccessStatusCode();
-
-        var total = resp.Content.Headers.ContentLength ?? -1L;
-
-        await using var src = await resp.Content.ReadAsStreamAsync(ct);
-        await using var dst = new FileStream(destPath, FileMode.Create, FileAccess.Write,
-                                              FileShare.None, 81_920, useAsync: true);
-
-        var buffer     = new byte[81_920];
-        long downloaded = 0;
-
-        var sw            = Stopwatch.StartNew();
-        var lastTime       = sw.Elapsed;
-        var lastBytes      = 0L;
-        var bytesPerSecond = 0.0;
-
-        int read;
-        while ((read = await src.ReadAsync(buffer, ct)) > 0)
-        {
-            await dst.WriteAsync(buffer.AsMemory(0, read), ct);
-            downloaded += read;
-
-            // Throttle progress reportů — jednou za ~250 ms
-            var now       = sw.Elapsed;
-            var sinceLast = now - lastTime;
-            if (sinceLast.TotalMilliseconds >= 250)
-            {
-                bytesPerSecond = (downloaded - lastBytes) / sinceLast.TotalSeconds;
-                lastTime       = now;
-                lastBytes      = downloaded;
-
-                // Stahování drží 0–80 % celkového progress baru, rozbalování zbylých 20 %
-                var pct = total > 0 ? (int)(downloaded * 80 / total) : 0;
-                progress?.Report(new(
-                    ComfyInstallStage.Downloading,
-                    BuildDownloadStatus(downloaded, total, bytesPerSecond),
-                    pct, downloaded, total, bytesPerSecond, null));
-            }
-        }
-
-        // Final progress kick — i kdybychom skončili dřív než tick
-        progress?.Report(new(
-            ComfyInstallStage.Downloading,
-            BuildDownloadStatus(downloaded, total, bytesPerSecond),
-            80, downloaded, total, bytesPerSecond, null));
-    }
+    // ── Format helper pro download status (volaný z adapteru v InstallAsync) ──
 
     private static string BuildDownloadStatus(long downloaded, long total, double bps)
     {

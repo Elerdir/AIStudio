@@ -22,6 +22,57 @@ public partial class ChatPageViewModel : ViewModelBase
 
     [ObservableProperty] private string                 _inputText            = string.Empty;
     [ObservableProperty] private ConversationViewModel? _selectedConversation;
+
+    /// <summary>
+    /// Předdefinované role/persony — uživatel je vidí jako tlačítka nad systémovým
+    /// promptem. Klik naplní SystemPrompt aktuální konverzace. V první iteraci
+    /// hardcoded; navazující task přidá editor a persistenci.
+    /// </summary>
+    public IReadOnlyList<SystemPromptPreset> SystemPromptPresets { get; } = new[]
+    {
+        new SystemPromptPreset(
+            "Asistent",
+            "Jsi přátelský český asistent. Odpovídej jasně, stručně a konkrétně. " +
+            "Pokud něco nevíš nebo si nejsi jistý, otevřeně to řekni místo vymýšlení."),
+
+        new SystemPromptPreset(
+            "Editor",
+            "Jsi profesionální editor češtiny. Když ti uživatel pošle text, " +
+            "oprav gramatiku, interpunkci, stylistiku a čtivost. Změny stručně " +
+            "okomentuj v krátkém shrnutí na konci. Pokud je text dobrý, řekni to."),
+
+        new SystemPromptPreset(
+            "Kreativní psaní",
+            "Jsi tvůrčí spisovatel s citem pro detail, atmosféru a dialog. " +
+            "Piš barvitě, rozvíjej charaktery, používej smyslové detaily. " +
+            "Drž se českého jazyka, pokud uživatel neřekne jinak."),
+
+        new SystemPromptPreset(
+            "Programátor",
+            "Jsi senior programátor. Vysvětluj kód jasně, navrhuj nejlepší " +
+            "praktiky, varuj před antipatterny. Buď struční, ale úplní — " +
+            "uveď nejen JAK, ale i PROČ. Když si nejsi jistý, řekni to.") ,
+
+        new SystemPromptPreset(
+            "Brainstorm",
+            "Jsi kreativní partner v brainstormingu. Generuj nápady volně, bez " +
+            "filtrů. Když je třeba, kategorizuj. Neptej se na vyjasnění předčasně — " +
+            "nejdřív hoď několik směrů, pak ladíme."),
+
+        new SystemPromptPreset("Bez instrukcí", string.Empty),
+    };
+
+    /// <summary>
+    /// Naplní SystemPrompt vybrané konverzace zvoleným presetem. Volá UI
+    /// po kliku na tlačítko presetu. Pokud není vybraná konverzace, no-op.
+    /// </summary>
+    [RelayCommand]
+    private void ApplySystemPromptPreset(SystemPromptPreset? preset)
+    {
+        if (preset is null || SelectedConversation is null) return;
+        SelectedConversation.SystemPrompt = preset.Prompt;
+        _ = TrySaveConversationAsync(SelectedConversation);
+    }
     [ObservableProperty] private bool                   _isSending;
     [ObservableProperty] private bool                   _isLoading            = true;
     [ObservableProperty] private bool                   _isLoadingModel;
@@ -170,6 +221,19 @@ public partial class ChatPageViewModel : ViewModelBase
         // Když ModelManager stáhne / přidá / smaže model, obnov picker
         _settings.ModelLibraryChanged += () =>
             Avalonia.Threading.Dispatcher.UIThread.Post(RefreshAvailableModels);
+
+        // Settings → „Smazat všechny chaty" — vyčisti in-memory ObservableCollection,
+        // jinak by uživatel viděl „starý" stav v sidebaru až do restartu aplikace.
+        // Invoke (sync) místo Post (async) — jsme stejně už na UI threadu (Settings
+        // command continuation se vrací sem); Post by zařadil do queue a vznikla
+        // by úzká race window, kdyby uživatel mezitím klikl na „+ Nový chat".
+        _settings.ConversationsCleared += () => Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
+        {
+            Conversations.Clear();
+            SelectedConversation = null;
+            UpdateFilteredConversations();
+            Log.Information("ChatPage: in-memory konverzace vyčištěné po Settings clear");
+        });
     }
 
     // ── Startup ────────────────────────────────────────────────────────────────
@@ -198,21 +262,17 @@ public partial class ChatPageViewModel : ViewModelBase
             {
                 Conversations.Clear();
 
-                if (loaded.Length == 0)
+                // Při prázdné DB (čerstvý install nebo po Settings → smazat všechny
+                // chaty) UŽ NEAUTOCREATE prázdnou konverzaci. UI má vlastní empty
+                // state (velký „+ Nový chat" CTA v hlavní oblasti) a explicit klik
+                // tam dává uživateli kontrolu. Bez tohohle auto-create se po
+                // restartu objevoval „Nový chat" jako duch (a uložený rovnou do DB).
+                foreach (var (record, messages) in loaded)
                 {
-                    var conv = new ConversationViewModel();
-                    _ = TrySaveConversationAsync(conv);
+                    var conv = ConversationViewModel.FromRecord(record);
+                    foreach (var msg in messages)
+                        conv.Messages.Add(ChatMessage.FromRecord(msg));
                     Conversations.Add(conv);
-                }
-                else
-                {
-                    foreach (var (record, messages) in loaded)
-                    {
-                        var conv = ConversationViewModel.FromRecord(record);
-                        foreach (var msg in messages)
-                            conv.Messages.Add(ChatMessage.FromRecord(msg));
-                        Conversations.Add(conv);
-                    }
                 }
 
                 SelectedConversation = Conversations.FirstOrDefault();
@@ -224,8 +284,7 @@ public partial class ChatPageViewModel : ViewModelBase
             Log.Error(ex, "ChatPage.Init: načtení konverzací z DB selhalo");
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (Conversations.Count == 0)
-                    Conversations.Add(new ConversationViewModel());
+                // I při chybě nech sidebar prázdný — empty state UI vyzve k akci.
                 SelectedConversation = Conversations.FirstOrDefault();
                 IsLoading = false;
             });
@@ -768,6 +827,11 @@ public partial class ChatPageViewModel : ViewModelBase
 
             await TrySaveMessageAsync(assistantMsg, conv);
             _ = TrySaveConversationAsync(conv);
+
+            // Auto-rename — fire-and-forget. Triggeruje se jen když má konverzace
+            // default title („Chat N") a stačí počet zpráv. Vlastní helper si
+            // ohlídá podmínky a tichounce skončí, když nejsou splněné.
+            _ = MaybeAutoRenameAsync(conv);
         }
         catch (ModelNotAvailableException)
         {
@@ -1361,4 +1425,118 @@ public partial class ChatPageViewModel : ViewModelBase
         return Path.Combine(modelsDir,
             ModelFileNames.GetValueOrDefault(modelName, $"{modelName}.gguf"));
     }
+
+    // ── Auto-rename ────────────────────────────────────────────────────────────
+    //
+    // Po prvních ~2 zprávách (user + assistant + user + assistant = 4) pošleme
+    // krátký prompt LLM s žádostí o 2-4 slovní český title. Triggeruje se jen
+    // pro konverzace s default jménem ("Chat 1", "Chat 2"…) — přejmenované
+    // ručně uživatelem se nepřepíší.
+    //
+    // Spouštíme fire-and-forget, takže neblokuje UI po finished streamu.
+    // Pokud v mezičase uživatel pošle další zprávu, llama.ChatAsync z autorename
+    // zkonkuruje s tou novou — proto děláme malou kontrolu IsSending na začátku
+    // (ne uvnitř streamu, protože LlamaSharp inferenci sériový žádný overlap nesnáší).
+
+    private static readonly System.Text.RegularExpressions.Regex _defaultTitleRx =
+        new(@"^Chat \d+$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// Pokud konverzace má default-formátovaný title („Chat N") a má aspoň
+    /// jednu výměnu (user + assistant), pošle LLM krátký prompt na pojmenování
+    /// a přepíše Title. Jinak no-op.
+    /// </summary>
+    private async Task MaybeAutoRenameAsync(ConversationViewModel conv)
+    {
+        // SendMessageAsync nás volá uvnitř svého try bloku, kde IsSending je
+        // ještě true (finally se spustí až po dokončení této metody pokud bychom
+        // ji nevolali fire-and-forget). Task.Yield() tady přepne na continuation
+        // queue, takže než MaybeAutoRenameAsync pokračuje, doběhne SendMessageAsync.finally
+        // a IsSending se přepne na false. Bez toho by IsSending guard níž vždy
+        // bailnul ihned.
+        await Task.Yield();
+
+        Log.Debug("Auto-rename check: conv={Id} msgs={Count} title='{Title}' loaded={Loaded} sending={Sending}",
+            conv.Id, conv.Messages.Count, conv.Title, _llama.IsLoaded, IsSending);
+
+        // Trigger po první výměně (1 user + 1 assistant = 2 zprávy). Bez toho
+        // by uživatel musel napsat min. dvě zprávy než by se title změnil — moc
+        // pozdě pro UX-feeling „chat se sám pojmenoval po první otázce".
+        if (conv.Messages.Count < 2) { Log.Debug("Auto-rename: skip (málo zpráv)"); return; }
+        if (!_defaultTitleRx.IsMatch(conv.Title)) { Log.Debug("Auto-rename: skip (custom title)"); return; }
+        if (!_llama.IsLoaded) { Log.Debug("Auto-rename: skip (model neloaded)"); return; }
+        if (IsSending) { Log.Debug("Auto-rename: skip (sending — uživatel poslal další zprávu)"); return; }
+
+        try
+        {
+            // Posbíráme prvních pár výměn jako kontext pro pojmenování. Limit
+            // znaků na 800 každý, jinak by malé llama instance mohly zhltat
+            // celý kontext.
+            var firstUser     = conv.Messages.FirstOrDefault(m => m.Role == MessageRole.User)?.Content      ?? "";
+            var firstAssist   = conv.Messages.FirstOrDefault(m => m.Role == MessageRole.Assistant)?.Content ?? "";
+
+            var systemPrompt =
+                "Jsi nástroj pro pojmenování konverzace. Vrátíš JEN 2-4 slovní český " +
+                "název odpovídající tématu. Žádné uvozovky, žádné vysvětlení, žádný " +
+                "markdown, žádné slovo \"chat\" nebo \"konverzace\". Ideálně " +
+                "podstatná jména. Pouze samotný název.";
+
+            var userPrompt =
+                $"Konverzace:\n\n" +
+                $"Uživatel: {Truncate(firstUser, 800)}\n\n" +
+                $"Asistent: {Truncate(firstAssist, 800)}\n\n" +
+                $"Krátký název:";
+
+            var prompt = new (string Role, string Content)[]
+            {
+                ("system", systemPrompt),
+                ("user",   userPrompt)
+            };
+
+            var sb = new StringBuilder();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+            await foreach (var token in _llama.ChatAsync(prompt, maxTokens: 30, temperature: 0.3f, cts.Token))
+            {
+                sb.Append(token);
+                // Hard cap — ochrana proti modelu, který by chtěl vyprávět příběh
+                if (sb.Length > 100) break;
+            }
+
+            var raw = sb.ToString().Trim();
+
+            // Cleanup — vyhodit uvozovky, zalomy, koncové tečky/dvojtečky
+            raw = raw.Trim('"', '\'', '«', '»', '„', '"', ' ', '\n', '\r', '\t', ':', '.', '-')
+                     .Split('\n', '\r')[0]      // jen první řádek
+                     .Trim();
+
+            // Klasický LLM výpadek: někdy začne „Název:" nebo „Title:" — odřízneme
+            foreach (var prefix in new[] { "Název:", "Title:", "Pojmenování:" })
+            {
+                if (raw.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    raw = raw[prefix.Length..].Trim();
+                }
+            }
+
+            // Sanity guards
+            if (string.IsNullOrWhiteSpace(raw)) return;
+            if (raw.Length > 60) raw = raw[..60].Trim();
+            if (raw.Length < 2)  return;
+
+            Log.Information("Auto-rename: '{Old}' → '{New}' (conv {Id})", conv.Title, raw, conv.Id);
+
+            Dispatcher.UIThread.Post(() => conv.Title = raw);
+            await TrySaveConversationAsync(conv);
+        }
+        catch (OperationCanceledException) { /* timeout — ok */ }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "MaybeAutoRename: selhalo pro {Conv}", conv.Id);
+        }
+    }
+
+    private static string Truncate(string s, int max) =>
+        string.IsNullOrEmpty(s) ? "" :
+        s.Length <= max ? s : s[..max] + "…";
 }

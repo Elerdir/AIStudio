@@ -9,7 +9,7 @@
         x:DataType="vm:MainWindowViewModel"
         Title="AI Studio"
         Width="1280" Height="800"
-        MinWidth="900" MinHeight="600"
+        MinWidth="1180" MinHeight="720"
         WindowStartupLocation="CenterScreen"
         Background="#0D0D0D"
         Icon="/Assets/app-icon.png">

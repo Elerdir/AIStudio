@@ -24,4 +24,11 @@ public interface IChatRepository
 
     /// <summary>Smaže všechny zprávy konverzace s OrderIndex >= fromOrderIndex.</summary>
     Task DeleteMessagesFromIndexAsync(string conversationId, int fromOrderIndex);
+
+    /// <summary>
+    /// Vymaže VŠECHNY konverzace a zprávy z databáze. Destruktivní — volat
+    /// jen po explicitním potvrzení v UI. Bezpečné volat za běhu (není to drop
+    /// table, jen DELETE FROM, takže schema zůstává a appka funguje dál).
+    /// </summary>
+    Task ClearAllConversationsAsync();
 }

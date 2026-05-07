@@ -625,6 +625,104 @@
                     </Border>
                 </StackPanel>
 
+                <!-- ══════════════════ DATA / SOUKROMÍ ══════════════════ -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="DATA" Classes="sectionHeader"/>
+                    <Border Classes="card">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <StackPanel Grid.Column="0" Spacing="3">
+                                    <TextBlock Text="Smazat všechny chaty"
+                                               FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
+                                    <TextBlock Text="Vymaže všechny konverzace a jejich historii zpráv ze SQLite databáze. Nelze vrátit. Modely ani nastavení se nemažou."
+                                               FontSize="12" Foreground="#666672" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <!-- Tlačítko: před confirmem -->
+                                <Button Grid.Column="1"
+                                        IsVisible="{Binding !IsConfirmingChatClear}"
+                                        Classes="secondary"
+                                        Foreground="#F87171"
+                                        Padding="14,8"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding BeginChatClearConfirmationCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="13" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Smazat všechny chaty"
+                                                   FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <!-- Inline confirm panel — stejný pattern jako u smazání modelu.
+                                 Vždy přijde po prvním kliku, vyžaduje druhý explicit klik. -->
+                            <Border IsVisible="{Binding IsConfirmingChatClear}"
+                                    Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
+                                    CornerRadius="10" Padding="14,12">
+                                <StackPanel Spacing="10">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
+                                                   FontSize="14" Foreground="#F87171"
+                                                   VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                        <StackPanel Spacing="3">
+                                            <TextBlock Text="Opravdu smazat všechny chaty?" FontSize="13"
+                                                       FontWeight="SemiBold" Foreground="#F87171"/>
+                                            <TextBlock FontSize="11" Foreground="#9c6a6a" TextWrapping="Wrap"
+                                                       Text="Smaže VŠECHNY konverzace a všechny zprávy z databáze. Tato akce je nevratná. Modely, nastavení a vygenerované obrázky se nemažou."/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <Button Grid.Column="0" Classes="secondary"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                Command="{Binding CancelChatClearCommand}"
+                                                IsEnabled="{Binding !IsClearingChats}"
+                                                Content="Zrušit"/>
+                                        <Button Grid.Column="1"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                Background="#3A1515" BorderBrush="#6B2020" BorderThickness="1"
+                                                Foreground="#F87171" CornerRadius="8" Padding="0,8"
+                                                Command="{Binding ConfirmChatClearCommand}"
+                                                IsEnabled="{Binding !IsClearingChats}"
+                                                Content="Ano, smazat všechno"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Status — krátká hláška po provedení (zmizí po 4s) -->
+                            <TextBlock Text="{Binding ChatClearStatus}"
+                                       FontSize="11" Foreground="#4ADE80"
+                                       IsVisible="{Binding ChatClearStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ══════════════════ DIAGNOSTIKA ══════════════════ -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="DIAGNOSTIKA" Classes="sectionHeader"/>
+                    <Border Classes="card">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <StackPanel Grid.Column="0" Spacing="3">
+                                <TextBlock Text="Logy aplikace"
+                                           FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
+                                <TextBlock Text="Otevři okno s historií logů — užitečné pro hledání chyb a poslání kontextu k podpoře. Filtr podle úrovně, hledání, kopie do schránky."
+                                           FontSize="12" Foreground="#666672" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Classes="secondary"
+                                    Padding="14,8"
+                                    Command="{Binding OpenLogViewerCommand}"
+                                    VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="13" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Otevřít Log Viewer"
+                                               FontSize="12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
                 <!-- ══════════════════ O APLIKACI ══════════════════ -->
                 <StackPanel Spacing="12">
                     <TextBlock Text="O APLIKACI" Classes="sectionHeader"/>

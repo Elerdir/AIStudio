@@ -233,6 +233,153 @@ public static class ComfyWorkflowBuilder
         };
     }
 
+    // ── Reference images (img2img / multi-reference blend) ───────────────────
+
+    /// <summary>
+    /// Do existujícího workflow injektuje řetězec LoadImage → ImageScale → VAEEncode
+    /// pro každý referenční obrázek a slije jejich latenty pomocí <c>LatentBlend</c>
+    /// (rovnoměrně). Výsledný latent se použije jako <c>latent_image</c> v KSampleru
+    /// a denoise se nastaví na <c>1 - strength</c>.
+    ///
+    /// Funguje pro libovolný workflow, kde:
+    ///   • existuje EmptyLatentImage uzel (bude odebrán — KSampler na něj nemá záviset),
+    ///   • máme referenci na VAE (<paramref name="vaeRef"/>) a KSampler uzel.
+    ///
+    /// Bez vlastních custom nodů (LatentBlend i ImageScale jsou v jádru ComfyUI),
+    /// takže tohle běhá na čisté instalaci. Pro pokročilé use-case (IP-Adapter,
+    /// ControlNet, Redux) přijde samostatná cesta později.
+    /// </summary>
+    /// <param name="workflow">Workflow, ve kterém se mají reference zapojit.</param>
+    /// <param name="emptyLatentKey">ID uzlu EmptyLatentImage — bude odebrán.</param>
+    /// <param name="ksamplerKey">ID uzlu KSampler — přepíše se latent_image + denoise.</param>
+    /// <param name="vaeRef">Reference (Ref(...)) na VAE výstup loaderu.</param>
+    /// <param name="referenceImageNames">Jména souborů v ComfyUI input/ (po uploadu).</param>
+    /// <param name="width">Cílová šířka — všechny reference se přeškálují.</param>
+    /// <param name="height">Cílová výška.</param>
+    /// <param name="strength">0–1: kolik z reference zachovat (0 = ignoruj, 1 = identicky).</param>
+    /// <param name="batchSize">Pokud > 1, přidá RepeatLatentBatch (varianty z téhož startu).</param>
+    public static void InjectReferenceImages(
+        Dictionary<string, object> workflow,
+        string                     emptyLatentKey,
+        string                     ksamplerKey,
+        object                     vaeRef,
+        IReadOnlyList<string>      referenceImageNames,
+        int                        width,
+        int                        height,
+        double                     strength,
+        int                        batchSize = 1)
+    {
+        if (referenceImageNames is null || referenceImageNames.Count == 0) return;
+
+        // EmptyLatentImage už nepotřebujeme — orphan uzly ComfyUI sice ignoruje,
+        // ale čisté workflow nepotřebuje vizuální mrtvolky.
+        if (workflow.ContainsKey(emptyLatentKey))
+            workflow.Remove(emptyLatentKey);
+
+        // Vyhradíme „vysoké" node ID, abychom se netrefili do existujících
+        // 1-10 čísel, která používají všechny tři Build* funkce.
+        int nextId = 100;
+
+        // 1) LoadImage + ImageScale + VAEEncode pro každý reference image
+        var latentNodeIds = new List<string>(referenceImageNames.Count);
+
+        foreach (var imgName in referenceImageNames)
+        {
+            var loadId  = (nextId++).ToString();
+            var scaleId = (nextId++).ToString();
+            var encId   = (nextId++).ToString();
+
+            workflow[loadId]  = Node("LoadImage",  new() { ["image"] = imgName });
+
+            // ImageScale (lanczos, center crop) sjednotí všechny reference do
+            // cílového rozlišení — bez toho by VAEEncode pro různě velké obrázky
+            // produkoval různě velké latenty a LatentBlend by selhal.
+            workflow[scaleId] = Node("ImageScale", new()
+            {
+                ["image"]          = Ref(loadId, 0),
+                ["upscale_method"] = "lanczos",
+                ["width"]          = width,
+                ["height"]         = height,
+                ["crop"]           = "center",
+            });
+
+            workflow[encId] = Node("VAEEncode", new()
+            {
+                ["pixels"] = Ref(scaleId, 0),
+                ["vae"]    = vaeRef,
+            });
+
+            latentNodeIds.Add(encId);
+        }
+
+        // 2) Slijeme latenty rovnoměrným průměrem přes řetězec LatentBlend.
+        //    Pro N obrázků: postupně blendujeme s ratio 1/(i+1), aby každý měl
+        //    ve výsledku stejnou váhu (running mean).
+        var blendedLatentId = latentNodeIds[0];
+        for (int i = 1; i < latentNodeIds.Count; i++)
+        {
+            var blendId = (nextId++).ToString();
+            workflow[blendId] = Node("LatentBlend", new()
+            {
+                ["samples1"]     = Ref(blendedLatentId, 0),
+                ["samples2"]     = Ref(latentNodeIds[i], 0),
+                ["blend_factor"] = 1.0 / (i + 1),
+            });
+            blendedLatentId = blendId;
+        }
+
+        // 3) Pokud uživatel chce víc variant (batch), zopakujeme stejný startovací
+        //    latent N-krát. KSampler pak pro každou batch position použije seed+offset,
+        //    takže výsledné varianty se budou lišit.
+        if (batchSize > 1)
+        {
+            var repeatId = (nextId++).ToString();
+            workflow[repeatId] = Node("RepeatLatentBatch", new()
+            {
+                ["samples"] = Ref(blendedLatentId, 0),
+                ["amount"]  = batchSize,
+            });
+            blendedLatentId = repeatId;
+        }
+
+        // 4) Přepíšeme KSampler — latent_image míří na blended start, denoise = 1-strength.
+        if (workflow.TryGetValue(ksamplerKey, out var ksObj) &&
+            ksObj is Dictionary<string, object> ksDict &&
+            ksDict.TryGetValue("inputs", out var inObj) &&
+            inObj is Dictionary<string, object> ksInputs)
+        {
+            ksInputs["latent_image"] = Ref(blendedLatentId, 0);
+            ksInputs["denoise"]      = Math.Clamp(1.0 - strength, 0.0, 1.0);
+        }
+    }
+
+    /// <summary>VAE reference pro Standard SD/SDXL workflow (CheckpointLoaderSimple, výstup 2).</summary>
+    public static object StandardVaeRef => Ref("4", 2);
+
+    /// <summary>VAE reference pro FLUX safetensors workflow.</summary>
+    public static object FluxVaeRef     => Ref("1", 2);
+
+    /// <summary>VAE reference pro FLUX GGUF workflow (samostatný VAELoader).</summary>
+    public static object FluxGgufVaeRef => Ref("3", 0);
+
+    /// <summary>ID EmptyLatentImage uzlu pro Standard workflow.</summary>
+    public const string StandardEmptyLatentKey = "5";
+
+    /// <summary>ID KSampler uzlu pro Standard workflow.</summary>
+    public const string StandardKSamplerKey    = "3";
+
+    /// <summary>ID EmptyLatentImage uzlu pro FLUX safetensors workflow.</summary>
+    public const string FluxEmptyLatentKey     = "2";
+
+    /// <summary>ID KSampler uzlu pro FLUX safetensors workflow.</summary>
+    public const string FluxKSamplerKey        = "6";
+
+    /// <summary>ID EmptyLatentImage uzlu pro FLUX GGUF workflow.</summary>
+    public const string FluxGgufEmptyLatentKey = "4";
+
+    /// <summary>ID KSampler uzlu pro FLUX GGUF workflow.</summary>
+    public const string FluxGgufKSamplerKey    = "8";
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static Dictionary<string, object> Node(string classType,

@@ -8,6 +8,7 @@ namespace AIStudio.App.ViewModels.ImageStudio;
 
 public partial class GeneratedImageViewModel : ObservableObject
 {
+    public string   Id        { get; init; } = Guid.NewGuid().ToString();
     public string   FilePath  { get; init; } = string.Empty;
     public string   Prompt    { get; init; } = string.Empty;
     public string   Model     { get; init; } = string.Empty;
@@ -19,12 +20,25 @@ public partial class GeneratedImageViewModel : ObservableObject
     [ObservableProperty] private bool _isSelected;
 
     private Bitmap? _thumbnail;
+    private Bitmap? _fullBitmap;
 
-    /// <summary>220 px wide thumbnail, loaded on first access and cached.</summary>
+    /// <summary>220 px wide thumbnail, loaded on first access and cached.
+    /// Hodí se pro pásek galerie dole — málo paměti, rychlý decode.</summary>
     public Bitmap? Thumbnail => _thumbnail ??= LoadThumbnail();
+
+    /// <summary>
+    /// Plná velikost obrázku — pro hlavní canvas ostrý zobrazení.
+    /// Lazy load, drží se v paměti dokud není instance VM uvolněná. Když máš
+    /// stovky obrázků v galerii, je ~OK, protože plná verze se načítá pouze
+    /// pro reálně otevřený VM (LatestImage / SelectedImage).
+    /// </summary>
+    public Bitmap? FullBitmap => _fullBitmap ??= LoadFullBitmap();
 
     public string ResolutionLabel => $"{Width} × {Height}";
     public string TimeLabel       => Timestamp.ToString("HH:mm:ss");
+    public string FullDateLabel   => Timestamp.ToString("d. M. yyyy HH:mm");
+    public string SeedLabel       => Seed.ToString();
+    public string FileName        => System.IO.Path.GetFileName(FilePath);
 
     // ── Commands ──────────────────────────────────────────────────────────────
 
@@ -32,27 +46,32 @@ public partial class GeneratedImageViewModel : ObservableObject
     private async Task CopyPromptAsync()
     {
         if (string.IsNullOrEmpty(Prompt)) return;
+        await SetClipboardAsync(Prompt);
+    }
+
+    [RelayCommand]
+    private async Task CopySeedAsync()
+    {
+        await SetClipboardAsync(Seed.ToString());
+    }
+
+    private static async Task SetClipboardAsync(string text)
+    {
         if (Avalonia.Application.Current?.ApplicationLifetime
             is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } win }) return;
         var clipboard = win.Clipboard;
         if (clipboard is not null)
-            await clipboard.SetTextAsync(Prompt);
+            await clipboard.SetTextAsync(text);
     }
 
     [RelayCommand]
     private void OpenInExplorer()
     {
         if (!File.Exists(FilePath)) return;
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName        = "explorer.exe",
-                Arguments       = $"/select,\"{FilePath}\"",
-                UseShellExecute = false,
-            });
-        }
-        catch { /* best effort */ }
+        // PlatformShell.Reveal() volá explorer /select na Win, open -R na macOS,
+        // xdg-open container na Linuxu. Cross-platform replacement za nativní
+        // Process.Start("explorer.exe").
+        AIStudio.Infrastructure.Services.PlatformShell.Reveal(FilePath);
     }
 
     // ── Internals ─────────────────────────────────────────────────────────────
@@ -64,6 +83,17 @@ public partial class GeneratedImageViewModel : ObservableObject
             if (!File.Exists(FilePath)) return null;
             using var stream = File.OpenRead(FilePath);
             return Bitmap.DecodeToWidth(stream, 220);
+        }
+        catch { return null; }
+    }
+
+    private Bitmap? LoadFullBitmap()
+    {
+        try
+        {
+            if (!File.Exists(FilePath)) return null;
+            using var stream = File.OpenRead(FilePath);
+            return new Bitmap(stream);
         }
         catch { return null; }
     }

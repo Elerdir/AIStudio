@@ -179,6 +179,12 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
     /// </summary>
     private double GetCpuUsage()
     {
+        // Win32 GetSystemTimes funguje jen na Windows. Na macOS / Linux teď
+        // vrátíme 0 — proper detekce přes host_processor_info / /proc/stat
+        // přijde v Phase 2 systém monitoringu pro Apple Silicon.
+        if (!OperatingSystem.IsWindows())
+            return 0;
+
         try
         {
             if (!ReadSystemTimes(out var idleNow, out var kernelNow, out var userNow))
@@ -208,6 +214,8 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
     private static bool ReadSystemTimes(out long idle, out long kernel, out long user)
     {
         idle = kernel = user = 0;
+        if (!OperatingSystem.IsWindows()) return false;
+
         if (!GetSystemTimes(out var idleFt, out var kernelFt, out var userFt))
             return false;
 
@@ -219,6 +227,7 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private static extern bool GetSystemTimes(
         out FileTimeStruct idleTime, out FileTimeStruct kernelTime, out FileTimeStruct userTime);
 

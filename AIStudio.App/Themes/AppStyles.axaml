@@ -91,7 +91,11 @@
         <Setter Property="Padding" Value="16"/>
     </Style>
 
-    <!-- Input -->
+    <!-- Input — třída chatInput drží konzistentně tmavé pozadí ve všech stavech.
+         FluentTheme má v defaultní šabloně TextBoxu vnitřní Border#PART_BorderElement
+         který při :focus / :pointerover přebírá brushy TextControlBackgroundFocused
+         (světlé). Bez následujících override selectorů se input v dark módu při
+         kliku zbělá a text zmizí v šedi. -->
     <Style Selector="TextBox.chatInput">
         <Setter Property="Background" Value="#1C1C1E"/>
         <Setter Property="Foreground" Value="#EBEBF5"/>
@@ -101,10 +105,42 @@
         <Setter Property="Padding" Value="14,12"/>
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="CaretBrush" Value="#A78BFA"/>
+        <Setter Property="SelectionBrush" Value="#4C3A7A"/>
     </Style>
 
     <Style Selector="TextBox.chatInput:focus">
         <Setter Property="BorderBrush" Value="#7C3AED"/>
+    </Style>
+
+    <!-- Tyhle tři override drží PART_BorderElement (vnitřní fluent backplate)
+         tmavý ve všech stavech. Bez nich :focus přepne na bílo. -->
+    <Style Selector="TextBox.chatInput /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="#1C1C1E"/>
+    </Style>
+    <Style Selector="TextBox.chatInput:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="#1C1C1E"/>
+    </Style>
+    <Style Selector="TextBox.chatInput:focus /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="#1C1C1E"/>
+    </Style>
+
+    <!-- Stejný override pro „transparentní" variantu, kdy je TextBox uvnitř
+         vnějšího Borderu, který drží pozadí — typicky chat input wrapper.
+         (TextBox má Background=Transparent, ale FluentTheme inner BG by jinak
+         přebil na světlou barvu.) -->
+    <Style Selector="TextBox.chatInputInner /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="TextBox.chatInputInner:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="TextBox.chatInputInner:focus /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+    <Style Selector="TextBox.chatInputInner">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="SelectionBrush" Value="#4C3A7A"/>
     </Style>
 
     <!-- Tab button -->

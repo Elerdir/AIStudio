@@ -25,4 +25,14 @@ public interface ISettingsService
     /// platná po změně v Nastavení).
     /// </summary>
     event Action? SettingsSaved;
+
+    /// <summary>
+    /// Vyvoláno po hromadném smazání konverzací z databáze (Settings →
+    /// „Smazat všechny chaty"). ChatPageViewModel na to reaguje vyčištěním
+    /// své in-memory ObservableCollection.
+    /// </summary>
+    event Action? ConversationsCleared;
+
+    /// <summary>Volá <see cref="ConversationsCleared"/> — bezpečné i když nikdo neodebírá.</summary>
+    void NotifyConversationsCleared();
 }
