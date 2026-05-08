@@ -180,12 +180,15 @@
         </Border>
 
         <!-- ── Active generator ─────────────────────────────────────────────── -->
-        <Grid Grid.Row="3" ColumnDefinitions="320,5,*"
-              DataContext="{Binding ActiveGenerator}">
+        <Grid Grid.Row="3" DataContext="{Binding ActiveGenerator}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" MinWidth="320"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
             <!-- ── Left panel – controls ──────────────────────────────────── -->
             <Border Grid.Column="0"
-                    MinWidth="320"
                     Background="#111113"
                     BorderBrush="#2A2A2E"
                     BorderThickness="0,0,0,0">
