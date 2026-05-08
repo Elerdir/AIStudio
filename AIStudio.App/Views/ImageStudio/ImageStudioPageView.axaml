@@ -180,13 +180,15 @@
         </Border>
 
         <!-- ── Active generator ─────────────────────────────────────────────── -->
-        <Grid Grid.Row="3" ColumnDefinitions="320,*"
+        <Grid Grid.Row="3" ColumnDefinitions="320,5,*"
               DataContext="{Binding ActiveGenerator}">
 
             <!-- ── Left panel – controls ──────────────────────────────────── -->
-            <Border Background="#111113"
+            <Border Grid.Column="0"
+                    MinWidth="260"
+                    Background="#111113"
                     BorderBrush="#2A2A2E"
-                    BorderThickness="0,0,1,0">
+                    BorderThickness="0,0,0,0">
                 <Grid RowDefinitions="*,Auto">
 
                     <ScrollViewer Grid.Row="0" Padding="18,16,18,80">
@@ -802,6 +804,7 @@
                                     <TextBlock Text="KROKY" Classes="sectionHeader"/>
                                     <NumericUpDown Value="{Binding Steps}"
                                                    Minimum="1" Maximum="150"
+                                                   HorizontalAlignment="Stretch"
                                                    Background="#1C1C1E"
                                                    Foreground="#EBEBF5"
                                                    BorderBrush="#2A2A2E"
@@ -813,6 +816,7 @@
                                     <NumericUpDown Value="{Binding Cfg}"
                                                    Minimum="0" Maximum="20"
                                                    Increment="0.5"
+                                                   HorizontalAlignment="Stretch"
                                                    Background="#1C1C1E"
                                                    Foreground="#EBEBF5"
                                                    BorderBrush="#2A2A2E"
@@ -827,6 +831,7 @@
                                     <TextBlock Text="SEED (-1 = náhodný)" Classes="sectionHeader"/>
                                     <NumericUpDown Value="{Binding Seed}"
                                                    Minimum="-1" Maximum="2147483647"
+                                                   HorizontalAlignment="Stretch"
                                                    Background="#1C1C1E"
                                                    Foreground="#EBEBF5"
                                                    BorderBrush="#2A2A2E"
@@ -848,6 +853,7 @@
                                     <TextBlock Text="POČET VARIANT" Classes="sectionHeader"/>
                                     <NumericUpDown Value="{Binding VariantCount}"
                                                    Minimum="1" Maximum="8"
+                                                   HorizontalAlignment="Stretch"
                                                    Background="#1C1C1E"
                                                    Foreground="#EBEBF5"
                                                    BorderBrush="#2A2A2E"
@@ -943,8 +949,17 @@
                 </Grid>
             </Border>
 
+            <!-- ── Posuvná příčka ─────────────────────────────────────────── -->
+            <GridSplitter Grid.Column="1"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          Background="#1A1A1E"
+                          Cursor="SizeWestEast"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"/>
+
             <!-- ── Right panel – canvas / gallery ───────────────────────────── -->
-            <Grid Grid.Column="1" Background="#0D0D0D" RowDefinitions="*,Auto">
+            <Grid Grid.Column="2" Background="#0D0D0D" RowDefinitions="*,Auto">
 
                 <!-- Main view area -->
                 <Grid Grid.Row="0">
@@ -998,10 +1013,11 @@
                     <!-- State C: Existují obrázky — zobraz poslední + overlay při generování -->
                     <Grid IsVisible="{Binding HasGeneratedImages}" RowDefinitions="*,Auto">
                         <Border Grid.Row="0" Padding="24" Background="#0D0D0D">
-                            <Image Source="{Binding LatestImage.Thumbnail}"
+                            <Image Source="{Binding LatestImage.FullBitmap}"
                                    Stretch="Uniform"
                                    HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"/>
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
                         </Border>
 
                         <!-- Generating overlay over existing image -->
