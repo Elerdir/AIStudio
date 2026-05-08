@@ -400,10 +400,10 @@
                                 </StackPanel>
 
                                 <!-- Referenční obrázky (smart verze — reference + slider) -->
-                                <StackPanel Spacing="6" IsVisible="{Binding IsSmartMode}">
+                                <StackPanel Spacing="6" HorizontalAlignment="Stretch" IsVisible="{Binding IsSmartMode}">
                                     <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
                                         <TextBlock Grid.Column="0"
-                                                   Text="REFERENČNÍ OBRÁZEK (nepovinné)"
+                                                   Text="REFERENČNÍ OBRÁZEK"
                                                    Classes="sectionHeader"
                                                    VerticalAlignment="Center"/>
                                         <Button Grid.Column="1"
@@ -423,8 +423,8 @@
                                     <Border Background="#0F0F11"
                                             BorderBrush="#222228"
                                             BorderThickness="1"
-                                            CornerRadius="8"
-                                            Padding="10,12"
+                                            CornerRadius="10"
+                                            Padding="12,10"
                                             HorizontalAlignment="Stretch"
                                             IsVisible="{Binding !HasReferenceImage}">
                                         <TextBlock Text="Bez reference — generuje se pouze z popisu"
