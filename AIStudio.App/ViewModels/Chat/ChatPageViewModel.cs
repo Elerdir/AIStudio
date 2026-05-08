@@ -12,7 +12,7 @@ using Serilog;
 using AIStudio.Core.Enums;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
-using AIStudio.App.Services;
+using AIStudio.Infrastructure.Services;
 
 namespace AIStudio.App.ViewModels.Chat;
 

@@ -1,3 +1,4 @@
+using AIStudio.Core.Models;
 using AIStudio.Infrastructure.Services;
 using FluentAssertions;
 
@@ -222,5 +223,106 @@ public class ComfyWorkflowBuilderTests
         var (steps, guidance) = ComfyWorkflowBuilder.FluxDefaults(name);
         steps.Should().Be(expectedSteps);
         guidance.Should().Be(expectedGuidance);
+    }
+
+    // ── InjectLoras ───────────────────────────────────────────────────────────
+
+    private static Dictionary<string, object> GetInputs(
+        Dictionary<string, object> wf, string key)
+        => (Dictionary<string, object>)((Dictionary<string, object>)wf[key])["inputs"];
+
+    [Fact]
+    public void InjectLoras_Empty_LeavesWorkflowUnchanged()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "cat", "", 512, 512, 20, 7.0, 1);
+        var before = wf.Count;
+
+        ComfyWorkflowBuilder.InjectLoras(wf, "4", ["3"], ["6", "7"], []);
+
+        wf.Count.Should().Be(before);
+    }
+
+    [Fact]
+    public void InjectLoras_SingleLora_AddsLoraLoaderNode()
+    {
+        var wf   = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "cat", "", 512, 512, 20, 7.0, 1);
+        var lora = new LoraItem("style_lora.safetensors", 0.8, 0.8);
+
+        ComfyWorkflowBuilder.InjectLoras(wf, "4", ["3"], ["6", "7"], [lora]);
+
+        wf.Should().ContainKey("50");
+        var loraNode = (Dictionary<string, object>)wf["50"];
+        loraNode["class_type"].Should().Be("LoraLoader");
+        GetInputs(wf, "50")["lora_name"].Should().Be("style_lora.safetensors");
+    }
+
+    [Fact]
+    public void InjectLoras_SingleLora_KSamplerUsesLoraModelOutput()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "cat", "", 512, 512, 20, 7.0, 1);
+
+        ComfyWorkflowBuilder.InjectLoras(wf, "4", ["3"], ["6", "7"],
+            [new LoraItem("lora.safetensors")]);
+
+        var ksamplerInputs = GetInputs(wf, "3");
+        var modelRef       = (object[])ksamplerInputs["model"];
+        modelRef[0].Should().Be("50");
+        modelRef[1].Should().Be(0);
+    }
+
+    [Fact]
+    public void InjectLoras_SingleLora_CLIPTextEncodeUsesLoraClipOutput()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "cat", "", 512, 512, 20, 7.0, 1);
+
+        ComfyWorkflowBuilder.InjectLoras(wf, "4", ["3"], ["6", "7"],
+            [new LoraItem("lora.safetensors")]);
+
+        var clipRef = (object[])GetInputs(wf, "6")["clip"];
+        clipRef[0].Should().Be("50");
+        clipRef[1].Should().Be(1);
+    }
+
+    [Fact]
+    public void InjectLoras_TwoLoras_ChainedCorrectly()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "cat", "", 512, 512, 20, 7.0, 1);
+
+        var loras = new[]
+        {
+            new LoraItem("lora1.safetensors", 1.0, 1.0),
+            new LoraItem("lora2.safetensors", 0.5, 0.5),
+        };
+        ComfyWorkflowBuilder.InjectLoras(wf, "4", ["3"], ["6", "7"], loras);
+
+        // lora1 (ID 50) chains from checkpoint "4"
+        var lora1In = GetInputs(wf, "50");
+        ((object[])lora1In["model"])[0].Should().Be("4");
+
+        // lora2 (ID 51) chains from lora1 (ID 50)
+        var lora2In = GetInputs(wf, "51");
+        ((object[])lora2In["model"])[0].Should().Be("50");
+
+        // KSampler uses lora2 output
+        ((object[])GetInputs(wf, "3")["model"])[0].Should().Be("51");
+    }
+
+    [Fact]
+    public void InjectLoras_Strength_SetOnNode()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "cat", "", 512, 512, 20, 7.0, 1);
+
+        ComfyWorkflowBuilder.InjectLoras(wf, "4", ["3"], ["6", "7"],
+            [new LoraItem("lora.safetensors", StrengthModel: 0.75, StrengthClip: 0.6)]);
+
+        var inputs = GetInputs(wf, "50");
+        inputs["strength_model"].Should().Be(0.75);
+        inputs["strength_clip"].Should().Be(0.6);
     }
 }

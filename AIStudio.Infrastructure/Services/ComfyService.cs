@@ -266,6 +266,29 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         return Array.Empty<string>();
     }
 
+    public async Task<IReadOnlyList<string>> GetLorasAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var json = await _http.GetStringAsync($"{BaseUrl}/object_info/LoraLoader", ct);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement
+                    .GetProperty("LoraLoader")
+                    .GetProperty("input")
+                    .GetProperty("required")
+                    .GetProperty("lora_name")[0] is { ValueKind: JsonValueKind.Array } arr)
+            {
+                return arr.EnumerateArray()
+                          .Select(e => e.GetString() ?? "")
+                          .Where(s => !string.IsNullOrEmpty(s))
+                          .OrderBy(s => s)
+                          .ToList();
+            }
+        }
+        catch { /* ComfyUI nedostupné nebo jiný formát */ }
+        return Array.Empty<string>();
+    }
+
     public async Task<string> QueuePromptAsync(Dictionary<string, object> workflow,
                                                 CancellationToken ct = default)
     {

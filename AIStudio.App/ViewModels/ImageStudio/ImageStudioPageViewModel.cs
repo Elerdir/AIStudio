@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AIStudio.Core.Enums;
 using AIStudio.Core.Interfaces;
-using AIStudio.App.Services;
+using AIStudio.Infrastructure.Services;
 
 namespace AIStudio.App.ViewModels.ImageStudio;
 

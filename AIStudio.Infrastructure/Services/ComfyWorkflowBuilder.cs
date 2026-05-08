@@ -1,3 +1,5 @@
+using AIStudio.Core.Models;
+
 namespace AIStudio.Infrastructure.Services;
 
 /// <summary>
@@ -564,6 +566,70 @@ public static class ComfyWorkflowBuilder
     /// </summary>
     public static double CreativityToDenoise(double creativity)
         => Math.Clamp(0.50 + creativity * 0.47, 0.50, 0.97);
+
+    // ── LoRA injection ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Vloží řetěz LoraLoader uzlů za checkpoint loader a přepojí spotřebitele
+    /// modelu a clipu na výstupy posledního LoRA uzlu.
+    /// Funguje pro Standard SD/SDXL a FLUX safetensors checkpointy (kde jedna node
+    /// vrací model i clip). GGUF a img2img s odděleným UnetLoader tato metoda nepokrývá.
+    /// </summary>
+    /// <param name="workflow">Workflow ke změně (in-place).</param>
+    /// <param name="checkpointKey">ID uzlu CheckpointLoaderSimple (výstupy: model=0, clip=1).</param>
+    /// <param name="modelConsumerKeys">Klíče uzlů, jejichž vstup "model" se přepojí na poslední LoRA.</param>
+    /// <param name="clipConsumerKeys">Klíče uzlů, jejichž vstup "clip" se přepojí na poslední LoRA.</param>
+    /// <param name="loras">LoRA adaptery k vložení (v tomto pořadí se zřetězí).</param>
+    public static void InjectLoras(
+        Dictionary<string, object> workflow,
+        string                     checkpointKey,
+        IReadOnlyList<string>      modelConsumerKeys,
+        IReadOnlyList<string>      clipConsumerKeys,
+        IReadOnlyList<LoraItem>    loras)
+    {
+        if (loras is null || loras.Count == 0) return;
+
+        // Vyhradíme ID rozsah 50–59 pro LoRA uzly (mimo rozsah build metod 1–10
+        // a mimo 100+ používaný pro reference images injection).
+        var modelRef = Ref(checkpointKey, 0);
+        var clipRef  = Ref(checkpointKey, 1);
+        var nextId   = 50;
+
+        foreach (var lora in loras)
+        {
+            var id = (nextId++).ToString();
+            workflow[id] = Node("LoraLoader", new()
+            {
+                ["model"]          = modelRef,
+                ["clip"]           = clipRef,
+                ["lora_name"]      = lora.Name,
+                ["strength_model"] = lora.StrengthModel,
+                ["strength_clip"]  = lora.StrengthClip,
+            });
+            modelRef = Ref(id, 0);
+            clipRef  = Ref(id, 1);
+        }
+
+        // Přepoj spotřebitele na výstupy posledního LoRA uzlu
+        foreach (var key in modelConsumerKeys)
+            SetInput(workflow, key, "model", modelRef);
+
+        foreach (var key in clipConsumerKeys)
+            SetInput(workflow, key, "clip", clipRef);
+    }
+
+    private static void SetInput(
+        Dictionary<string, object> workflow, string nodeKey,
+        string inputName, object value)
+    {
+        if (workflow.TryGetValue(nodeKey, out var raw)
+            && raw is Dictionary<string, object> node
+            && node.TryGetValue("inputs", out var inp)
+            && inp is Dictionary<string, object> inputs)
+        {
+            inputs[inputName] = value;
+        }
+    }
 
     // ── Helpers pro detekci typu modelu ──────────────────────────────────────
 

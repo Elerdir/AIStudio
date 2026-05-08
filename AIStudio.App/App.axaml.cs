@@ -8,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using AIStudio.App.ViewModels;
 using AIStudio.App.ViewModels.Setup;
-using AIStudio.App.Services;
 using AIStudio.App.Views;
 using AIStudio.App.Views.Setup;
 using AIStudio.Core.Enums;

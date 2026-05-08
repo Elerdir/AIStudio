@@ -59,6 +59,16 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     // Available checkpoints fetched from ComfyUI
     [ObservableProperty] private ObservableCollection<string> _availableCheckpoints = new();
 
+    // ── LoRA podpora ──────────────────────────────────────────────────────────
+    [ObservableProperty] private ObservableCollection<string> _availableLoras = new();
+    [ObservableProperty] private string? _selectedLoraToAdd;
+    [ObservableProperty] private double  _loraStrength = 1.0;
+
+    /// <summary>Aktivní LoRA adaptery s nastavenou silou. Pořadí = pořadí načítání.</summary>
+    public ObservableCollection<LoraItem> SelectedLoras { get; } = new();
+
+    public bool HasLoras => SelectedLoras.Count > 0;
+
     public ObservableCollection<GeneratedImageViewModel> GeneratedImages { get; } = new();
 
     public static IReadOnlyList<AspectRatio> AspectRatios { get; } = Enum.GetValues<AspectRatio>();
@@ -132,6 +142,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
         ReferenceImagePaths.CollectionChanged += (_, _) =>
             OnPropertyChanged(nameof(HasReferenceImage));
+        SelectedLoras.CollectionChanged += (_, _) =>
+            OnPropertyChanged(nameof(HasLoras));
 
         UpdateModelDefaults(SelectedModel);
     }
@@ -376,6 +388,20 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                     SelectedModel, Prompt, NegativePrompt, res.W, res.H, Steps, Cfg, seed, VariantCount);
             }
 
+            // ── LoRA injection ────────────────────────────────────────────────
+            // Funguje pro Standard SD/SDXL a FLUX safetensors (ne GGUF).
+            if (SelectedLoras.Count > 0 && !isGguf && uploadedRefName is null)
+            {
+                var (ckptKey, modelNodes, clipNodes) = isFlux
+                    ? ("1", new[] { "6" }, new[] { "3", "4" })   // BuildFlux
+                    : ("4", new[] { "3" }, new[] { "6", "7" });   // BuildStandard
+
+                ComfyWorkflowBuilder.InjectLoras(
+                    workflow, ckptKey,
+                    modelNodes, clipNodes,
+                    SelectedLoras.ToList());
+            }
+
             var promptId = await _comfy.QueuePromptAsync(workflow, cts.Token);
             GenerationStatus = "Generuji…";
 
@@ -483,6 +509,66 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     private void ClearAllReferenceImages()
     {
         ReferenceImagePaths.Clear();
+    }
+
+    // ── LoRA příkazy ──────────────────────────────────────────────────────────
+
+    [RelayCommand]
+    public async Task LoadLorasAsync()
+    {
+        var combined = new List<string>();
+
+        if (_comfy.IsRunning)
+        {
+            try { combined.AddRange(await _comfy.GetLorasAsync()); }
+            catch (Exception ex) { Log.Warning(ex, "GetLorasAsync failed, using local scan"); }
+        }
+
+        foreach (var name in ScanLocalLoras())
+            if (!combined.Contains(name, StringComparer.OrdinalIgnoreCase))
+                combined.Add(name);
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            AvailableLoras.Clear();
+            foreach (var l in combined.OrderBy(n => n))
+                AvailableLoras.Add(l);
+        });
+    }
+
+    [RelayCommand]
+    private void AddLora()
+    {
+        if (string.IsNullOrEmpty(SelectedLoraToAdd)) return;
+        if (SelectedLoras.Any(l => l.Name == SelectedLoraToAdd)) return;
+        SelectedLoras.Add(new LoraItem(SelectedLoraToAdd, LoraStrength, LoraStrength));
+    }
+
+    [RelayCommand]
+    private void RemoveLora(LoraItem lora) => SelectedLoras.Remove(lora);
+
+    [RelayCommand]
+    private void ClearLoras() => SelectedLoras.Clear();
+
+    private List<string> ScanLocalLoras()
+    {
+        var dir = string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                           "AIStudio", "Models", "loras")
+            : Path.Combine(_settings.Settings.ModelsDirectory, "loras");
+
+        if (!Directory.Exists(dir)) return new List<string>();
+
+        var found = new List<string>();
+        try
+        {
+            foreach (var ext in new[] { "*.safetensors", "*.pt", "*.ckpt" })
+                foreach (var path in Directory.EnumerateFiles(dir, ext, SearchOption.AllDirectories))
+                    found.Add(Path.GetFileName(path));
+        }
+        catch (Exception ex) { Log.Warning(ex, "ScanLocalLoras {Dir} failed", dir); }
+
+        return found;
     }
 
     /// <summary>Hromadné přidání cest z drag &amp; drop nebo jiného externího zdroje.</summary>

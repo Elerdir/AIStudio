@@ -7,7 +7,7 @@ using AIStudio.App.ViewModels.ImageStudio;
 using AIStudio.App.ViewModels.Models;
 using AIStudio.App.ViewModels.Settings;
 using AIStudio.App.ViewModels.SystemMonitor;
-using AIStudio.App.Services;
+using AIStudio.Infrastructure.Services;
 
 namespace AIStudio.App.ViewModels;
 

@@ -1,6 +1,7 @@
 ; ══════════════════════════════════════════════════════════════════════════════
 ;  AI Studio – Inno Setup 6 install script
-;  Generuje self-contained installer pro Windows x64
+;  Generuje self-contained installer pro Windows x64.
+;  Sestavení: .\publish.ps1   nebo   ISCC installer\AIStudio.iss
 ; ══════════════════════════════════════════════════════════════════════════════
 
 #define AppName      "AI Studio"
@@ -105,17 +106,34 @@ Root: HKCU; Subkey: "Software\OKsystem\AIStudio"; \
     ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; \
     Flags: uninsdeletekey
 
+[CustomMessages]
+czech.LaunchAfterInstall=Spustit {#AppName} po instalaci
+english.LaunchAfterInstall=Launch {#AppName} after installation
+
+czech.DataNote=Poznámka: vaše konverzace, modely a nastavení (složka %AppData%\AIStudio) nebudou odstraněna.
+english.DataNote=Note: your conversations, models, and settings (%AppData%\AIStudio) are not removed.
+
 [Code]
-// ── Kontrola: není nainstalovaná starší verze? ─────────────────────────────
+// ── Kontrola existující instalace + výpis cesty ───────────────────────────
 function InitializeSetup(): Boolean;
 var
-  oldVersion: String;
+  oldPath: String;
 begin
   Result := True;
 
   if RegQueryStringValue(HKCU, 'Software\OKsystem\AIStudio',
-                         'InstallPath', oldVersion) then
+                         'InstallPath', oldPath) then
   begin
-    // Nic neblokuj – prostě přeinstaluj
+    // Existující instalace nalezena – přeinstalace pokračuje beze slova
+    Log('Existující instalace: ' + oldPath);
   end;
+end;
+
+// ── Zobraz DataNote na posledním panelu ───────────────────────────────────
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = wpFinished then
+    WizardForm.FinishedLabel.Caption :=
+      WizardForm.FinishedLabel.Caption + #13#10 + #13#10 +
+      CustomMessage('DataNote');
 end;

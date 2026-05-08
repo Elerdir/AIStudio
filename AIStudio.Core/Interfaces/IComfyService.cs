@@ -21,6 +21,7 @@ public interface IComfyService
 
     // ── API ───────────────────────────────────────────────────────────────────
     Task<IReadOnlyList<string>> GetCheckpointsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetLorasAsync(CancellationToken ct = default);
     Task<string>                QueuePromptAsync(Dictionary<string, object> workflow,
                                                  CancellationToken ct = default);
     /// <summary>
