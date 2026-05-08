@@ -192,6 +192,313 @@
                     <ScrollViewer Grid.Row="0" Padding="18,16,18,80">
                         <StackPanel Spacing="16">
 
+                            <!-- ── Přepínač Smart / Manuální ───────────────────── -->
+                            <Border Background="#0F0F11"
+                                    BorderBrush="#2A2A2E"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="4">
+                                <Grid ColumnDefinitions="*,*">
+                                    <!-- Smart tlačítko -->
+                                    <Button Grid.Column="0"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Center"
+                                            Padding="0,8"
+                                            CornerRadius="7"
+                                            FontSize="13"
+                                            FontWeight="SemiBold"
+                                            Command="{Binding SetSmartModeCommand}">
+                                        <Button.Styles>
+                                            <Style Selector="Button">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Foreground" Value="#888896"/>
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                            </Style>
+                                        </Button.Styles>
+                                        <Button.IsEnabled>
+                                            <Binding Path="IsManualMode"/>
+                                        </Button.IsEnabled>
+                                        <Button.Background>
+                                            <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                                                <Binding Path="IsSmartMode" Converter="{x:Static BoolConverters.Not}"/>
+                                                <Binding Path="IsSmartMode" Converter="{x:Static BoolConverters.Not}"/>
+                                            </MultiBinding>
+                                        </Button.Background>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AutoFix}" Width="14" Height="14" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Smart" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <!-- Manuální tlačítko -->
+                                    <Button Grid.Column="1"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Center"
+                                            Padding="0,8"
+                                            CornerRadius="7"
+                                            FontSize="13"
+                                            FontWeight="SemiBold"
+                                            Command="{Binding SetManualModeCommand}">
+                                        <Button.Styles>
+                                            <Style Selector="Button">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="Foreground" Value="#888896"/>
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                            </Style>
+                                        </Button.Styles>
+                                        <Button.IsEnabled>
+                                            <Binding Path="IsSmartMode"/>
+                                        </Button.IsEnabled>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.TuneVariant}" Width="14" Height="14" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Manuální" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!-- ══ SMART MÓD panel ════════════════════════════════ -->
+                            <StackPanel Spacing="16" IsVisible="{Binding IsSmartMode}">
+
+                                <!-- Popis v češtině -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="POPIS OBRÁZKU" Classes="sectionHeader"/>
+                                    <TextBox Text="{Binding CzechDescription}"
+                                             PlaceholderText="Napiš co chceš vygenerovat, klidně česky…"
+                                             AcceptsReturn="True"
+                                             Height="120"
+                                             TextWrapping="Wrap"
+                                             Background="#1C1C1E"
+                                             Foreground="#EBEBF5"
+                                             BorderBrush="#2A2A2E"
+                                             CornerRadius="10"
+                                             Padding="12,10"
+                                             FontSize="13"/>
+                                </StackPanel>
+
+                                <!-- Orientace — 3 tlačítka -->
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="ORIENTACE" Classes="sectionHeader"/>
+                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                                        <!-- Čtverec -->
+                                        <Border Grid.Column="0"
+                                                CornerRadius="8"
+                                                BorderThickness="1"
+                                                Cursor="Hand"
+                                                Classes.activeOrientation="{Binding OrientationSquare}">
+                                            <Border.Styles>
+                                                <Style Selector="Border.activeOrientation">
+                                                    <Setter Property="Background" Value="#2A1F5A"/>
+                                                    <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                </Style>
+                                                <Style Selector="Border:not(.activeOrientation)">
+                                                    <Setter Property="Background" Value="#1C1C1E"/>
+                                                    <Setter Property="BorderBrush" Value="#2A2A2E"/>
+                                                </Style>
+                                            </Border.Styles>
+                                            <Button Background="Transparent"
+                                                    BorderThickness="0"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Center"
+                                                    Padding="6,10"
+                                                    Command="{Binding SetOrientationSquareCommand}">
+                                                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                                    <Border Width="20" Height="20"
+                                                            CornerRadius="2"
+                                                            BorderThickness="1.5"
+                                                            HorizontalAlignment="Center">
+                                                        <Border.Styles>
+                                                            <Style Selector="Border">
+                                                                <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                            </Style>
+                                                        </Border.Styles>
+                                                    </Border>
+                                                    <TextBlock Text="Čtverec" FontSize="10" Foreground="#888896" HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Border>
+                                        <!-- Na výšku -->
+                                        <Border Grid.Column="1"
+                                                CornerRadius="8"
+                                                BorderThickness="1"
+                                                Cursor="Hand"
+                                                Classes.activeOrientation="{Binding OrientationPortrait}">
+                                            <Border.Styles>
+                                                <Style Selector="Border.activeOrientation">
+                                                    <Setter Property="Background" Value="#2A1F5A"/>
+                                                    <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                </Style>
+                                                <Style Selector="Border:not(.activeOrientation)">
+                                                    <Setter Property="Background" Value="#1C1C1E"/>
+                                                    <Setter Property="BorderBrush" Value="#2A2A2E"/>
+                                                </Style>
+                                            </Border.Styles>
+                                            <Button Background="Transparent"
+                                                    BorderThickness="0"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Center"
+                                                    Padding="6,10"
+                                                    Command="{Binding SetOrientationPortraitCommand}">
+                                                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                                    <Border Width="14" Height="20"
+                                                            CornerRadius="2"
+                                                            BorderThickness="1.5"
+                                                            HorizontalAlignment="Center">
+                                                        <Border.Styles>
+                                                            <Style Selector="Border">
+                                                                <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                            </Style>
+                                                        </Border.Styles>
+                                                    </Border>
+                                                    <TextBlock Text="Na výšku" FontSize="10" Foreground="#888896" HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Border>
+                                        <!-- Na šířku -->
+                                        <Border Grid.Column="2"
+                                                CornerRadius="8"
+                                                BorderThickness="1"
+                                                Cursor="Hand"
+                                                Classes.activeOrientation="{Binding OrientationLandscape}">
+                                            <Border.Styles>
+                                                <Style Selector="Border.activeOrientation">
+                                                    <Setter Property="Background" Value="#2A1F5A"/>
+                                                    <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                </Style>
+                                                <Style Selector="Border:not(.activeOrientation)">
+                                                    <Setter Property="Background" Value="#1C1C1E"/>
+                                                    <Setter Property="BorderBrush" Value="#2A2A2E"/>
+                                                </Style>
+                                            </Border.Styles>
+                                            <Button Background="Transparent"
+                                                    BorderThickness="0"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Center"
+                                                    Padding="6,10"
+                                                    Command="{Binding SetOrientationLandscapeCommand}">
+                                                <StackPanel Spacing="4" HorizontalAlignment="Center">
+                                                    <Border Width="20" Height="14"
+                                                            CornerRadius="2"
+                                                            BorderThickness="1.5"
+                                                            HorizontalAlignment="Center">
+                                                        <Border.Styles>
+                                                            <Style Selector="Border">
+                                                                <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                            </Style>
+                                                        </Border.Styles>
+                                                    </Border>
+                                                    <TextBlock Text="Na šířku" FontSize="10" Foreground="#888896" HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </Border>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Referenční obrázky (smart verze — reference + slider) -->
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0"
+                                                   Text="REFERENČNÍ OBRÁZEK (nepovinné)"
+                                                   Classes="sectionHeader"
+                                                   VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1"
+                                                Classes="secondary"
+                                                Padding="8,4"
+                                                FontSize="11"
+                                                Command="{Binding PickReferenceImageCommand}"
+                                                ToolTip.Tip="Přidat referenční obrázek (styl, kompozice)">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Plus}" Width="12" Height="12" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Přidat" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Prázdný stav -->
+                                    <Border Background="#0F0F11"
+                                            BorderBrush="#222228"
+                                            BorderThickness="1"
+                                            CornerRadius="8"
+                                            Padding="10,12"
+                                            IsVisible="{Binding !HasReferenceImage}">
+                                        <TextBlock Text="Bez reference — generuje se pouze z popisu"
+                                                   FontSize="11"
+                                                   Foreground="#444450"
+                                                   HorizontalAlignment="Center"/>
+                                    </Border>
+
+                                    <!-- Obrázky + slider -->
+                                    <StackPanel Spacing="4" IsVisible="{Binding HasReferenceImage}">
+                                        <ItemsControl ItemsSource="{Binding ReferenceImagePaths}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="x:String">
+                                                    <Border Background="#141416"
+                                                            BorderBrush="#222228"
+                                                            BorderThickness="1"
+                                                            CornerRadius="6"
+                                                            Padding="8,6"
+                                                            Margin="0,0,0,4">
+                                                        <Grid ColumnDefinitions="Auto,*,Auto">
+                                                            <mi:MaterialIcon Grid.Column="0"
+                                                                       Kind="{x:Static miKind:MaterialIconKind.ImageOutline}" Width="14" Height="14"
+                                                                       Foreground="#444450"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="0,0,6,0"/>
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding}"
+                                                                       FontSize="11"
+                                                                       Foreground="#8888A0"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       VerticalAlignment="Center"
+                                                                       ToolTip.Tip="{Binding}"/>
+                                                            <Button Grid.Column="2"
+                                                                    Background="Transparent"
+                                                                    BorderThickness="0"
+                                                                    Padding="4,2"
+                                                                    Foreground="#555560"
+                                                                    FontSize="11"
+                                                                    Content="✕"
+                                                                    Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.ClearReferenceImageCommand}"
+                                                                    CommandParameter="{Binding}"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <TextBlock Grid.Column="0"
+                                                       Text="Kreativní volnost"
+                                                       FontSize="11"
+                                                       Foreground="#555560"
+                                                       VerticalAlignment="Center"
+                                                       ToolTip.Tip="0 = drž se reference, 1 = jen inspirace"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding ReferenceStrength, StringFormat={}{0:P0}}"
+                                                       FontSize="11"
+                                                       Foreground="#888896"
+                                                       Margin="8,0"
+                                                       VerticalAlignment="Center"/>
+                                            <Button Grid.Column="2"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Padding="4,2"
+                                                    Foreground="#555560"
+                                                    FontSize="10"
+                                                    Content="✕ vše"
+                                                    Command="{Binding ClearAllReferenceImagesCommand}"/>
+                                        </Grid>
+                                        <Slider Value="{Binding ReferenceStrength}"
+                                                Minimum="0.0" Maximum="1.0"
+                                                SmallChange="0.05"
+                                                Foreground="#7C3AED"/>
+                                    </StackPanel>
+                                </StackPanel>
+
+                            </StackPanel>
+                            <!-- ══ konec SMART MÓD ══════════════════════════════ -->
+
+                            <!-- ══ MANUÁLNÍ MÓD panel ════════════════════════════ -->
+                            <StackPanel Spacing="16" IsVisible="{Binding IsManualMode}">
+
                             <!-- Model -->
                             <StackPanel Spacing="6">
                                 <TextBlock Text="MODEL" Classes="sectionHeader"/>
@@ -548,6 +855,9 @@
                                                    FontSize="12"/>
                                 </StackPanel>
                             </Grid>
+
+                            </StackPanel>
+                            <!-- ══ konec MANUÁLNÍ MÓD ══════════════════════════ -->
 
                             <!-- Spacer na konci formuláře — zaručí, že poslední ovládací prvek
                                  má pod sebou rezervu i v případě, že ScrollViewer.Padding

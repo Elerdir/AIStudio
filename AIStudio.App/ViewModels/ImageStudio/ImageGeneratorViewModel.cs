@@ -26,6 +26,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     private CancellationTokenSource? _genCts;
 
     [ObservableProperty] private string _title;
+    [ObservableProperty] private bool   _isSmartMode = true;
+    [ObservableProperty] private string _czechDescription = string.Empty;
     [ObservableProperty] private string _prompt = string.Empty;
     [ObservableProperty] private string _negativePrompt = string.Empty;
     [ObservableProperty] private string _selectedModel = "FLUX.1 Schnell";
@@ -123,6 +125,13 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
     public bool HasGeneratedImages => GeneratedImages.Count > 0;
 
+    public bool IsManualMode      => !IsSmartMode;
+
+    // Orientace — zjednodušené 3-tlačítko pro Smart mód
+    public bool OrientationSquare    => SelectedAspectRatio == AspectRatio.R1x1;
+    public bool OrientationPortrait  => SelectedAspectRatio is AspectRatio.R9x16 or AspectRatio.R3x4;
+    public bool OrientationLandscape => SelectedAspectRatio is AspectRatio.R16x9 or AspectRatio.R4x3;
+
     public ImageGeneratorViewModel(
         IComfyService         comfy,
         ISettingsService      settings,
@@ -150,10 +159,16 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
     // ── Property hooks ────────────────────────────────────────────────────────
 
+    partial void OnIsSmartModeChanged(bool value) =>
+        OnPropertyChanged(nameof(IsManualMode));
+
     partial void OnSelectedAspectRatioChanged(AspectRatio value)
     {
         OnPropertyChanged(nameof(AspectRatioLabel));
         OnPropertyChanged(nameof(ResolutionLabel));
+        OnPropertyChanged(nameof(OrientationSquare));
+        OnPropertyChanged(nameof(OrientationPortrait));
+        OnPropertyChanged(nameof(OrientationLandscape));
     }
 
     partial void OnSelectedQualityChanged(ImageQuality value)
@@ -161,6 +176,13 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         OnPropertyChanged(nameof(QualityLabel));
         OnPropertyChanged(nameof(ResolutionLabel));
     }
+
+    [RelayCommand] void SetSmartMode()  => IsSmartMode = true;
+    [RelayCommand] void SetManualMode() => IsSmartMode = false;
+
+    [RelayCommand] void SetOrientationSquare()   => SelectedAspectRatio = AspectRatio.R1x1;
+    [RelayCommand] void SetOrientationPortrait()  => SelectedAspectRatio = AspectRatio.R9x16;
+    [RelayCommand] void SetOrientationLandscape() => SelectedAspectRatio = AspectRatio.R16x9;
 
     partial void OnSelectedModelChanged(string value) => UpdateModelDefaults(value);
 
@@ -270,6 +292,41 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         {
             GenerationStatus = "ComfyUI není spuštěno";
             return;
+        }
+
+        // Smart mód: přeložíme český popis → Prompt (přes IntentParser nebo přímo)
+        if (IsSmartMode)
+        {
+            if (string.IsNullOrWhiteSpace(CzechDescription))
+            {
+                GenerationStatus = "Zadej popis obrázku";
+                return;
+            }
+
+            if (_intentParser is not null)
+            {
+                GenerationStatus = "Analyzuji popis…";
+                try
+                {
+                    var intent = await _intentParser.ParseAsync(CzechDescription);
+                    Prompt         = intent.EnglishPrompt;
+                    NegativePrompt = intent.NegativePrompt ?? string.Empty;
+                    if (_modelMatcher is not null && string.IsNullOrEmpty(SelectedModel))
+                    {
+                        var pick = _modelMatcher.Match(intent.Kind, AvailableCheckpoints);
+                        if (!string.IsNullOrEmpty(pick)) SelectedModel = pick;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Smart mód: IntentParser selhal, používám popis přímo");
+                    Prompt = CzechDescription;
+                }
+            }
+            else
+            {
+                Prompt = CzechDescription;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(Prompt))
