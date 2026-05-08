@@ -117,9 +117,9 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
 
     private static string GetCpuName()
     {
+        // 1) WMI Win32_Processor — nejhezčí název ("Intel Core i7-12700K …")
         if (OperatingSystem.IsWindows())
         {
-            // 1) WMI Win32_Processor — nejhezčí název ("Intel Core i7-12700K …")
             try
             {
                 using var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor");
@@ -158,7 +158,7 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
             }
         }
 
-        // 3) Env var PROCESSOR_IDENTIFIER — méně hezké ("Intel64 Family 6 Model 158 …"), ale cross-platform
+        // 3) Env var PROCESSOR_IDENTIFIER — méně hezké ("Intel64 Family 6 Model 158 …")
         var fromEnv = Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER")?.Split(',')[0].Trim();
         if (!string.IsNullOrEmpty(fromEnv))
         {
@@ -182,12 +182,6 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
     /// </summary>
     private double GetCpuUsage()
     {
-        // Win32 GetSystemTimes funguje jen na Windows. Na macOS / Linux teď
-        // vrátíme 0 — proper detekce přes host_processor_info / /proc/stat
-        // přijde v Phase 2 systém monitoringu pro Apple Silicon.
-        if (!OperatingSystem.IsWindows())
-            return 0;
-
         try
         {
             if (!ReadSystemTimes(out var idleNow, out var kernelNow, out var userNow))
@@ -217,8 +211,6 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
     private static bool ReadSystemTimes(out long idle, out long kernel, out long user)
     {
         idle = kernel = user = 0;
-        if (!OperatingSystem.IsWindows()) return false;
-
         if (!GetSystemTimes(out var idleFt, out var kernelFt, out var userFt))
             return false;
 
@@ -230,7 +222,6 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
 
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private static extern bool GetSystemTimes(
         out FileTimeStruct idleTime, out FileTimeStruct kernelTime, out FileTimeStruct userTime);
 
@@ -247,9 +238,6 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
 
     private static (double Used, double Total) GetRamInfo()
     {
-        if (!OperatingSystem.IsWindows())
-            return (0, 0);
-
         try
         {
             var mem = new MemoryStatusEx();
@@ -352,9 +340,6 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
         }
 
         // ── Pokus 2: WMI Win32_VideoController (libovolná GPU) ───────────────
-        if (!OperatingSystem.IsWindows())
-            return ("N/A", 0, 0, 0, false, []);
-
         try
         {
             var (wmiName, wmiVramGb) = GetWmiGpuBasicInfo();
@@ -419,9 +404,11 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
 
     // ── WMI fallback — libovolná GPU (název + celková VRAM) ──────────────────
 
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private static (string Name, double VramTotalGb) GetWmiGpuBasicInfo()
     {
+        if (!OperatingSystem.IsWindows())
+            return (string.Empty, 0);
+
         // Necháváme bez WHERE filteru — některé systémy nedávají do PNPDeviceID prefix "PCI",
         // u VM třeba "ROOT\…". Místo toho projdeme všechny adaptery a softwarové
         // renderery (Microsoft Basic Display, RDP) vyhodíme až v post-filteru.
@@ -496,9 +483,8 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
 
     // ── Win32 RAM ─────────────────────────────────────────────────────────────
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [DllImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx lpBuffer);
 
     [StructLayout(LayoutKind.Sequential)]

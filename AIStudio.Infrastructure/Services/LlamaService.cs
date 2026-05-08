@@ -56,6 +56,9 @@ public sealed class LlamaService : ILlamaService
             _modelParams   = parameters;
             LoadedModelName = modelName;
 
+            // Zjistíme, jestli načtený backend skutečně podporuje GPU offload.
+            // llama_supports_gpu_offload() vrací true pokud native DLL byl
+            // zkompilován s CUDA/ROCm — tedy jestli GpuLayerCount > 0 má efekt.
             var gpuSupported = false;
             try { gpuSupported = NativeApi.llama_supports_gpu_offload(); }
             catch { /* starší verze LLamaSharp nebo jiný název API */ }

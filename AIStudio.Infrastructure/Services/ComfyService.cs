@@ -11,7 +11,10 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
 {
     private readonly ISettingsService _settings;
     private readonly IComfyInstaller  _installer;
-    private readonly HttpClient       _http;
+    private static readonly HttpClient _http = new()
+    {
+        Timeout = TimeSpan.FromSeconds(30)
+    };
 
     private Process? _process;
     private readonly string _clientId = Guid.NewGuid().ToString("N")[..12];
@@ -25,11 +28,10 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
 
     public event Action<ComfyStatus>? StatusChanged;
 
-    public ComfyService(ISettingsService settings, IComfyInstaller installer, IHttpClientFactory httpFactory)
+    public ComfyService(ISettingsService settings, IComfyInstaller installer)
     {
         _settings  = settings;
         _installer = installer;
-        _http      = httpFactory.CreateClient("comfy");
     }
 
     // ── Init ──────────────────────────────────────────────────────────────────
@@ -342,6 +344,23 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         }
     }
 
+    public async Task<string> UploadImageAsync(string localFilePath, CancellationToken ct = default)
+    {
+        await using var stream = File.OpenRead(localFilePath);
+        using var form    = new MultipartFormDataContent();
+        using var imgBody = new StreamContent(stream);
+        form.Add(imgBody,                               "image", Path.GetFileName(localFilePath));
+        form.Add(new StringContent("input"),            "type");
+        form.Add(new StringContent("true"),             "overwrite");
+
+        using var resp = await _http.PostAsync($"{BaseUrl}/upload/image", form, ct);
+        var json = await resp.Content.ReadAsStringAsync(ct);
+
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.GetProperty("name").GetString()
+               ?? throw new InvalidOperationException("ComfyUI upload nevrátilo název souboru");
+    }
+
     public async Task<ComfyGenerationResult?> WaitForResultAsync(
         string promptId, IProgress<int>? progress, CancellationToken ct)
     {
@@ -360,6 +379,10 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Sleduje průběh generování přes ComfyUI WebSocket.
+    /// Hlásí reálný krok/maximum (např. „8 / 20"), takže progress bar ukazuje přesnou hodnotu.
+    /// </summary>
     private async Task<ComfyGenerationResult?> WaitViaWebSocketAsync(
         string promptId, IProgress<int>? progress, CancellationToken ct)
     {
@@ -376,6 +399,8 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             if (recv.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
                 break;
 
+            // ComfyUI může rozsekat velkou zprávu na více framů — pro naše účely
+            // (krátké JSON eventy) to nenastane, ale pro jistotu bereme Count z recv.
             var text = Encoding.UTF8.GetString(buffer, 0, recv.Count);
 
             try
@@ -388,6 +413,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                 switch (type)
                 {
                     case "progress":
+                        // {"type":"progress","data":{"value":5,"max":20,"prompt_id":"..."}}
                         var value = data.GetProperty("value").GetInt32();
                         var max   = data.GetProperty("max").GetInt32();
                         if (max > 0)
@@ -422,6 +448,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         return null;
     }
 
+    /// <summary>Načte výsledky z /history/{promptId} — volá se po execution_success.</summary>
     private async Task<ComfyGenerationResult?> FetchHistoryResultAsync(
         string promptId, CancellationToken ct)
     {
@@ -451,6 +478,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         return images.Count > 0 ? new ComfyGenerationResult(promptId, images, DateTime.Now) : null;
     }
 
+    /// <summary>Polling fallback pro případ, že WebSocket selže.</summary>
     private async Task<ComfyGenerationResult?> WaitViaPollingAsync(
         string promptId, IProgress<int>? progress, CancellationToken ct)
     {
@@ -478,8 +506,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                     var isRunning = queueDoc.RootElement
                         .GetProperty("queue_running")
                         .EnumerateArray()
-                        .Any(item => item.GetArrayLength() > 1
-                                  && item[1].GetString() == promptId);
+                        .Any(item => item.GetArrayLength() > 1 && item[1].GetString() == promptId);
                     progress?.Report(isRunning ? 50 : 10);
                 }
             }
@@ -501,69 +528,6 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                   $"&type={Uri.EscapeDataString(type)}";
 
         return await _http.GetByteArrayAsync(url, ct);
-    }
-
-    /// <summary>
-    /// POST /upload/image — multipart upload do ComfyUI <c>input/</c>.
-    /// Volně podle dokumentace ComfyUI server.py: pole <c>image</c> = soubor,
-    /// <c>type</c> = "input"|"temp"|"output", <c>overwrite</c> = "true"|"false".
-    /// Server v odpovědi vrací JSON <c>{"name":"…","subfolder":"","type":"input"}</c>;
-    /// jméno může být upravené, pokud už soubor existoval (přidá se suffix), proto
-    /// nikdy nepoužívat lokální Path.GetFileName, ale vrácenou hodnotu.
-    /// </summary>
-    public async Task<string> UploadImageAsync(string localPath, CancellationToken ct = default)
-    {
-        if (!File.Exists(localPath))
-            throw new FileNotFoundException("Reference image nebyl nalezen", localPath);
-
-        var fileName = Path.GetFileName(localPath);
-
-        // Pošleme stream místo načtení do paměti — kvůli velkým 4K referenčním obrázkům.
-        await using var stream = File.OpenRead(localPath);
-        using var streamContent = new StreamContent(stream);
-        streamContent.Headers.ContentType =
-            new System.Net.Http.Headers.MediaTypeHeaderValue(GuessMime(localPath));
-
-        using var form = new MultipartFormDataContent
-        {
-            { streamContent,                "image",     fileName },
-            { new StringContent("input"),    "type"               },
-            { new StringContent("true"),     "overwrite"          },
-        };
-
-        using var resp = await _http.PostAsync($"{BaseUrl}/upload/image", form, ct);
-        var json = await resp.Content.ReadAsStringAsync(ct);
-
-        if (!resp.IsSuccessStatusCode)
-            throw new InvalidOperationException(
-                $"ComfyUI upload selhal ({(int)resp.StatusCode}): {json}");
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var name = doc.RootElement.TryGetProperty("name", out var n) ? n.GetString() : null;
-            return string.IsNullOrEmpty(name) ? fileName : name!;
-        }
-        catch
-        {
-            // Pokud ComfyUI vrátí něco neočekávaného, použijeme alespoň lokální jméno —
-            // bude to fungovat, dokud se ve stejné session jméno nemění.
-            return fileName;
-        }
-    }
-
-    private static string GuessMime(string path)
-    {
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-        return ext switch
-        {
-            ".png"           => "image/png",
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".webp"          => "image/webp",
-            ".bmp"           => "image/bmp",
-            ".gif"           => "image/gif",
-            _                => "application/octet-stream",
-        };
     }
 
     // ── Internals ─────────────────────────────────────────────────────────────

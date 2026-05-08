@@ -1,7 +1,8 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AIStudio.App.ViewModels.Settings"
              xmlns:mi="using:Material.Icons.Avalonia"
+             xmlns:miKind="using:Material.Icons"
              x:Class="AIStudio.App.Views.Settings.SettingsPageView"
              x:DataType="vm:SettingsPageViewModel">
 
@@ -24,7 +25,7 @@
                         CornerRadius="8" Padding="12,6"
                         VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <mi:MaterialIcon Kind="Check" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
                         <TextBlock Text="Uloženo" FontSize="12" Foreground="#4ADE80" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -99,8 +100,7 @@
                                     Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10" Margin="0,12,0,0">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <mi:MaterialIcon Kind="AlertOutline" Width="16" Height="16" Foreground="#F59E0B"
-                                               VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="#F59E0B" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                     <TextBlock FontSize="11" Foreground="#7A6A40" TextWrapping="Wrap"
                                                Text="CPU inference je řádově pomalejší než GPU. Pro použitelné výsledky doporučujeme modely do 7B a trpělivost."/>
                                 </StackPanel>
@@ -136,7 +136,7 @@
                                         VerticalAlignment="Stretch"
                                         Padding="14,0">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <mi:MaterialIcon Kind="FolderSearch" Width="16" Height="16" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderSearch}" Width="16" Height="16" VerticalAlignment="Center"/>
                                         <TextBlock Text="Procházet" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -149,15 +149,14 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Obnovit výchozí cestu">
-                                    <mi:MaterialIcon Kind="RotateLeft" Width="16" Height="16"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.RotateLeft}" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
 
                             <!-- Výchozí cesta hint -->
                             <StackPanel Orientation="Horizontal" Spacing="6"
                                         IsVisible="{Binding ModelsDirectory, Converter={x:Static StringConverters.IsNullOrEmpty}}">
-                                <mi:MaterialIcon Kind="InformationOutline" Width="14" Height="14" Foreground="#444450" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.InformationOutline}" Width="14" Height="14" Foreground="#444450" VerticalAlignment="Center"/>
                                 <TextBlock Text="Výchozí: " FontSize="11" Foreground="#444450"/>
                                 <TextBlock Text="{Binding DefaultModelsPath}"
                                            FontSize="11" Foreground="#444450"/>
@@ -186,7 +185,7 @@
                                         VerticalAlignment="Top"
                                         Padding="10,6" FontSize="11">
                                     <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <mi:MaterialIcon Kind="OpenInNew" Width="14" Height="14" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.OpenInNew}" Width="14" Height="14" VerticalAlignment="Center"/>
                                         <TextBlock Text="Získat token" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -223,12 +222,8 @@
                                               Background="#1C1C1E" BorderBrush="#2A2A2E"
                                               ToolTip.Tip="Zobrazit / skrýt token">
                                     <Panel>
-                                        <mi:MaterialIcon Kind="Eye" Width="18" Height="18" Foreground="#888896"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   IsVisible="{Binding !ShowHfToken}"/>
-                                        <mi:MaterialIcon Kind="EyeOff" Width="18" Height="18" Foreground="#A78BFA"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   IsVisible="{Binding ShowHfToken}"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eye}" Width="18" Height="18" Foreground="#888896" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !ShowHfToken}"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="18" Height="18" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowHfToken}"/>
                                     </Panel>
                                 </ToggleButton>
 
@@ -243,8 +238,7 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Smazat token">
-                                    <mi:MaterialIcon Kind="Close" Width="16" Height="16" Foreground="#F87171"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="16" Height="16" Foreground="#F87171" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
 
@@ -252,7 +246,7 @@
                             <Border Background="#141416" CornerRadius="6" Padding="10,6"
                                     IsVisible="{Binding HuggingFaceToken, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <mi:MaterialIcon Kind="Check" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
                                     <TextBlock Text="Token nastaven — privátní modely jsou dostupné"
                                                FontSize="11" Foreground="#555560"/>
                                 </StackPanel>
@@ -276,7 +270,7 @@
                                         VerticalAlignment="Top"
                                         Padding="10,6" FontSize="11">
                                     <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <mi:MaterialIcon Kind="OpenInNew" Width="14" Height="14" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.OpenInNew}" Width="14" Height="14" VerticalAlignment="Center"/>
                                         <TextBlock Text="Otevřít Civitai" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -311,12 +305,8 @@
                                               Background="#1C1C1E" BorderBrush="#2A2A2E"
                                               ToolTip.Tip="Zobrazit / skrýt klíč">
                                     <Panel>
-                                        <mi:MaterialIcon Kind="Eye" Width="18" Height="18" Foreground="#888896"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   IsVisible="{Binding !ShowCivitaiToken}"/>
-                                        <mi:MaterialIcon Kind="EyeOff" Width="18" Height="18" Foreground="#A78BFA"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   IsVisible="{Binding ShowCivitaiToken}"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eye}" Width="18" Height="18" Foreground="#888896" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !ShowCivitaiToken}"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="18" Height="18" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowCivitaiToken}"/>
                                     </Panel>
                                 </ToggleButton>
 
@@ -330,15 +320,14 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Smazat klíč">
-                                    <mi:MaterialIcon Kind="Close" Width="16" Height="16" Foreground="#F87171"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="16" Height="16" Foreground="#F87171" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
 
                             <Border Background="#141416" CornerRadius="6" Padding="10,6"
                                     IsVisible="{Binding CivitaiApiKey, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <mi:MaterialIcon Kind="Check" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
                                     <TextBlock Text="API klíč nastaven — Civitai modely jsou dostupné"
                                                FontSize="11" Foreground="#555560"/>
                                 </StackPanel>
@@ -350,8 +339,7 @@
                             <Border Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10">
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                                    <mi:MaterialIcon Kind="AlertOutline" Width="16" Height="16" Foreground="#F59E0B" VerticalAlignment="Top"
-                                               Margin="0,1,0,0"/>
+                                    <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="#F59E0B" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                     <TextBlock Grid.Column="1"
                                                Text="Některé modely na Civitai vyžadují přihlášení nebo věkové ověření. Bez API klíče může stahování selhat s chybou 401."
                                                FontSize="11" Foreground="#7A6A40"
@@ -376,8 +364,7 @@
                                  nekonečnou šířku a TextWrapping="Wrap" by byl bez efektu;
                                  Auto,* zaručí, že popisek dostane zbylý prostor a zalomí se. -->
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                                <mi:MaterialIcon Kind="InformationOutline" Width="16" Height="16" Foreground="#A78BFA"
-                                           VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.InformationOutline}" Width="16" Height="16" Foreground="#A78BFA" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="Jak rozjet generování obrázků"
                                                FontSize="13" FontWeight="SemiBold" Foreground="#C4B5FD"/>
@@ -399,7 +386,7 @@
                                         Padding="14,7"
                                         Command="{Binding InstallComfyUiCommand}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <mi:MaterialIcon Kind="Download" Width="14" Height="14" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Export}" Width="14" Height="14" VerticalAlignment="Center"/>
                                         <TextBlock Text="Nainstalovat automaticky"
                                                    FontSize="12" VerticalAlignment="Center"/>
                                     </StackPanel>
@@ -408,7 +395,7 @@
                                         Padding="12,7"
                                         Command="{Binding OpenComfyUiReleasesCommand}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <mi:MaterialIcon Kind="OpenInNew" Width="14" Height="14" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.OpenInNew}" Width="14" Height="14" VerticalAlignment="Center"/>
                                         <TextBlock Text="Stránka GitHub"
                                                    FontSize="12" VerticalAlignment="Center"/>
                                     </StackPanel>
@@ -422,8 +409,7 @@
                                     Background="#0F1A0F" BorderBrush="#1F3A1F" BorderThickness="1"
                                     CornerRadius="8" Padding="12,8" HorizontalAlignment="Left">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <mi:MaterialIcon Kind="Check" Width="16" Height="16" Foreground="#4ADE80"
-                                               VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="#4ADE80" VerticalAlignment="Center"/>
                                     <TextBlock Text="ComfyUI je nainstalovaný a připravený"
                                                FontSize="12" Foreground="#86EFAC"
                                                VerticalAlignment="Center"/>
@@ -470,8 +456,7 @@
                                     Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
                                     CornerRadius="8" Padding="12,8">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <mi:MaterialIcon Kind="AlertOutline" Width="14" Height="14" Foreground="#F87171"
-                                               VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="14" Height="14" Foreground="#F87171" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                     <TextBlock Text="{Binding InstallError}"
                                                FontSize="11" Foreground="#F87171"
                                                TextWrapping="Wrap"/>
@@ -502,7 +487,7 @@
                                         VerticalAlignment="Stretch"
                                         Padding="14,0">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <mi:MaterialIcon Kind="FolderSearch" Width="16" Height="16" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderSearch}" Width="16" Height="16" VerticalAlignment="Center"/>
                                         <TextBlock Text="Procházet" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -515,8 +500,7 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Smazat cestu">
-                                    <mi:MaterialIcon Kind="RotateLeft" Width="16" Height="16"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.RotateLeft}" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
                         </StackPanel>
@@ -545,7 +529,7 @@
                                             VerticalAlignment="Stretch"
                                             Padding="14,0">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <mi:MaterialIcon Kind="FolderSearch" Width="16" Height="16" VerticalAlignment="Center"/>
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderSearch}" Width="16" Height="16" VerticalAlignment="Center"/>
                                             <TextBlock Text="Procházet" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
@@ -558,8 +542,7 @@
                                             HorizontalContentAlignment="Center"
                                             VerticalContentAlignment="Center"
                                             ToolTip.Tip="Obnovit výchozí">
-                                        <mi:MaterialIcon Kind="RotateLeft" Width="16" Height="16"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.RotateLeft}" Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Button>
                                 </Grid>
                             </StackPanel>
@@ -601,101 +584,6 @@
                             </Grid>
 
                         </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <!-- ══════════════════ DATA / SOUKROMÍ ══════════════════ -->
-                <StackPanel Spacing="12">
-                    <TextBlock Text="DATA" Classes="sectionHeader"/>
-                    <Border Classes="card">
-                        <StackPanel Spacing="10">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                <StackPanel Grid.Column="0" Spacing="3">
-                                    <TextBlock Text="Smazat všechny chaty"
-                                               FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
-                                    <TextBlock Text="Vymaže všechny konverzace a jejich historii zpráv ze SQLite databáze. Nelze vrátit. Modely ani nastavení se nemažou."
-                                               FontSize="12" Foreground="#666672" TextWrapping="Wrap"/>
-                                </StackPanel>
-                                <!-- Tlačítko: před confirmem -->
-                                <Button Grid.Column="1"
-                                        IsVisible="{Binding !IsConfirmingChatClear}"
-                                        Classes="secondary"
-                                        Foreground="#F87171"
-                                        Padding="14,8"
-                                        VerticalAlignment="Center"
-                                        Command="{Binding BeginChatClearConfirmationCommand}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <mi:MaterialIcon Kind="Delete" Width="16" Height="16" VerticalAlignment="Center"/>
-                                        <TextBlock Text="Smazat všechny chaty"
-                                                   FontSize="12" VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
-                            </Grid>
-
-                            <!-- Inline confirm panel — stejný pattern jako u smazání modelu.
-                                 Vždy přijde po prvním kliku, vyžaduje druhý explicit klik. -->
-                            <Border IsVisible="{Binding IsConfirmingChatClear}"
-                                    Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
-                                    CornerRadius="10" Padding="14,12">
-                                <StackPanel Spacing="10">
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <mi:MaterialIcon Kind="AlertOutline" Width="16" Height="16" Foreground="#F87171"
-                                                   VerticalAlignment="Top" Margin="0,1,0,0"/>
-                                        <StackPanel Spacing="3">
-                                            <TextBlock Text="Opravdu smazat všechny chaty?" FontSize="13"
-                                                       FontWeight="SemiBold" Foreground="#F87171"/>
-                                            <TextBlock FontSize="11" Foreground="#9c6a6a" TextWrapping="Wrap"
-                                                       Text="Smaže VŠECHNY konverzace a všechny zprávy z databáze. Tato akce je nevratná. Modely, nastavení a vygenerované obrázky se nemažou."/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                                        <Button Grid.Column="0" Classes="secondary"
-                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                Command="{Binding CancelChatClearCommand}"
-                                                IsEnabled="{Binding !IsClearingChats}"
-                                                Content="Zrušit"/>
-                                        <Button Grid.Column="1"
-                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                Background="#3A1515" BorderBrush="#6B2020" BorderThickness="1"
-                                                Foreground="#F87171" CornerRadius="8" Padding="0,8"
-                                                Command="{Binding ConfirmChatClearCommand}"
-                                                IsEnabled="{Binding !IsClearingChats}"
-                                                Content="Ano, smazat všechno"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Status — krátká hláška po provedení (zmizí po 4s) -->
-                            <TextBlock Text="{Binding ChatClearStatus}"
-                                       FontSize="11" Foreground="#4ADE80"
-                                       IsVisible="{Binding ChatClearStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
-
-                <!-- ══════════════════ DIAGNOSTIKA ══════════════════ -->
-                <StackPanel Spacing="12">
-                    <TextBlock Text="DIAGNOSTIKA" Classes="sectionHeader"/>
-                    <Border Classes="card">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel Grid.Column="0" Spacing="3">
-                                <TextBlock Text="Logy aplikace"
-                                           FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
-                                <TextBlock Text="Otevři okno s historií logů — užitečné pro hledání chyb a poslání kontextu k podpoře. Filtr podle úrovně, hledání, kopie do schránky."
-                                           FontSize="12" Foreground="#666672" TextWrapping="Wrap"/>
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    Classes="secondary"
-                                    Padding="14,8"
-                                    Command="{Binding OpenLogViewerCommand}"
-                                    VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <mi:MaterialIcon Kind="ConsoleLine" Width="16" Height="16" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Otevřít Log Viewer"
-                                               FontSize="12" VerticalAlignment="Center"/>
-                                </StackPanel>
-                            </Button>
-                        </Grid>
                     </Border>
                 </StackPanel>
 

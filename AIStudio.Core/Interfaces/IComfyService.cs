@@ -23,6 +23,11 @@ public interface IComfyService
     Task<IReadOnlyList<string>> GetCheckpointsAsync(CancellationToken ct = default);
     Task<string>                QueuePromptAsync(Dictionary<string, object> workflow,
                                                  CancellationToken ct = default);
+    /// <summary>
+    /// Nahraje lokální obrázek do ComfyUI input složky.
+    /// Vrací název souboru v ComfyUI (použij v LoadImage uzlu workflow).
+    /// </summary>
+    Task<string> UploadImageAsync(string localFilePath, CancellationToken ct = default);
     Task<ComfyGenerationResult?> WaitForResultAsync(string promptId,
                                                      IProgress<int>? progress,
                                                      CancellationToken ct);
