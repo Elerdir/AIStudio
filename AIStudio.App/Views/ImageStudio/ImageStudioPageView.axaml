@@ -275,6 +275,7 @@
                                              Background="#1C1C1E"
                                              Foreground="#EBEBF5"
                                              BorderBrush="#2A2A2E"
+                                             BorderThickness="1"
                                              CornerRadius="10"
                                              Padding="12,10"
                                              FontSize="13"/>
