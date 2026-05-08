@@ -262,16 +262,19 @@
                             </Border>
 
                             <!-- ══ SMART MÓD panel ════════════════════════════════ -->
-                            <StackPanel Spacing="16" IsVisible="{Binding IsSmartMode}">
+                            <StackPanel Spacing="16"
+                                        HorizontalAlignment="Stretch"
+                                        IsVisible="{Binding IsSmartMode}">
 
                                 <!-- Popis v češtině -->
-                                <StackPanel Spacing="6">
+                                <StackPanel Spacing="6" HorizontalAlignment="Stretch">
                                     <TextBlock Text="POPIS OBRÁZKU" Classes="sectionHeader"/>
                                     <TextBox Text="{Binding CzechDescription}"
                                              PlaceholderText="Napiš co chceš vygenerovat, klidně česky…"
                                              AcceptsReturn="True"
                                              Height="120"
                                              TextWrapping="Wrap"
+                                             HorizontalAlignment="Stretch"
                                              Background="#1C1C1E"
                                              Foreground="#EBEBF5"
                                              BorderBrush="#2A2A2E"
@@ -281,9 +284,10 @@
                                 </StackPanel>
 
                                 <!-- Orientace — 3 tlačítka -->
-                                <StackPanel Spacing="6">
+                                <StackPanel Spacing="6" HorizontalAlignment="Stretch">
                                     <TextBlock Text="ORIENTACE" Classes="sectionHeader"/>
-                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6"
+                                          HorizontalAlignment="Stretch">
                                         <!-- Čtverec -->
                                         <Border Grid.Column="0"
                                                 CornerRadius="8"
@@ -399,8 +403,8 @@
                                 </StackPanel>
 
                                 <!-- Referenční obrázky (smart verze — reference + slider) -->
-                                <StackPanel Spacing="6">
-                                    <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+                                    <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
                                         <TextBlock Grid.Column="0"
                                                    Text="REFERENČNÍ OBRÁZEK (nepovinné)"
                                                    Classes="sectionHeader"
@@ -424,6 +428,7 @@
                                             BorderThickness="1"
                                             CornerRadius="8"
                                             Padding="10,12"
+                                            HorizontalAlignment="Stretch"
                                             IsVisible="{Binding !HasReferenceImage}">
                                         <TextBlock Text="Bez reference — generuje se pouze z popisu"
                                                    FontSize="11"
@@ -432,7 +437,7 @@
                                     </Border>
 
                                     <!-- Obrázky + slider -->
-                                    <StackPanel Spacing="4" IsVisible="{Binding HasReferenceImage}">
+                                    <StackPanel Spacing="4" HorizontalAlignment="Stretch" IsVisible="{Binding HasReferenceImage}">
                                         <ItemsControl ItemsSource="{Binding ReferenceImagePaths}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="x:String">
@@ -494,6 +499,7 @@
                                         <Slider Value="{Binding ReferenceStrength}"
                                                 Minimum="0.0" Maximum="1.0"
                                                 SmallChange="0.05"
+                                                HorizontalAlignment="Stretch"
                                                 Foreground="#7C3AED"/>
                                     </StackPanel>
                                 </StackPanel>
