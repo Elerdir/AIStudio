@@ -36,10 +36,22 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     [ObservableProperty] private bool _isGenerating;
     [ObservableProperty] private int _generationProgress;
     [ObservableProperty] private string _generationStatus = string.Empty;
-    [ObservableProperty] private string? _referenceImagePath;
-    [ObservableProperty] private double _referenceStrength = 0.7;
-    [ObservableProperty] private bool _hasReferenceImage;
+
+    // ── Referenční obrázky ────────────────────────────────────────────────────
+    // Uživatel může přidat více obrázků jako inspiraci.
+    // Img2img workflow použije vždy první obrázek ze seznamu jako výchozí bod;
+    // ostatní budou postupně zahrnuty, jakmile přidáme IP-Adapter podporu.
+
+    /// <summary>
+    /// 0 = výsledek blízký referenci, 1 = výsledek blízký promptu (jen inspirace referencí).
+    /// Mapuje na denoise v img2img: CreativityToDenoise(0.6) ≈ 0.78 → prompt vede 78 %.
+    /// </summary>
+    [ObservableProperty] private double _referenceStrength = 0.6;
     [ObservableProperty] private GeneratedImageViewModel? _latestImage;
+
+    public ObservableCollection<string> ReferenceImagePaths { get; } = new();
+
+    public bool HasReferenceImage => ReferenceImagePaths.Count > 0;
 
     // Available checkpoints fetched from ComfyUI
     [ObservableProperty] private ObservableCollection<string> _availableCheckpoints = new();
@@ -108,6 +120,9 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         _imageRepo = imageRepo;
         var n = System.Threading.Interlocked.Increment(ref _counter);
         _title = $"Generátor {n}";
+
+        ReferenceImagePaths.CollectionChanged += (_, _) =>
+            OnPropertyChanged(nameof(HasReferenceImage));
 
         UpdateModelDefaults(SelectedModel);
     }
@@ -270,16 +285,69 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 }
             }
 
-            // Workflow router:
-            //   • FLUX GGUF  → UnetLoaderGGUF + DualCLIPLoader + VAELoader (4-loader workflow)
-            //   • FLUX safetensors → klasický CheckpointLoaderSimple (all-in-one)
-            //   • SDXL / SD  → klasický CheckpointLoaderSimple
-            //
-            // FLUX GGUF předpokládá, že uživatel má v Models složce CLIP-L, T5 a VAE
-            // (najde je přes extra_model_paths.yaml). Pokud chybí, ComfyUI vrátí
-            // validation error a my ho v UI ukážeme.
+            // ── Referenční obrázky → img2img ─────────────────────────────────
+            // Prvním krokem je upload do ComfyUI input složky.
+            // Pokud uživatel přidal více obrázků, použijeme jako primární referenci
+            // první ze seznamu (ostatní prozatím přeskočíme, IP-Adapter přijde později).
+            string? uploadedRefName = null;
+            if (ReferenceImagePaths.Count > 0)
+            {
+                var primaryRef = ReferenceImagePaths[0];
+                GenerationStatus = $"Nahrávám referenci ({Path.GetFileName(primaryRef)})…";
+                try
+                {
+                    uploadedRefName = await _comfy.UploadImageAsync(primaryRef, cts.Token);
+                    if (ReferenceImagePaths.Count > 1)
+                        GenerationStatus = $"Reference nahrána ({ReferenceImagePaths.Count} obr., použita 1. jako základ)…";
+                }
+                catch (Exception ex)
+                {
+                    GenerationStatus = $"Upload reference selhal: {ex.Message}";
+                    return;
+                }
+            }
+
+            // Denoise: kreativní volnost 0–1 → denoise 0.50–0.97.
+            // Výchozí ReferenceStrength=0.6 → denoise≈0.78 → prompt vede ~78 % generování.
+            var denoise = ComfyWorkflowBuilder.CreativityToDenoise(ReferenceStrength);
+
+            // ── Workflow router ───────────────────────────────────────────────
+            //   • txt2img: žádná reference → klasické workflow
+            //   • img2img: reference → workflow s LoadImage + VAEEncode + denoise<1
+            //   Větve:
+            //     FLUX GGUF  → UnetLoaderGGUF (txt2img only, img2img pro GGUF zatím skip)
+            //     FLUX safetensors → FluxImg2Img / Flux txt2img
+            //     SDXL / SD  → StandardImg2Img / Standard
             Dictionary<string, object> workflow;
-            if (isFlux && isGguf)
+            if (uploadedRefName is not null)
+            {
+                // IMG2IMG větev
+                if (isFlux && !isGguf)
+                {
+                    workflow = ComfyWorkflowBuilder.BuildFluxImg2Img(
+                        SelectedModel, uploadedRefName,
+                        Prompt, res.W, res.H, Steps, Cfg, seed, denoise, VariantCount);
+                }
+                else if (isGguf)
+                {
+                    // GGUF img2img zatím nepodporujeme — použijeme txt2img a upozorníme
+                    GenerationStatus = "ℹ️ Img2img není pro GGUF k dispozici — generuji bez reference.";
+                    await Task.Delay(1500, cts.Token);
+                    workflow = ComfyWorkflowBuilder.BuildFluxGguf(
+                        SelectedModel,
+                        ComfyWorkflowBuilder.DefaultFluxClipL,
+                        ComfyWorkflowBuilder.DefaultFluxT5,
+                        ComfyWorkflowBuilder.DefaultFluxVae,
+                        Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount);
+                }
+                else
+                {
+                    workflow = ComfyWorkflowBuilder.BuildStandardImg2Img(
+                        SelectedModel, uploadedRefName,
+                        Prompt, NegativePrompt, res.W, res.H, Steps, Cfg, seed, denoise, VariantCount);
+                }
+            }
+            else if (isFlux && isGguf)
             {
                 workflow = ComfyWorkflowBuilder.BuildFluxGguf(
                     SelectedModel,
@@ -307,7 +375,9 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     GenerationProgress = p;
-                    GenerationStatus   = p < 100 ? $"Generuji… {p} %" : "Ukládám…";
+                    GenerationStatus   = p >= 100 ? "Ukládám…"
+                                       : p > 0   ? $"Generuji… {p} %"
+                                                 : "Generuji…";
                 });
             });
 
@@ -395,10 +465,15 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void ClearReferenceImage()
+    private void ClearReferenceImage(string path)
     {
-        ReferenceImagePath = null;
-        HasReferenceImage  = false;
+        ReferenceImagePaths.Remove(path);
+    }
+
+    [RelayCommand]
+    private void ClearAllReferenceImages()
+    {
+        ReferenceImagePaths.Clear();
     }
 
     [RelayCommand]
@@ -409,8 +484,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
         var files = await win.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title          = "Vybrat referenční obrázek",
-            AllowMultiple  = false,
+            Title          = "Přidat referenční obrázky",
+            AllowMultiple  = true,
             FileTypeFilter = new[]
             {
                 new FilePickerFileType("Obrázky") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp" } }
@@ -419,8 +494,12 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
         if (files is { Count: > 0 })
         {
-            ReferenceImagePath = files[0].TryGetLocalPath();
-            HasReferenceImage  = ReferenceImagePath is not null;
+            foreach (var file in files)
+            {
+                var path = file.TryGetLocalPath();
+                if (path is not null && !ReferenceImagePaths.Contains(path))
+                    ReferenceImagePaths.Add(path);
+            }
         }
     }
 

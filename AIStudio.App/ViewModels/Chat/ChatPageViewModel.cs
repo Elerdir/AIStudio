@@ -234,16 +234,21 @@ public partial class ChatPageViewModel : ViewModelBase
         RefreshAvailableModels();
     }
 
+    private string GetModelsDirectory()
+    {
+        var custom = _settings.Settings.ModelsDirectory;
+        return string.IsNullOrWhiteSpace(custom)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                           "AIStudio", "Models")
+            : custom;
+    }
+
     public void RefreshAvailableModels()
     {
         // Skenování souborového systému v background vlákně — nesmí blokovat UI
         _ = Task.Run(() =>
         {
-            var custom    = _settings.Settings.ModelsDirectory;
-            var modelsDir = string.IsNullOrWhiteSpace(custom)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                               "AIStudio", "Models")
-                : custom;
+            var modelsDir = GetModelsDirectory();
 
             var fileToName = ModelFileNames.ToDictionary(
                 kv => kv.Value.ToLowerInvariant(), kv => kv.Key);
@@ -755,54 +760,7 @@ public partial class ChatPageViewModel : ViewModelBase
         var assistantMsg = new ChatMessage { Role = MessageRole.Assistant, Content = "", IsStreaming = true };
         conv.Messages.Add(assistantMsg);
 
-        try
-        {
-            await EnsureModelLoadedAsync(conv, assistantMsg, cts.Token);
-
-            var history = BuildHistory(conv);
-
-            await StreamIntoMessageAsync(
-                _llama.ChatAsync(history, conv.MaxTokens, conv.Temperature, cts.Token),
-                assistantMsg,
-                cts.Token);
-
-            await TrySaveMessageAsync(assistantMsg, conv);
-            _ = TrySaveConversationAsync(conv);
-        }
-        catch (ModelNotAvailableException)
-        {
-            Dispatcher.UIThread.Post(() => { assistantMsg.IsStreaming = false; assistantMsg.IsError = true; });
-        }
-        catch (OperationCanceledException)
-        {
-            // IsStreaming=false už nahodil StreamIntoMessageAsync.finally
-            if (!string.IsNullOrEmpty(assistantMsg.Content))
-            {
-                assistantMsg.Content += " *(přerušeno)*";
-                await TrySaveMessageAsync(assistantMsg, conv);
-            }
-            else
-            {
-                conv.Messages.Remove(assistantMsg);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Error during chat generation");
-            Dispatcher.UIThread.Post(() =>
-            {
-                assistantMsg.IsStreaming = false;
-                assistantMsg.IsError     = true;
-                assistantMsg.Content     = $"❌ Chyba: {ex.Message}";
-            });
-            await TrySaveMessageAsync(assistantMsg, conv);
-        }
-        finally
-        {
-            _sendCts  = null;
-            IsSending = false;
-            UpdateEstimatedTokens();
-        }
+        await GenerateResponseAsync(conv, assistantMsg, cts.Token);
     }
 
     [RelayCommand]
@@ -829,50 +787,7 @@ public partial class ChatPageViewModel : ViewModelBase
         // Vymaž obsah zprávy + nastav streaming flag
         Dispatcher.UIThread.Post(() => { lastMsg.Content = ""; lastMsg.IsStreaming = true; lastMsg.IsError = false; });
 
-        try
-        {
-            await EnsureModelLoadedAsync(conv, lastMsg, cts.Token);
-
-            var history = BuildHistory(conv);
-
-            await StreamIntoMessageAsync(
-                _llama.ChatAsync(history, conv.MaxTokens, conv.Temperature, cts.Token),
-                lastMsg,
-                cts.Token);
-
-            await TrySaveMessageAsync(lastMsg, conv);
-            _ = TrySaveConversationAsync(conv);
-        }
-        catch (ModelNotAvailableException)
-        {
-            Dispatcher.UIThread.Post(() => { lastMsg.IsStreaming = false; lastMsg.IsError = true; });
-        }
-        catch (OperationCanceledException)
-        {
-            // IsStreaming=false už nahodil StreamIntoMessageAsync.finally
-            if (!string.IsNullOrEmpty(lastMsg.Content))
-            {
-                lastMsg.Content += " *(přerušeno)*";
-                await TrySaveMessageAsync(lastMsg, conv);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Error during regeneration");
-            Dispatcher.UIThread.Post(() =>
-            {
-                lastMsg.IsStreaming = false;
-                lastMsg.IsError     = true;
-                lastMsg.Content     = $"❌ Chyba při regeneraci: {ex.Message}";
-            });
-            await TrySaveMessageAsync(lastMsg, conv);
-        }
-        finally
-        {
-            _sendCts  = null;
-            IsSending = false;
-            UpdateEstimatedTokens();
-        }
+        await GenerateResponseAsync(conv, lastMsg, cts.Token);
     }
 
     // ── Edit & Regenerate ─────────────────────────────────────────────────────
@@ -912,15 +827,29 @@ public partial class ChatPageViewModel : ViewModelBase
         var assistantMsg = new ChatMessage { Role = MessageRole.Assistant, Content = "", IsStreaming = true };
         conv.Messages.Add(assistantMsg);
 
+        await GenerateResponseAsync(conv, assistantMsg, cts.Token);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sdílené tělo generování odpovědi — voláno ze čtyř míst (Send, Regenerate, ConfirmEdit, Compare).
+    /// Nastaví IsStreaming, streamuje tokeny, uloží zprávu a ošetří všechny výjimky na jednom místě.
+    /// </summary>
+    private async Task GenerateResponseAsync(
+        ConversationViewModel conv,
+        ChatMessage           assistantMsg,
+        CancellationToken     ct)
+    {
         try
         {
-            await EnsureModelLoadedAsync(conv, assistantMsg, cts.Token);
+            await EnsureModelLoadedAsync(conv, assistantMsg, ct);
             var history = BuildHistory(conv);
 
             await StreamIntoMessageAsync(
-                _llama.ChatAsync(history, conv.MaxTokens, conv.Temperature, cts.Token),
+                _llama.ChatAsync(history, conv.MaxTokens, conv.Temperature, ct),
                 assistantMsg,
-                cts.Token);
+                ct);
 
             await TrySaveMessageAsync(assistantMsg, conv);
             _ = TrySaveConversationAsync(conv);
@@ -931,7 +860,6 @@ public partial class ChatPageViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
-            // IsStreaming=false už nahodil StreamIntoMessageAsync.finally
             if (!string.IsNullOrEmpty(assistantMsg.Content))
             {
                 assistantMsg.Content += " *(přerušeno)*";
@@ -944,7 +872,7 @@ public partial class ChatPageViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Error during edit+regenerate");
+            Log.Error(ex, "Error during AI generation");
             Dispatcher.UIThread.Post(() =>
             {
                 assistantMsg.IsStreaming = false;
@@ -960,8 +888,6 @@ public partial class ChatPageViewModel : ViewModelBase
             UpdateEstimatedTokens();
         }
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Spotřebuje stream tokenů a do <paramref name="target"/>.Content je posílá
@@ -1229,49 +1155,7 @@ public partial class ChatPageViewModel : ViewModelBase
         _sendCts  = cts;
         IsSending = true;
 
-        try
-        {
-            await EnsureModelLoadedAsync(branch, assistantMsg, cts.Token);
-            var history = BuildHistory(branch);
-
-            await StreamIntoMessageAsync(
-                _llama.ChatAsync(history, branch.MaxTokens, branch.Temperature, cts.Token),
-                assistantMsg,
-                cts.Token);
-
-            await TrySaveMessageAsync(assistantMsg, branch);
-            _ = TrySaveConversationAsync(branch);
-        }
-        catch (ModelNotAvailableException)
-        {
-            Dispatcher.UIThread.Post(() => { assistantMsg.IsStreaming = false; assistantMsg.IsError = true; });
-        }
-        catch (OperationCanceledException)
-        {
-            // IsStreaming=false už nahodil StreamIntoMessageAsync.finally
-            if (!string.IsNullOrEmpty(assistantMsg.Content))
-            {
-                assistantMsg.Content += " *(přerušeno)*";
-                await TrySaveMessageAsync(assistantMsg, branch);
-            }
-            else branch.Messages.Remove(assistantMsg);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Error during compare generation");
-            Dispatcher.UIThread.Post(() =>
-            {
-                assistantMsg.IsStreaming = false; assistantMsg.IsError = true;
-                assistantMsg.Content     = $"❌ Chyba: {ex.Message}";
-            });
-            await TrySaveMessageAsync(assistantMsg, branch);
-        }
-        finally
-        {
-            _sendCts  = null;
-            IsSending = false;
-            UpdateEstimatedTokens();
-        }
+        await GenerateResponseAsync(branch, assistantMsg, cts.Token);
     }
 
     // ── Image attachment ──────────────────────────────────────────────────────
@@ -1337,11 +1221,7 @@ public partial class ChatPageViewModel : ViewModelBase
 
     private string GetModelPath(string modelName)
     {
-        var custom    = _settings.Settings.ModelsDirectory;
-        var modelsDir = string.IsNullOrWhiteSpace(custom)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                           "AIStudio", "Models")
-            : custom;
+        var modelsDir = GetModelsDirectory();
 
         if (ModelFileNames.TryGetValue(modelName, out var fileName))
         {

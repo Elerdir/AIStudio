@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(dotnet build \"E:\\\\Projects\\\\AIStudio\\\\AIStudio.App\\\\AIStudio.App.csproj\" --no-restore -v quiet 2>&1 | Where-Object { $_ -match \"error CS|error AXAML\" } | Select-Object -First 15)",
+      "PowerShell(Get-ChildItem \"$env:USERPROFILE\\\\.nuget\\\\packages\" -Filter \"avalonia\" -Directory -ErrorAction SilentlyContinue | Select-Object FullName)",
+      "Read(//e/Projects/AIStudio/**)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet add *)",
+      "Bash(del \"E:\\\\Projects\\\\AIStudio\\\\AIStudio.Tests\\\\UnitTest1.cs\")",
+      "Bash(dotnet test *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

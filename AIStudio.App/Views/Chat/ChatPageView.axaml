@@ -1,6 +1,8 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AIStudio.App.ViewModels.Chat"
+             xmlns:mi="using:Material.Icons.Avalonia"
+             xmlns:miKind="using:Material.Icons"
              xmlns:ctrl="using:AIStudio.App.Controls"
              x:Class="AIStudio.App.Views.Chat.ChatPageView"
              x:DataType="vm:ChatPageViewModel">
@@ -92,14 +94,8 @@
                                             VerticalAlignment="Center"
                                             ToolTip.Tip="Připnout / Odepnout">
                                         <Panel>
-                                            <TextBlock Text="&#xE718;" FontFamily="Segoe MDL2 Assets"
-                                                       FontSize="10" Foreground="#A78BFA"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       IsVisible="{Binding IsPinned}"/>
-                                            <TextBlock Text="&#xE840;" FontFamily="Segoe MDL2 Assets"
-                                                       FontSize="10" Foreground="#444450"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                       IsVisible="{Binding !IsPinned}"/>
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pin}" Width="12" Height="12" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPinned}"/>
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.PinOutline}" Width="12" Height="12" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsPinned}"/>
                                         </Panel>
                                     </Button>
 
@@ -113,9 +109,7 @@
                                             Background="#2A1515" BorderThickness="0"
                                             VerticalAlignment="Center"
                                             ToolTip.Tip="Smazat konverzaci">
-                                        <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="10" Foreground="#F87171"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="#F87171" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Button>
                                 </Grid>
                             </Border>
@@ -210,8 +204,7 @@
                                     VerticalAlignment="Center"
                                     IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
                                     ToolTip.Tip="Přejmenovat (F2)">
-                                <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="12" Foreground="#444450"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="14" Height="14" Foreground="#444450"/>
                             </Button>
                             <!-- Kopírovat celou konverzaci do schránky (plain text, role: obsah) -->
                             <Button Grid.Column="2"
@@ -222,14 +215,8 @@
                                     IsVisible="{Binding SelectedConversation.HasMessages}"
                                     ToolTip.Tip="Zkopírovat celou konverzaci do schránky">
                                 <Panel>
-                                    <TextBlock IsVisible="{Binding !IsConversationCopied}"
-                                               Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="12" Foreground="#444450"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <TextBlock IsVisible="{Binding IsConversationCopied}"
-                                               Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="12" Foreground="#4ADE80"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="14" Height="14" IsVisible="{Binding !IsConversationCopied}" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" IsVisible="{Binding IsConversationCopied}" Foreground="#4ADE80" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Panel>
                             </Button>
                             <!-- Exportovat -->
@@ -240,8 +227,7 @@
                                     VerticalAlignment="Center"
                                     IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
                                     ToolTip.Tip="Exportovat konverzaci (MD / TXT)">
-                                <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="12" Foreground="#444450"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Export}" Width="14" Height="14" Foreground="#444450"/>
                             </Button>
                             <!-- Systémový prompt toggle -->
                             <Button Grid.Column="4"
@@ -252,14 +238,8 @@
                                     IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
                                     ToolTip.Tip="Systémový prompt">
                                 <Panel>
-                                    <TextBlock IsVisible="{Binding !IsSystemPromptVisible}"
-                                               Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="12" Foreground="#444450"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    <TextBlock IsVisible="{Binding IsSystemPromptVisible}"
-                                               Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="12" Foreground="#A78BFA"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" IsVisible="{Binding !IsSystemPromptVisible}" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" IsVisible="{Binding IsSystemPromptVisible}" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Panel>
                             </Button>
                             <!-- Vymazat zprávy konverzace -->
@@ -270,8 +250,7 @@
                                     VerticalAlignment="Center"
                                     IsVisible="{Binding SelectedConversation.HasMessages}"
                                     ToolTip.Tip="Vymazat zprávy (zachová nastavení konverzace)">
-                                <TextBlock Text="&#xED60;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="12" Foreground="#444450"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eraser}" Width="14" Height="14" Foreground="#444450"/>
                             </Button>
                         </Grid>
 
@@ -312,9 +291,7 @@
                                 Width="28" Height="28" Padding="0"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="{Binding LoadedModelName, StringFormat='Uvolnit &quot;{0}&quot; z VRAM'}">
-                            <TextBlock Text="&#xECC6;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="12" Foreground="#D97706"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Memory}" Width="14" Height="14" Foreground="#D97706" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
                         <!-- Thinking mode toggle — pouze pro Qwen3 modely -->
                         <Button IsVisible="{Binding SelectedConversation.IsQwen3Selected}"
@@ -331,15 +308,9 @@
                             </Button.BorderBrush>
                             <Panel>
                                 <!-- Zapnuto -->
-                                <TextBlock IsVisible="{Binding SelectedConversation.IsThinkingEnabled}"
-                                           Text="&#xE8D6;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="12" Foreground="#A78BFA"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Brain}" Width="14" Height="14" IsVisible="{Binding SelectedConversation.IsThinkingEnabled}" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 <!-- Vypnuto -->
-                                <TextBlock IsVisible="{Binding !SelectedConversation.IsThinkingEnabled}"
-                                           Text="&#xE8D6;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="12" Foreground="#333344"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Brain}" Width="14" Height="14" IsVisible="{Binding !SelectedConversation.IsThinkingEnabled}" Foreground="#333344" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Panel>
                         </Button>
                     </StackPanel>
@@ -410,9 +381,7 @@
                     <!-- Hlavička panelu -->
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="11" Foreground="#555560"
-                                       VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" Foreground="#555560" VerticalAlignment="Center"/>
                             <TextBlock Text="SYSTÉMOVÝ PROMPT"
                                        Classes="sectionHeader"
                                        VerticalAlignment="Center"/>
@@ -425,8 +394,7 @@
                                 Padding="4" Width="22" Height="22" CornerRadius="5"
                                 Command="{Binding ToggleSystemPromptCommand}"
                                 ToolTip.Tip="Skrýt panel">
-                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="10" Foreground="#444450"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="#444450"/>
                         </Button>
                     </Grid>
                     <!-- TextBox -->
@@ -456,9 +424,7 @@
                 <StackPanel IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNull}}"
                             HorizontalAlignment="Center" VerticalAlignment="Center"
                             Spacing="14" Margin="0,40,0,0" MaxWidth="380">
-                    <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets"
-                               FontSize="52" Foreground="#1A1A22"
-                               HorizontalAlignment="Center"/>
+                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Forum}" Width="52" Height="52" Foreground="#1A1A22" HorizontalAlignment="Center"/>
                     <StackPanel Spacing="6" HorizontalAlignment="Center">
                         <TextBlock Text="Žádný chat"
                                    FontSize="18" FontWeight="SemiBold"
@@ -487,9 +453,7 @@
                     <!-- Stav A: žádný stažený model -->
                     <StackPanel IsVisible="{Binding !HasDownloadedModels}"
                                 HorizontalAlignment="Center" Spacing="16">
-                        <TextBlock Text="&#xF158;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="52" Foreground="#1E1E28"
-                                   HorizontalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Robot}" Width="52" Height="52" Foreground="#1E1E28" HorizontalAlignment="Center"/>
                         <StackPanel Spacing="6" HorizontalAlignment="Center">
                             <TextBlock Text="Zatím žádný model"
                                        FontSize="18" FontWeight="SemiBold"
@@ -505,9 +469,7 @@
                                 BorderBrush="#3D2A6E" BorderThickness="1"
                                 CornerRadius="10" Padding="20,10">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="&#xF158;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="13" Foreground="#7C3AED"
-                                           VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Robot}" Width="16" Height="16" Foreground="#7C3AED" VerticalAlignment="Center"/>
                                 <TextBlock Text="Přejít do Modelů"
                                            FontSize="13" Foreground="#A78BFA"
                                            VerticalAlignment="Center"/>
@@ -518,9 +480,7 @@
                     <!-- Stav B: model existuje, chat je prázdný -->
                     <StackPanel IsVisible="{Binding HasDownloadedModels}"
                                 HorizontalAlignment="Center" Spacing="12">
-                        <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="52" Foreground="#1A1A22"
-                                   HorizontalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Forum}" Width="52" Height="52" Foreground="#1A1A22" HorizontalAlignment="Center"/>
                         <StackPanel Spacing="5" HorizontalAlignment="Center">
                             <TextBlock Text="Začni konverzaci"
                                        FontSize="18" FontWeight="SemiBold"
@@ -581,18 +541,8 @@
                                                                 CornerRadius="5"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <Panel>
-                                                                <TextBlock Text="&#xE8C8;"
-                                                                           FontFamily="Segoe MDL2 Assets"
-                                                                           FontSize="10" Foreground="#9090A8"
-                                                                           HorizontalAlignment="Center"
-                                                                           VerticalAlignment="Center"
-                                                                           IsVisible="{Binding !IsCopied}"/>
-                                                                <TextBlock Text="&#xE73E;"
-                                                                           FontFamily="Segoe MDL2 Assets"
-                                                                           FontSize="10" Foreground="#4ADE80"
-                                                                           HorizontalAlignment="Center"
-                                                                           VerticalAlignment="Center"
-                                                                           IsVisible="{Binding IsCopied}"/>
+                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
+                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="12" Height="12" Foreground="#4ADE80" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
                                                             </Panel>
                                                         </Button>
                                                         <Button Classes="msgAction"
@@ -601,11 +551,7 @@
                                                                 Width="22" Height="22" Padding="0"
                                                                 CornerRadius="5"
                                                                 Background="Transparent" BorderThickness="0">
-                                                            <TextBlock Text="&#xE70F;"
-                                                                       FontFamily="Segoe MDL2 Assets"
-                                                                       FontSize="10" Foreground="#9090A8"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
                                                         <!-- Větev konverzace od této zprávy -->
                                                         <Button Classes="msgAction"
@@ -615,11 +561,7 @@
                                                                 Width="22" Height="22" Padding="0"
                                                                 CornerRadius="5"
                                                                 Background="Transparent" BorderThickness="0">
-                                                            <TextBlock Text="&#xE8C0;"
-                                                                       FontFamily="Segoe MDL2 Assets"
-                                                                       FontSize="10" Foreground="#9090A8"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
                                                     </StackPanel>
                                                 </Grid>
@@ -728,11 +670,7 @@
                                                             Width="22" Height="22" Padding="0"
                                                             CornerRadius="5"
                                                             Background="Transparent" BorderThickness="0">
-                                                        <TextBlock Text="&#xE72C;"
-                                                                   FontFamily="Segoe MDL2 Assets"
-                                                                   FontSize="10" Foreground="#F59E0B"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center"/>
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="12" Height="12" Foreground="#F59E0B" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
                                                     <!-- Větev konverzace -->
                                                     <Button Classes="msgAction"
@@ -742,11 +680,7 @@
                                                             Width="22" Height="22" Padding="0"
                                                             CornerRadius="5"
                                                             Background="Transparent" BorderThickness="0">
-                                                        <TextBlock Text="&#xE8C0;"
-                                                                   FontFamily="Segoe MDL2 Assets"
-                                                                   FontSize="10" Foreground="#9090A8"
-                                                                   HorizontalAlignment="Center"
-                                                                   VerticalAlignment="Center"/>
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
                                                     <!-- Kopírovat -->
                                                     <Button Classes="msgAction"
@@ -756,18 +690,8 @@
                                                             CornerRadius="5"
                                                             Background="Transparent" BorderThickness="0">
                                                         <Panel>
-                                                            <TextBlock Text="&#xE8C8;"
-                                                                       FontFamily="Segoe MDL2 Assets"
-                                                                       FontSize="10" Foreground="#9090A8"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"
-                                                                       IsVisible="{Binding !IsCopied}"/>
-                                                            <TextBlock Text="&#xE73E;"
-                                                                       FontFamily="Segoe MDL2 Assets"
-                                                                       FontSize="10" Foreground="#4ADE80"
-                                                                       HorizontalAlignment="Center"
-                                                                       VerticalAlignment="Center"
-                                                                       IsVisible="{Binding IsCopied}"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="12" Height="12" Foreground="#4ADE80" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
                                                         </Panel>
                                                     </Button>
                                                 </StackPanel>
@@ -823,9 +747,7 @@
                       BorderBrush="#4A3080" BorderThickness="1"
                       ToolTip.Tip="Přejít na konec (↓)"
                       Click="ScrollToBottomFab_Click">
-                  <TextBlock Text="&#xE74B;" FontFamily="Segoe MDL2 Assets"
-                             FontSize="14" Foreground="#A78BFA"
-                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ChevronDown}" Width="16" Height="16" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Button>
             </Panel>
 
@@ -838,9 +760,7 @@
                         BorderBrush="#2A1F4A" BorderThickness="0,1,0,0"
                         Padding="20,7,20,7">
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="11" Foreground="#7C3AED"
-                                   VerticalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="14" Height="14" Foreground="#7C3AED" VerticalAlignment="Center"/>
                         <TextBlock Text="Editace zprávy — potvrď nebo zruš"
                                    FontSize="12" Foreground="#6040A8"
                                    VerticalAlignment="Center"/>
@@ -894,9 +814,7 @@
                                 Command="{Binding ToggleComparePickerCommand}"
                                 Background="Transparent" BorderThickness="0"
                                 Width="26" Height="26" Padding="0" CornerRadius="6">
-                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="10" Foreground="#444450"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
                     </Grid>
                 </Border>
@@ -935,9 +853,7 @@
                                     Width="24" Height="24" Padding="0" CornerRadius="6"
                                     VerticalAlignment="Center"
                                     ToolTip.Tip="Odebrat přílohu">
-                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="10" Foreground="#F87171"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="#F87171" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Button>
                         </Grid>
                     </Border>
@@ -952,9 +868,7 @@
                                 Width="46" Height="46" Padding="0" CornerRadius="12"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="Přiložit obrázek">
-                            <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="16" Foreground="#444450"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Paperclip}" Width="18" Height="18" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
                         <Border Grid.Column="1"
@@ -986,9 +900,7 @@
                                 Width="46" Height="46" Padding="0" CornerRadius="12"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="Regenerovat poslední odpověď">
-                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="14" Foreground="#888896"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="16" Height="16" Foreground="#888896" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
                         <!-- Porovnat s jiným modelem — kompaktní ikonové tlačítko -->
@@ -999,9 +911,7 @@
                                 Width="46" Height="46" Padding="0" CornerRadius="12"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="Porovnat odpověď s jiným modelem">
-                            <TextBlock Text="&#xE8C1;" FontFamily="Segoe MDL2 Assets"
-                                       FontSize="14" Foreground="#888896"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Compare}" Width="16" Height="16" Foreground="#888896" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
                         <Panel Grid.Column="4" Width="46" Height="46">
@@ -1014,7 +924,7 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     CornerRadius="12">
-                                <TextBlock Text="&#xE724;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Send}" Width="18" Height="18"/>
                             </Button>
                             <!-- Zastavit generování -->
                             <Button Command="{Binding StopGenerationCommand}"
@@ -1026,8 +936,7 @@
                                     Background="#3A1515"
                                     BorderBrush="#6B2020" BorderThickness="1"
                                     ToolTip.Tip="Zastavit generování (Esc)">
-                                <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" Foreground="#F87171"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Stop}" Width="18" Height="18" Foreground="#F87171"/>
                             </Button>
                         </Panel>
                     </Grid>

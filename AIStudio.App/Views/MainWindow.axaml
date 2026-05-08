@@ -1,7 +1,9 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:AIStudio.App.ViewModels"
         xmlns:enums="using:AIStudio.Core.Enums"
+        xmlns:mi="using:Material.Icons.Avalonia"
+             xmlns:miKind="using:Material.Icons"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -55,7 +57,7 @@
                                 Classes="navItem"
                                 Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Chat}}">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Forum}" Width="18" Height="18" VerticalAlignment="Center"/>
                                 <TextBlock Text="Chat" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -65,7 +67,7 @@
                                 Classes="navItem"
                                 Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.ImageStudio}}">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}" Width="18" Height="18" VerticalAlignment="Center"/>
                                 <TextBlock Text="Image Studio" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -75,7 +77,7 @@
                                 Classes="navItem"
                                 Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Models}}">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="&#xF158;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Robot}" Width="18" Height="18" VerticalAlignment="Center"/>
                                 <TextBlock Text="Modely" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -85,7 +87,7 @@
                                 Classes="navItem"
                                 Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.System}}">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Monitor}" Width="18" Height="18" VerticalAlignment="Center"/>
                                 <TextBlock Text="Systém" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -100,7 +102,7 @@
                             Classes="navItem"
                             Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Settings}}">
                         <StackPanel Orientation="Horizontal" Spacing="12">
-                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="15" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Cog}" Width="18" Height="18" VerticalAlignment="Center"/>
                             <TextBlock Text="Nastavení" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>

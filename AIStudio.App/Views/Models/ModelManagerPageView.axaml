@@ -1,6 +1,8 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AIStudio.App.ViewModels.Models"
+             xmlns:mi="using:Material.Icons.Avalonia"
+             xmlns:miKind="using:Material.Icons"
              x:Class="AIStudio.App.Views.Models.ModelManagerPageView"
              x:DataType="vm:ModelManagerPageViewModel">
 
@@ -22,7 +24,7 @@
                             Command="{Binding AddLocalModelCommand}"
                             ToolTip.Tip="Přidat GGUF ze svého disku">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Plus}" Width="16" Height="16" VerticalAlignment="Center"/>
                             <TextBlock Text="Přidat lokální" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -31,7 +33,7 @@
                             Command="{Binding RescanModelsCommand}"
                             ToolTip.Tip="Prohledat složku modelů znovu (bez restartu)">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="16" Height="16" VerticalAlignment="Center"/>
                             <TextBlock Text="Prohledat" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -40,7 +42,7 @@
                             Command="{Binding OpenModelsFolderCommand}"
                             ToolTip.Tip="Otevřít složku modelů v Průzkumníku">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="&#xE8DA;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderOpen}" Width="16" Height="16" VerticalAlignment="Center"/>
                             <TextBlock Text="Složka" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -67,7 +69,7 @@
                             Command="{Binding SelectTabCommand}"
                             CommandParameter="1">
                         <StackPanel Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Forum}" Width="14" Height="14" VerticalAlignment="Center"/>
                             <TextBlock Text="Chat" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -76,7 +78,7 @@
                             Command="{Binding SelectTabCommand}"
                             CommandParameter="2">
                         <StackPanel Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}" Width="14" Height="14" VerticalAlignment="Center"/>
                             <TextBlock Text="Obrázky" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -85,7 +87,7 @@
                             Command="{Binding SelectTabCommand}"
                             CommandParameter="3">
                         <StackPanel Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Export}" Width="14" Height="14" VerticalAlignment="Center"/>
                             <TextBlock Text="Staženo" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -94,7 +96,7 @@
                             Command="{Binding SelectTabCommand}"
                             CommandParameter="4">
                         <StackPanel Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.OpenInNew}" Width="14" Height="14" VerticalAlignment="Center"/>
                             <TextBlock Text="Najít online" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -107,13 +109,7 @@
                         BorderThickness="1"
                         CornerRadius="8">
                     <Grid ColumnDefinitions="Auto,*">
-                        <TextBlock Grid.Column="0"
-                                   Text="&#xE721;"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="13"
-                                   Foreground="#555560"
-                                   VerticalAlignment="Center"
-                                   Margin="12,0,0,0"/>
+                        <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.Magnify}" Width="16" Height="16" Foreground="#555560" VerticalAlignment="Center" Margin="12,0,0,0"/>
                         <TextBox Grid.Column="1"
                                  Text="{Binding SearchText}"
                                  PlaceholderText="Hledat modely..."
@@ -262,8 +258,7 @@
                                     <StackPanel Grid.Row="2" Grid.Column="0"
                                                 Orientation="Horizontal" Spacing="12">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="&#xE950;" FontFamily="Segoe MDL2 Assets"
-                                                       FontSize="11" Foreground="#555560" VerticalAlignment="Center"/>
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Harddisk}" Width="14" Height="14" Foreground="#555560" VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding Size}" FontSize="11" Foreground="#555560"/>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="4">
@@ -308,9 +303,7 @@
                 <Border Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
                         CornerRadius="10" Padding="6">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-                        <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" Foreground="#666672"
-                                   VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.Magnify}" Width="16" Height="16" Foreground="#666672" VerticalAlignment="Center" Margin="10,0,0,0"/>
                         <TextBox Grid.Column="1"
                                  Text="{Binding HfSearchQuery}"
                                  PlaceholderText="Hledat na HuggingFace — např. magnum 22b, qwen 14b, llama 70b uncensored"
@@ -327,7 +320,7 @@
                                 IsEnabled="{Binding !IsSearchingHf}"
                                 Padding="14,8">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Magnify}" Width="14" Height="14" VerticalAlignment="Center"/>
                                 <TextBlock Text="Hledat" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -355,9 +348,7 @@
                         Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
                         CornerRadius="10" Padding="14,12">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Text="&#xE946;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" Foreground="#A78BFA"
-                                   VerticalAlignment="Top" Margin="0,1,0,0"/>
+                        <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.InformationOutline}" Width="16" Height="16" Foreground="#A78BFA" VerticalAlignment="Top" Margin="0,1,0,0"/>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="Hledej GGUF modely přímo z HuggingFace"
                                        FontSize="13" FontWeight="SemiBold" Foreground="#C4B5FD"/>
@@ -390,15 +381,13 @@
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
                                                     VerticalAlignment="Center">
-                                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
-                                                       FontSize="11" Foreground="#666672"/>
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Export}" Width="14" Height="14" Foreground="#666672"/>
                                             <TextBlock Text="{Binding DownloadsLabel}"
                                                        FontSize="12" Foreground="#9999AA"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4"
                                                     VerticalAlignment="Center">
-                                            <TextBlock Text="&#xEB52;" FontFamily="Segoe MDL2 Assets"
-                                                       FontSize="11" Foreground="#666672"/>
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Cancel}" Width="14" Height="14" Foreground="#666672"/>
                                             <TextBlock Text="{Binding LikesLabel}"
                                                        FontSize="12" Foreground="#9999AA"/>
                                         </StackPanel>
@@ -478,9 +467,7 @@
                                                     Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadHfFileCommand}"
                                                     CommandParameter="{Binding}">
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
-                                                               FontSize="11" VerticalAlignment="Center"
-                                                               IsVisible="{Binding !IsDownloading}"/>
+                                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Export}" Width="14" Height="14" VerticalAlignment="Center" IsVisible="{Binding !IsDownloading}"/>
                                                     <TextBlock Text="Stáhnout"
                                                                FontSize="12" VerticalAlignment="Center"
                                                                IsVisible="{Binding !IsDownloading}"/>
@@ -502,11 +489,7 @@
                             HorizontalAlignment="Center"
                             Spacing="10"
                             IsVisible="{Binding SelectedModel, Converter={x:Static ObjectConverters.IsNull}}">
-                    <TextBlock Text="&#xF158;"
-                               FontFamily="Segoe MDL2 Assets"
-                               FontSize="40"
-                               Foreground="#2A2A2E"
-                               HorizontalAlignment="Center"/>
+                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Robot}" Width="40" Height="40" Foreground="#2A2A2E" HorizontalAlignment="Center"/>
                     <TextBlock Text="Vyber model ze seznamu"
                                FontSize="13"
                                Foreground="#444450"
@@ -662,7 +645,7 @@
                                     Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadCommand}"
                                     CommandParameter="{Binding}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Export}" Width="16" Height="16" VerticalAlignment="Center"/>
                                     <TextBlock Text="Stáhnout model" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -683,7 +666,7 @@
                                     Command="{ReflectionBinding $parent[UserControl].DataContext.OpenModelPageCommand}"
                                     CommandParameter="{Binding}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.OpenInNew}" Width="16" Height="16" VerticalAlignment="Center"/>
                                     <TextBlock Text="Otevřít stránku modelu" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -708,9 +691,7 @@
                                     CornerRadius="10" Padding="14,12">
                                 <StackPanel Spacing="10">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14" Foreground="#F87171"
-                                                   VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="#F87171" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                         <StackPanel Spacing="3">
                                             <TextBlock Text="Opravdu smazat tento model?"
                                                        FontSize="13" FontWeight="SemiBold"

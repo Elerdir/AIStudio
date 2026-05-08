@@ -118,41 +118,44 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
     private static string GetCpuName()
     {
         // 1) WMI Win32_Processor — nejhezčí název ("Intel Core i7-12700K …")
-        try
+        if (OperatingSystem.IsWindows())
         {
-            using var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor");
-            foreach (ManagementObject obj in searcher.Get())
+            try
             {
-                var name = obj["Name"]?.ToString()?.Trim();
-                if (!string.IsNullOrEmpty(name))
+                using var searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor");
+                foreach (ManagementObject obj in searcher.Get())
                 {
-                    Log.Information("SystemMonitor: GetCpuName WMI = {Name}", name);
-                    return name;
+                    var name = obj["Name"]?.ToString()?.Trim();
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        Log.Information("SystemMonitor: GetCpuName WMI = {Name}", name);
+                        return name;
+                    }
+                }
+                Log.Warning("SystemMonitor: WMI Win32_Processor.Name vrátilo prázdný / žádný záznam");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "SystemMonitor: GetCpuName WMI failed");
+            }
+
+            // 2) Registry HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0\\ProcessorNameString
+            //    Funguje i když System.Management WMI selže (občasná Win11 / .NET regrese).
+            try
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
+                var name = key?.GetValue("ProcessorNameString") as string;
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    Log.Information("SystemMonitor: GetCpuName Registry = {Name}", name.Trim());
+                    return name.Trim();
                 }
             }
-            Log.Warning("SystemMonitor: WMI Win32_Processor.Name vrátilo prázdný / žádný záznam");
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "SystemMonitor: GetCpuName WMI failed");
-        }
-
-        // 2) Registry HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0\\ProcessorNameString
-        //    Funguje i když System.Management WMI selže (občasná Win11 / .NET regrese).
-        try
-        {
-            using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
-                @"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
-            var name = key?.GetValue("ProcessorNameString") as string;
-            if (!string.IsNullOrWhiteSpace(name))
+            catch (Exception ex)
             {
-                Log.Information("SystemMonitor: GetCpuName Registry = {Name}", name.Trim());
-                return name.Trim();
+                Log.Warning(ex, "SystemMonitor: GetCpuName Registry failed");
             }
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "SystemMonitor: GetCpuName Registry failed");
         }
 
         // 3) Env var PROCESSOR_IDENTIFIER — méně hezké ("Intel64 Family 6 Model 158 …")
@@ -403,6 +406,9 @@ public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
 
     private static (string Name, double VramTotalGb) GetWmiGpuBasicInfo()
     {
+        if (!OperatingSystem.IsWindows())
+            return (string.Empty, 0);
+
         // Necháváme bez WHERE filteru — některé systémy nedávají do PNPDeviceID prefix "PCI",
         // u VM třeba "ROOT\…". Místo toho projdeme všechny adaptery a softwarové
         // renderery (Microsoft Basic Display, RDP) vyhodíme až v post-filteru.

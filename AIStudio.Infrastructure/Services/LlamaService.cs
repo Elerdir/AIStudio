@@ -3,18 +3,29 @@ using System.Text;
 using AIStudio.Core.Interfaces;
 using LLama;
 using LLama.Common;
+using LLama.Native;
 using LLama.Sampling;
 
 namespace AIStudio.Infrastructure.Services;
 
 public sealed class LlamaService : ILlamaService
 {
+    static LlamaService()
+    {
+        // Musí se zavolat PŘED prvním použitím LLamaWeights / ModelParams.
+        // Bez toho LLamaSharp auto-detekuje backend a při selhání načtení
+        // cudart64_12.dll tiše přepne na CPU bez jakéhokoli varování.
+        try { NativeLibraryConfig.All.WithCuda(); }
+        catch { /* CPU fallback pokud CUDA 12 runtime není nainstalován */ }
+    }
+
     private LLamaWeights? _model;
     private ModelParams?  _modelParams;   // uloženo pro tvorbu čerstvého kontextu při každé generaci
 
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     public string? LoadedModelName  { get; private set; }
+    public string  BackendInfo      { get; private set; } = string.Empty;
     public bool    IsLoaded         => _model is not null;
     public bool    IsLoadingModel   { get; private set; }
     public bool    UseGpu           { get; set; } = true;
@@ -45,7 +56,22 @@ public sealed class LlamaService : ILlamaService
             _modelParams   = parameters;
             LoadedModelName = modelName;
 
-            StatusChanged?.Invoke($"Model: {modelName}");
+            // Zjistíme, jestli načtený backend skutečně podporuje GPU offload.
+            // llama_supports_gpu_offload() vrací true pokud native DLL byl
+            // zkompilován s CUDA/ROCm — tedy jestli GpuLayerCount > 0 má efekt.
+            var gpuSupported = false;
+            try { gpuSupported = NativeApi.llama_supports_gpu_offload(); }
+            catch { /* starší verze LLamaSharp nebo jiný název API */ }
+
+            BackendInfo = UseGpu && gpuSupported ? "GPU" : "CPU";
+
+            var statusMsg = UseGpu && gpuSupported
+                ? $"Model: {modelName} [GPU ✓]"
+                : UseGpu
+                    ? $"Model: {modelName} [CPU — CUDA 12 runtime nenalezen, nainstaluj z nvidia.com]"
+                    : $"Model: {modelName} [CPU]";
+
+            StatusChanged?.Invoke(statusMsg);
         }
         finally
         {

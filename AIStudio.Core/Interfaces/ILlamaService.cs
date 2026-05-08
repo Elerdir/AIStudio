@@ -3,6 +3,8 @@ namespace AIStudio.Core.Interfaces;
 public interface ILlamaService : IAsyncDisposable
 {
     string? LoadedModelName { get; }
+    /// <summary>"GPU", "CPU", nebo prázdný řetězec před prvním načtením modelu.</summary>
+    string  BackendInfo     { get; }
     bool    IsLoaded        { get; }
     bool    IsLoadingModel  { get; }
     bool    UseGpu          { get; set; }

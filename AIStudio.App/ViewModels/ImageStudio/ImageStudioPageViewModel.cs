@@ -179,9 +179,8 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     private ImageGeneratorViewModel CreateGenerator()
     {
         var gen = new ImageGeneratorViewModel(_comfy, _settings, _imageRepo);
-        // LoadCheckpointsAsync sloučí ComfyUI i lokální sken — voláme ho vždy,
-        // aby uživatel hned viděl stažené modely v dropdownu (ať už ComfyUI běží či ne).
         _ = gen.LoadCheckpointsAsync();
+        _ = gen.LoadSavedImagesAsync();
         return gen;
     }
 
