@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using Serilog;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
@@ -22,7 +23,8 @@ public sealed class DownloadService : IDownloadService
         string destPath,
         IProgress<DownloadProgressInfo>? progress = null,
         string? apiToken = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? expectedSha256 = null)
     {
         var dir = Path.GetDirectoryName(destPath)
                   ?? throw new InvalidOperationException($"Neplatná cesta: {destPath}");
@@ -117,6 +119,19 @@ public sealed class DownloadService : IDownloadService
         dst.Close();
         response.Dispose();
 
+        // ── Volitelná checksum validace ───────────────────────────────────────
+        if (!string.IsNullOrEmpty(expectedSha256))
+        {
+            Log.Information("Ověřuji SHA-256 pro {File}…", Path.GetFileName(destPath));
+            var actual = await ComputeSha256Async(tmpPath, ct);
+            if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                File.Delete(tmpPath);
+                throw new ChecksumMismatchException(destPath, expectedSha256, actual);
+            }
+            Log.Information("SHA-256 OK: {Hash}", actual);
+        }
+
         // ── Atomicky přesuneme tmp → finální soubor ───────────────────────────
         if (File.Exists(destPath))
             File.Delete(destPath);
@@ -136,6 +151,14 @@ public sealed class DownloadService : IDownloadService
             req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiToken);
 
         return req;
+    }
+
+    private static async Task<string> ComputeSha256Async(string filePath, CancellationToken ct)
+    {
+        await using var stream = new FileStream(
+            filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81_920, useAsync: true);
+        var hash = await SHA256.HashDataAsync(stream, ct);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private static string BuildUrl(string url, string? token)
