@@ -195,7 +195,7 @@
                 <Grid RowDefinitions="*,Auto">
 
                     <ScrollViewer Grid.Row="0" Padding="18,16,18,80">
-                        <StackPanel Spacing="16">
+                        <StackPanel Spacing="16" HorizontalAlignment="Stretch">
 
                             <!-- ── Přepínač Smart / Manuální ───────────────────── -->
                             <Border Background="#0F0F11"
@@ -261,13 +261,10 @@
                                 </Grid>
                             </Border>
 
-                            <!-- ══ SMART MÓD panel ════════════════════════════════ -->
-                            <StackPanel Spacing="16"
-                                        HorizontalAlignment="Stretch"
-                                        IsVisible="{Binding IsSmartMode}">
+                            <!-- ══ SMART MÓD — sekce jsou přímí potomci vnějšího StackPanelu ══ -->
 
-                                <!-- Popis v češtině -->
-                                <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+                            <!-- Popis v češtině -->
+                            <StackPanel Spacing="6" IsVisible="{Binding IsSmartMode}">
                                     <TextBlock Text="POPIS OBRÁZKU" Classes="sectionHeader"/>
                                     <TextBox Text="{Binding CzechDescription}"
                                              PlaceholderText="Napiš co chceš vygenerovat, klidně česky…"
@@ -284,7 +281,7 @@
                                 </StackPanel>
 
                                 <!-- Orientace — 3 tlačítka -->
-                                <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+                                <StackPanel Spacing="6" IsVisible="{Binding IsSmartMode}">
                                     <TextBlock Text="ORIENTACE" Classes="sectionHeader"/>
                                     <Grid ColumnDefinitions="*,*,*" ColumnSpacing="6"
                                           HorizontalAlignment="Stretch">
@@ -403,7 +400,7 @@
                                 </StackPanel>
 
                                 <!-- Referenční obrázky (smart verze — reference + slider) -->
-                                <StackPanel Spacing="6" HorizontalAlignment="Stretch">
+                                <StackPanel Spacing="6" IsVisible="{Binding IsSmartMode}">
                                     <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
                                         <TextBlock Grid.Column="0"
                                                    Text="REFERENČNÍ OBRÁZEK (nepovinné)"
@@ -503,9 +500,7 @@
                                                 Foreground="#7C3AED"/>
                                     </StackPanel>
                                 </StackPanel>
-
-                            </StackPanel>
-                            <!-- ══ konec SMART MÓD ══════════════════════════════ -->
+                            <!-- ══ konec SMART MÓD sekcí ══════════════════════════ -->
 
                             <!-- ══ MANUÁLNÍ MÓD panel ════════════════════════════ -->
                             <StackPanel Spacing="16" IsVisible="{Binding IsManualMode}">
