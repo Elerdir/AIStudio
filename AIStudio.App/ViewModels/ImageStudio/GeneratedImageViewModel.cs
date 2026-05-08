@@ -16,6 +16,10 @@ public partial class GeneratedImageViewModel : ObservableObject
     public int      Width     { get; init; }
     public int      Height    { get; init; }
     public DateTime Timestamp { get; init; }
+    public string   Sampler   { get; init; } = string.Empty;
+    public string   Scheduler { get; init; } = string.Empty;
+    public int      Steps     { get; init; }
+    public double   Cfg       { get; init; }
 
     [ObservableProperty] private bool _isSelected;
 
@@ -34,11 +38,16 @@ public partial class GeneratedImageViewModel : ObservableObject
     /// </summary>
     public Bitmap? FullBitmap => _fullBitmap ??= LoadFullBitmap();
 
-    public string ResolutionLabel => $"{Width} × {Height}";
-    public string TimeLabel       => Timestamp.ToString("HH:mm:ss");
-    public string FullDateLabel   => Timestamp.ToString("d. M. yyyy HH:mm");
-    public string SeedLabel       => Seed.ToString();
-    public string FileName        => System.IO.Path.GetFileName(FilePath);
+    public string ResolutionLabel      => $"{Width} × {Height}";
+    public string TimeLabel            => Timestamp.ToString("HH:mm:ss");
+    public string FullDateLabel        => Timestamp.ToString("d. M. yyyy HH:mm");
+    public string SeedLabel            => Seed.ToString();
+    public string FileName             => System.IO.Path.GetFileName(FilePath);
+    public string StepsLabel           => $"Kroky: {Steps}";
+    public string CfgLabel             => $"CFG: {Cfg:0.#}";
+    public string SamplerSchedulerLabel => string.IsNullOrEmpty(Sampler) ? string.Empty
+                                           : $"{Sampler} / {Scheduler}";
+    public string ModelShort           => System.IO.Path.GetFileNameWithoutExtension(Model);
 
     // ── Commands ──────────────────────────────────────────────────────────────
 

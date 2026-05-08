@@ -52,6 +52,16 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
                 """;
 
             await cmd.ExecuteNonQueryAsync();
+
+            // Migration: add Sampler/Scheduler columns if they don't exist yet
+            cmd.CommandText = "ALTER TABLE Images ADD COLUMN Sampler   TEXT NOT NULL DEFAULT ''";
+            try { await cmd.ExecuteNonQueryAsync(); } catch { /* column already exists */ }
+            cmd.CommandText = "ALTER TABLE Images ADD COLUMN Scheduler TEXT NOT NULL DEFAULT ''";
+            try { await cmd.ExecuteNonQueryAsync(); } catch { /* column already exists */ }
+
+            cmd.CommandText = "SELECT 1"; // reset so outer ExecuteNonQueryAsync is a no-op
+
+            await cmd.ExecuteNonQueryAsync();
             Log.Information("SQLite image repository initialized at {DbPath}", DbPath);
         }
         catch (Exception ex)
@@ -70,7 +80,7 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
             await using var conn = await OpenAsync();
             await using var cmd  = conn.CreateCommand();
             cmd.CommandText =
-                "SELECT Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, GeneratedAt " +
+                "SELECT Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, Sampler, Scheduler, GeneratedAt " +
                 "FROM Images ORDER BY GeneratedAt DESC";
 
             var list = new List<ImageRecord>();
@@ -87,7 +97,9 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
                     reader.GetInt32(6),
                     reader.GetInt32(7),
                     reader.GetDouble(8),
-                    DateTime.Parse(reader.GetString(9))));
+                    reader.GetString(9),
+                    reader.GetString(10),
+                    DateTime.Parse(reader.GetString(11))));
             }
 
             Log.Debug("Loaded {Count} image records from DB", list.Count);
@@ -110,20 +122,22 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
             await using var cmd  = conn.CreateCommand();
             cmd.CommandText = """
                 INSERT OR REPLACE INTO Images
-                    (Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, GeneratedAt)
+                    (Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, Sampler, Scheduler, GeneratedAt)
                 VALUES
-                    ($id, $path, $prompt, $model, $seed, $w, $h, $steps, $cfg, $gen)
+                    ($id, $path, $prompt, $model, $seed, $w, $h, $steps, $cfg, $sampler, $scheduler, $gen)
                 """;
-            cmd.Parameters.AddWithValue("$id",     image.Id);
-            cmd.Parameters.AddWithValue("$path",   image.FilePath);
-            cmd.Parameters.AddWithValue("$prompt", image.Prompt);
-            cmd.Parameters.AddWithValue("$model",  image.ModelName);
-            cmd.Parameters.AddWithValue("$seed",   image.Seed);
-            cmd.Parameters.AddWithValue("$w",      image.Width);
-            cmd.Parameters.AddWithValue("$h",      image.Height);
-            cmd.Parameters.AddWithValue("$steps",  image.Steps);
-            cmd.Parameters.AddWithValue("$cfg",    image.Cfg);
-            cmd.Parameters.AddWithValue("$gen",    image.GeneratedAt.ToString("o"));
+            cmd.Parameters.AddWithValue("$id",        image.Id);
+            cmd.Parameters.AddWithValue("$path",      image.FilePath);
+            cmd.Parameters.AddWithValue("$prompt",    image.Prompt);
+            cmd.Parameters.AddWithValue("$model",     image.ModelName);
+            cmd.Parameters.AddWithValue("$seed",      image.Seed);
+            cmd.Parameters.AddWithValue("$w",         image.Width);
+            cmd.Parameters.AddWithValue("$h",         image.Height);
+            cmd.Parameters.AddWithValue("$steps",     image.Steps);
+            cmd.Parameters.AddWithValue("$cfg",       image.Cfg);
+            cmd.Parameters.AddWithValue("$sampler",   image.Sampler);
+            cmd.Parameters.AddWithValue("$scheduler", image.Scheduler);
+            cmd.Parameters.AddWithValue("$gen",       image.GeneratedAt.ToString("o"));
             await cmd.ExecuteNonQueryAsync();
         }
         catch (Exception ex)

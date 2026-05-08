@@ -640,7 +640,7 @@
                         </StackPanel>
 
                         <!-- Stats tabulka -->
-                        <Border Classes="card" Padding="14">
+                        <Border Classes="card">
                             <StackPanel Spacing="10">
                                 <Grid ColumnDefinitions="*,Auto"
                                       IsVisible="{Binding Size, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">

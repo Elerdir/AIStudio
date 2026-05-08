@@ -13,6 +13,10 @@
         <conv:ImageQualityLabelConverter x:Key="QualityLabel"/>
     </UserControl.Resources>
 
+    <UserControl.KeyBindings>
+        <KeyBinding Gesture="Escape" Command="{ReflectionBinding ActiveGenerator.CloseZoomCommand}"/>
+    </UserControl.KeyBindings>
+
     <Grid RowDefinitions="Auto,Auto,Auto,*">
 
         <!-- ── Header ──────────────────────────────────────────────────────── -->
@@ -263,6 +267,20 @@
 
                             <!-- ══ SMART MÓD — sekce jsou přímí potomci vnějšího StackPanelu ══ -->
 
+                            <!-- Model (Smart) -->
+                            <StackPanel Spacing="6" IsVisible="{Binding IsSmartMode}">
+                                <TextBlock Text="MODEL" Classes="sectionHeader"/>
+                                <ComboBox ItemsSource="{Binding AvailableCheckpoints}"
+                                          SelectedItem="{Binding SelectedModel}"
+                                          HorizontalAlignment="Stretch"
+                                          Background="#1C1C1E"
+                                          Foreground="#EBEBF5"
+                                          BorderBrush="#2A2A2E"
+                                          CornerRadius="8"
+                                          FontSize="13"
+                                          PlaceholderText="Vybrat checkpoint…"/>
+                            </StackPanel>
+
                             <!-- Popis v češtině -->
                             <StackPanel Spacing="6" IsVisible="{Binding IsSmartMode}">
                                     <TextBlock Text="POPIS OBRÁZKU" Classes="sectionHeader"/>
@@ -270,6 +288,24 @@
                                              PlaceholderText="Napiš co chceš vygenerovat, klidně česky…"
                                              AcceptsReturn="True"
                                              Height="120"
+                                             TextWrapping="Wrap"
+                                             HorizontalAlignment="Stretch"
+                                             Background="#1C1C1E"
+                                             Foreground="#EBEBF5"
+                                             BorderBrush="#2A2A2E"
+                                             BorderThickness="1"
+                                             CornerRadius="10"
+                                             Padding="12,10"
+                                             FontSize="13"/>
+                                </StackPanel>
+
+                                <!-- Negativní prompt (Smart) — volitelný -->
+                                <StackPanel Spacing="6" IsVisible="{Binding IsSmartMode}">
+                                    <TextBlock Text="NEGATIVNÍ PROMPT" Classes="sectionHeader"/>
+                                    <TextBox Text="{Binding NegativePrompt}"
+                                             PlaceholderText="Co nechceš na obrázku (volitelné)…"
+                                             AcceptsReturn="True"
+                                             Height="60"
                                              TextWrapping="Wrap"
                                              HorizontalAlignment="Stretch"
                                              Background="#1C1C1E"
@@ -401,7 +437,9 @@
                                 </StackPanel>
 
                                 <!-- Referenční obrázky (smart verze — reference + slider) -->
-                                <StackPanel Spacing="6" HorizontalAlignment="Stretch" IsVisible="{Binding IsSmartMode}">
+                                <StackPanel x:Name="SmartRefArea"
+                                            Spacing="6" HorizontalAlignment="Stretch" IsVisible="{Binding IsSmartMode}"
+                                            DragDrop.AllowDrop="True">
                                     <Grid ColumnDefinitions="*,Auto" HorizontalAlignment="Stretch">
                                         <TextBlock Grid.Column="0"
                                                    Text="REFERENČNÍ OBRÁZEK"
@@ -420,7 +458,7 @@
                                         </Button>
                                     </Grid>
 
-                                    <!-- Prázdný stav -->
+                                    <!-- Prázdný stav / drop zone -->
                                     <Border Background="#0F0F11"
                                             BorderBrush="#222228"
                                             BorderThickness="1"
@@ -428,10 +466,16 @@
                                             Padding="12,10"
                                             HorizontalAlignment="Stretch"
                                             IsVisible="{Binding !HasReferenceImage}">
-                                        <TextBlock Text="Bez reference — generuje se pouze z popisu"
-                                                   FontSize="11"
-                                                   Foreground="#444450"
-                                                   HorizontalAlignment="Center"/>
+                                        <StackPanel HorizontalAlignment="Center" Spacing="3">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImagePlus}"
+                                                       Width="20" Height="20"
+                                                       Foreground="#333340"
+                                                       HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Přetáhni obrázek sem nebo klikni Přidat"
+                                                       FontSize="11"
+                                                       Foreground="#444450"
+                                                       HorizontalAlignment="Center"/>
+                                        </StackPanel>
                                     </Border>
 
                                     <!-- Obrázky + slider -->
@@ -501,6 +545,89 @@
                                                 Foreground="#7C3AED"/>
                                     </StackPanel>
                                 </StackPanel>
+                            <!-- LoRA adaptery (Smart) -->
+                            <StackPanel Spacing="6" IsVisible="{Binding IsSmartMode}">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0"
+                                               Text="LORA ADAPTERY"
+                                               Classes="sectionHeader"
+                                               VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1"
+                                            Classes="secondary"
+                                            Padding="8,4"
+                                            FontSize="11"
+                                            Command="{Binding LoadLorasCommand}"
+                                            ToolTip.Tip="Načíst dostupné LoRA soubory">
+                                        ↻ Načíst
+                                    </Button>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                                    <ComboBox Grid.Column="0"
+                                              ItemsSource="{Binding AvailableLoras}"
+                                              SelectedItem="{Binding SelectedLoraToAdd}"
+                                              HorizontalAlignment="Stretch"
+                                              Background="#1C1C1E"
+                                              Foreground="#EBEBF5"
+                                              BorderBrush="#2A2A2E"
+                                              CornerRadius="8"
+                                              FontSize="12"
+                                              PlaceholderText="Vybrat LoRA…"/>
+                                    <NumericUpDown Grid.Column="1"
+                                                   Value="{Binding LoraStrength}"
+                                                   Minimum="0.0" Maximum="2.0"
+                                                   Increment="0.05"
+                                                   FormatString="0.00"
+                                                   Width="80"
+                                                   FontSize="12"
+                                                   ToolTip.Tip="Síla LoRA (1.0 = plný efekt)"/>
+                                    <Button Grid.Column="2"
+                                            Classes="secondary"
+                                            Padding="8,4"
+                                            FontSize="12"
+                                            Command="{Binding AddLoraCommand}"
+                                            ToolTip.Tip="Přidat LoRA do fronty">
+                                        + Přidat
+                                    </Button>
+                                </Grid>
+
+                                <ItemsControl ItemsSource="{Binding SelectedLoras}"
+                                              IsVisible="{Binding HasLoras}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:LoraItem">
+                                            <Border Background="#1C1C1E"
+                                                    CornerRadius="6"
+                                                    Padding="8,5"
+                                                    Margin="0,2">
+                                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                                    <TextBlock Grid.Column="0"
+                                                               Text="{Binding Name}"
+                                                               FontSize="12"
+                                                               Foreground="#A78BFA"
+                                                               VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Grid.Column="1"
+                                                               Margin="6,0"
+                                                               FontSize="11"
+                                                               Foreground="#888896"
+                                                               VerticalAlignment="Center">
+                                                        <Run Text="×"/>
+                                                        <Run Text="{Binding StrengthModel, StringFormat='{}{0:0.00}'}"/>
+                                                    </TextBlock>
+                                                    <Button Grid.Column="2"
+                                                            Classes="secondary"
+                                                            Padding="4,2"
+                                                            FontSize="10"
+                                                            Content="✕"
+                                                            Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.RemoveLoraCommand}"
+                                                            CommandParameter="{Binding}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
                             <!-- ══ konec SMART MÓD sekcí ══════════════════════════ -->
 
                             <!-- ══ MANUÁLNÍ MÓD panel ════════════════════════════ -->
@@ -553,7 +680,9 @@
                             </StackPanel>
 
                             <!-- Referenční obrázky (více) -->
-                            <StackPanel Spacing="6">
+                            <StackPanel x:Name="ManualRefArea"
+                                        Spacing="6"
+                                        DragDrop.AllowDrop="True">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Grid.Column="0"
                                                Text="REFERENČNÍ OBRÁZKY"
@@ -573,7 +702,7 @@
                                     </Button>
                                 </Grid>
 
-                                <!-- Prázdný stav -->
+                                <!-- Prázdný stav / drop zone -->
                                 <Border Background="#0F0F11"
                                         BorderBrush="#222228"
                                         BorderThickness="1"
@@ -581,10 +710,10 @@
                                         Padding="12,16"
                                         IsVisible="{Binding !HasReferenceImage}">
                                     <StackPanel HorizontalAlignment="Center" Spacing="4">
-                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}" Width="22" Height="22"
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImagePlus}" Width="22" Height="22"
                                                    Foreground="#333340"
                                                    HorizontalAlignment="Center"/>
-                                        <TextBlock Text="Žádná reference — generuje se z promptu"
+                                        <TextBlock Text="Přetáhni obrázky sem nebo klikni Přidat"
                                                    FontSize="11"
                                                    Foreground="#444450"
                                                    HorizontalAlignment="Center"/>
@@ -747,7 +876,7 @@
                                                             Padding="4,2"
                                                             FontSize="10"
                                                             Content="✕"
-                                                            Command="{Binding $parent[UserControl].((vm:ImageGeneratorViewModel)DataContext).RemoveLoraCommand}"
+                                                            Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.RemoveLoraCommand}"
                                                             CommandParameter="{Binding}"/>
                                                 </Grid>
                                             </Border>
@@ -827,6 +956,32 @@
                                                    BorderBrush="#2A2A2E"
                                                    CornerRadius="8"
                                                    FontSize="12"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Sampler + Scheduler -->
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <StackPanel Grid.Column="0" Spacing="6">
+                                    <TextBlock Text="SAMPLER" Classes="sectionHeader"/>
+                                    <ComboBox ItemsSource="{x:Static vm:ImageGeneratorViewModel.Samplers}"
+                                              SelectedItem="{Binding SelectedSampler}"
+                                              HorizontalAlignment="Stretch"
+                                              Background="#1C1C1E"
+                                              Foreground="#EBEBF5"
+                                              BorderBrush="#2A2A2E"
+                                              CornerRadius="8"
+                                              FontSize="12"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="6">
+                                    <TextBlock Text="SCHEDULER" Classes="sectionHeader"/>
+                                    <ComboBox ItemsSource="{x:Static vm:ImageGeneratorViewModel.Schedulers}"
+                                              SelectedItem="{Binding SelectedScheduler}"
+                                              HorizontalAlignment="Stretch"
+                                              Background="#1C1C1E"
+                                              Foreground="#EBEBF5"
+                                              BorderBrush="#2A2A2E"
+                                              CornerRadius="8"
+                                              FontSize="12"/>
                                 </StackPanel>
                             </Grid>
 
@@ -938,7 +1093,7 @@
                                         Background="#3A1515"
                                         BorderBrush="#6B2020"
                                         BorderThickness="1"
-                                        CornerRadius="10"
+                                        CornerRadius="8"
                                         Command="{Binding StopGenerationCommand}"
                                         IsVisible="{Binding IsGenerating}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -1051,40 +1206,73 @@
                                 Background="#0A0A0C"
                                 BorderBrush="#1E1E24"
                                 BorderThickness="0,1,0,0"
-                                Padding="16,8">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto"
-                                  DataContext="{Binding LatestImage}">
-                                <TextBlock Grid.Column="0"
-                                           Text="{Binding Prompt}"
-                                           FontSize="11"
-                                           Foreground="#666672"
-                                           TextTrimming="CharacterEllipsis"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding ResolutionLabel}"
-                                           FontSize="11"
-                                           Foreground="#555560"
-                                           Margin="12,0"
-                                           VerticalAlignment="Center"/>
-                                <!-- Copy prompt -->
-                                <Button Grid.Column="2"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="6,4"
-                                        ToolTip.Tip="Kopírovat prompt"
-                                        Command="{Binding CopyPromptCommand}">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="16" Height="16" Foreground="#555560"/>
-                                </Button>
-                                <!-- Open in Explorer -->
-                                <Button Grid.Column="3"
-                                        Background="Transparent"
-                                        BorderThickness="0"
-                                        Padding="6,4"
-                                        ToolTip.Tip="Otevřít ve Průzkumníku"
-                                        Command="{Binding OpenInExplorerCommand}">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderOpen}" Width="16" Height="16" Foreground="#555560"/>
-                                </Button>
-                            </Grid>
+                                Padding="16,6">
+                            <StackPanel DataContext="{Binding LatestImage}" Spacing="3">
+                                <!-- Řádek 1: prompt + rozlišení + akce -->
+                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Prompt}"
+                                               FontSize="11"
+                                               Foreground="#666672"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"
+                                               ToolTip.Tip="{Binding Prompt}"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding ResolutionLabel}"
+                                               FontSize="11"
+                                               Foreground="#555560"
+                                               Margin="12,0,0,0"
+                                               VerticalAlignment="Center"/>
+                                    <!-- Zoom -->
+                                    <Button Grid.Column="2"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="6,4"
+                                            ToolTip.Tip="Zvětšit (zoom)"
+                                            Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.ToggleZoomCommand}">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Fullscreen}" Width="16" Height="16" Foreground="#555560"/>
+                                    </Button>
+                                    <!-- Copy prompt -->
+                                    <Button Grid.Column="3"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="6,4"
+                                            ToolTip.Tip="Kopírovat prompt"
+                                            Command="{Binding CopyPromptCommand}">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="16" Height="16" Foreground="#555560"/>
+                                    </Button>
+                                    <!-- Open in Explorer -->
+                                    <Button Grid.Column="4"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="6,4"
+                                            ToolTip.Tip="Otevřít ve Průzkumníku"
+                                            Command="{Binding OpenInExplorerCommand}">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderOpen}" Width="16" Height="16" Foreground="#555560"/>
+                                    </Button>
+                                </Grid>
+                                <!-- Řádek 2: technická metadata -->
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding SeedLabel, StringFormat='Seed: {0}'}"
+                                               FontSize="10" Foreground="#444450"/>
+                                    <TextBlock Text="·" FontSize="10" Foreground="#333338"/>
+                                    <TextBlock Text="{Binding StepsLabel}"
+                                               FontSize="10" Foreground="#444450"/>
+                                    <TextBlock Text="·" FontSize="10" Foreground="#333338"/>
+                                    <TextBlock Text="{Binding CfgLabel}"
+                                               FontSize="10" Foreground="#444450"/>
+                                    <TextBlock Text="·" FontSize="10" Foreground="#333338"
+                                               IsVisible="{Binding SamplerSchedulerLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    <TextBlock Text="{Binding SamplerSchedulerLabel}"
+                                               FontSize="10" Foreground="#444450"
+                                               IsVisible="{Binding SamplerSchedulerLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                    <TextBlock Text="·" FontSize="10" Foreground="#333338"/>
+                                    <TextBlock Text="{Binding ModelShort}"
+                                               FontSize="10" Foreground="#444450"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxWidth="180"/>
+                                </StackPanel>
+                            </StackPanel>
                         </Border>
                     </Grid>
                 </Grid>
@@ -1123,22 +1311,101 @@
                                                 <Setter Property="BorderBrush" Value="#5B21B6"/>
                                             </Style>
                                         </Border.Styles>
-                                        <Button Background="Transparent"
-                                                BorderThickness="0"
-                                                Padding="0"
-                                                Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.SelectImageCommand}"
-                                                CommandParameter="{Binding}">
-                                            <Image Source="{Binding Thumbnail}"
-                                                   Width="78"
-                                                   Height="78"
-                                                   Stretch="UniformToFill"/>
-                                        </Button>
+                                        <!-- Grid umožní vrstvit obrázek + hover overlay -->
+                                        <Grid Width="78" Height="78" Classes="thumbGrid">
+                                            <Grid.Styles>
+                                                <Style Selector="Grid.thumbGrid Border.thumbHover">
+                                                    <Setter Property="Opacity" Value="0"/>
+                                                </Style>
+                                                <Style Selector="Grid.thumbGrid:pointerover Border.thumbHover">
+                                                    <Setter Property="Opacity" Value="1"/>
+                                                </Style>
+                                            </Grid.Styles>
+                                            <!-- Kliknutí na obrázek = vybrat -->
+                                            <Button Background="Transparent"
+                                                    BorderThickness="0"
+                                                    Padding="0"
+                                                    Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.SelectImageCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <Image Source="{Binding Thumbnail}"
+                                                       Width="78"
+                                                       Height="78"
+                                                       Stretch="UniformToFill"/>
+                                            </Button>
+                                            <!-- Hover overlay: tlačítko Použít jako referenci -->
+                                            <Border Classes="thumbHover"
+                                                    Background="#AA000000"
+                                                    HorizontalAlignment="Stretch"
+                                                    VerticalAlignment="Stretch">
+                                                <Button Background="Transparent"
+                                                        BorderThickness="0"
+                                                        Padding="4"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        ToolTip.Tip="Použít jako referenci"
+                                                        Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.UseAsReferenceCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <StackPanel Spacing="2" HorizontalAlignment="Center">
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImagePlus}"
+                                                                   Width="18" Height="18"
+                                                                   Foreground="#EBEBF5"
+                                                                   HorizontalAlignment="Center"/>
+                                                        <TextBlock Text="Ref" FontSize="9" Foreground="#EBEBF5" HorizontalAlignment="Center"/>
+                                                    </StackPanel>
+                                                </Button>
+                                            </Border>
+                                        </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
                 </Border>
+
+                <!-- ── Zoom overlay ──────────────────────────────────────────── -->
+                <!-- Překryje celý pravý panel (oba řádky) při IsZoomed=true    -->
+                <Grid Grid.Row="0" Grid.RowSpan="2"
+                      Background="#0D0D0D"
+                      Panel.ZIndex="20"
+                      IsVisible="{Binding IsZoomed}">
+                    <Grid RowDefinitions="Auto,*">
+                        <!-- Záhlaví: zavřít + jméno souboru -->
+                        <Border Grid.Row="0"
+                                Background="#0A0A0C"
+                                BorderBrush="#1E1E24"
+                                BorderThickness="0,0,0,1"
+                                Padding="16,8">
+                            <Grid ColumnDefinitions="*,Auto" DataContext="{Binding LatestImage}">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding FileName}"
+                                           FontSize="12"
+                                           Foreground="#888896"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Button Grid.Column="1"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="10,6"
+                                        Foreground="#888896"
+                                        ToolTip.Tip="Zavřít zoom"
+                                        Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.ToggleZoomCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FullscreenExit}" Width="16" Height="16"/>
+                                        <TextBlock Text="Zavřít" FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <!-- Plný obrázek -->
+                        <Border Grid.Row="1" Padding="32" Background="#0D0D0D">
+                            <Image Source="{Binding LatestImage.FullBitmap}"
+                                   Stretch="Uniform"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality"/>
+                        </Border>
+                    </Grid>
+                </Grid>
 
             </Grid>
 

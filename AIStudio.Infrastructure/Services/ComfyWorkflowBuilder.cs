@@ -8,6 +8,17 @@ namespace AIStudio.Infrastructure.Services;
 /// </summary>
 public static class ComfyWorkflowBuilder
 {
+    // ── Výchozí sampler / scheduler ───────────────────────────────────────────
+
+    /// <summary>Výchozí sampler pro SD/SDXL workflow (DPM++ 2M — nejlepší kvalita).</summary>
+    public const string DefaultSamplerSd   = "dpmpp_2m";
+    /// <summary>Výchozí scheduler pro SD/SDXL workflow (Karras — ostřejší výsledky).</summary>
+    public const string DefaultSchedulerSd = "karras";
+    /// <summary>Výchozí sampler pro FLUX workflow.</summary>
+    public const string DefaultSamplerFlux   = "euler";
+    /// <summary>Výchozí scheduler pro FLUX workflow.</summary>
+    public const string DefaultSchedulerFlux = "simple";
+
     // ── SD / SDXL ─────────────────────────────────────────────────────────────
 
     /// <summary>
@@ -22,7 +33,9 @@ public static class ComfyWorkflowBuilder
         int    steps,
         double cfg,
         long   seed,
-        int    batchSize = 1)
+        int    batchSize = 1,
+        string sampler   = DefaultSamplerSd,
+        string scheduler = DefaultSchedulerSd)
     {
         return new Dictionary<string, object>
         {
@@ -51,8 +64,8 @@ public static class ComfyWorkflowBuilder
                 ["seed"]          = seed,
                 ["steps"]         = steps,
                 ["cfg"]           = cfg,
-                ["sampler_name"]  = "euler",
-                ["scheduler"]     = "normal",
+                ["sampler_name"]  = sampler,
+                ["scheduler"]     = scheduler,
                 ["denoise"]       = 1.0,
                 ["model"]         = Ref("4", 0),
                 ["positive"]      = Ref("6", 0),
@@ -86,7 +99,9 @@ public static class ComfyWorkflowBuilder
         int    steps,
         double guidance,
         long   seed,
-        int    batchSize = 1)
+        int    batchSize = 1,
+        string sampler   = DefaultSamplerFlux,
+        string scheduler = DefaultSchedulerFlux)
     {
         return new Dictionary<string, object>
         {
@@ -122,8 +137,8 @@ public static class ComfyWorkflowBuilder
                 ["seed"]         = seed,
                 ["steps"]        = steps,
                 ["cfg"]          = 1.0,
-                ["sampler_name"] = "euler",
-                ["scheduler"]    = "simple",
+                ["sampler_name"] = sampler,
+                ["scheduler"]    = scheduler,
                 ["denoise"]      = 1.0,
                 ["model"]        = Ref("1", 0),
                 ["positive"]     = Ref("5", 0),
@@ -169,7 +184,9 @@ public static class ComfyWorkflowBuilder
         int    steps,
         double guidance,
         long   seed,
-        int    batchSize = 1)
+        int    batchSize = 1,
+        string sampler   = DefaultSamplerFlux,
+        string scheduler = DefaultSchedulerFlux)
     {
         return new Dictionary<string, object>
         {
@@ -214,8 +231,8 @@ public static class ComfyWorkflowBuilder
                 ["seed"]         = seed,
                 ["steps"]        = steps,
                 ["cfg"]          = 1.0,
-                ["sampler_name"] = "euler",
-                ["scheduler"]    = "simple",
+                ["sampler_name"] = sampler,
+                ["scheduler"]    = scheduler,
                 ["denoise"]      = 1.0,
                 ["model"]        = Ref("1", 0),
                 ["positive"]     = Ref("7", 0),
@@ -411,7 +428,9 @@ public static class ComfyWorkflowBuilder
         double cfg,
         long   seed,
         double denoise,
-        int    batchSize = 1)
+        int    batchSize = 1,
+        string sampler   = DefaultSamplerSd,
+        string scheduler = DefaultSchedulerSd)
     {
         return new Dictionary<string, object>
         {
@@ -455,8 +474,8 @@ public static class ComfyWorkflowBuilder
                 ["seed"]          = seed,
                 ["steps"]         = steps,
                 ["cfg"]           = cfg,
-                ["sampler_name"]  = "euler",
-                ["scheduler"]     = "normal",
+                ["sampler_name"]  = sampler,
+                ["scheduler"]     = scheduler,
                 ["denoise"]       = denoise,   // klíčový parametr!
                 ["model"]         = Ref("1", 0),
                 ["positive"]      = Ref("5", 0),
@@ -492,7 +511,9 @@ public static class ComfyWorkflowBuilder
         double guidance,
         long   seed,
         double denoise,
-        int    batchSize = 1)
+        int    batchSize = 1,
+        string sampler   = DefaultSamplerFlux,
+        string scheduler = DefaultSchedulerFlux)
     {
         return new Dictionary<string, object>
         {
@@ -538,8 +559,8 @@ public static class ComfyWorkflowBuilder
                 ["seed"]         = seed,
                 ["steps"]        = steps,
                 ["cfg"]          = 1.0,
-                ["sampler_name"] = "euler",
-                ["scheduler"]    = "simple",
+                ["sampler_name"] = sampler,
+                ["scheduler"]    = scheduler,
                 ["denoise"]      = denoise,
                 ["model"]        = Ref("1", 0),
                 ["positive"]     = Ref("7", 0),

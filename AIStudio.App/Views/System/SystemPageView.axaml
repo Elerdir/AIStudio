@@ -29,7 +29,7 @@
             </Grid>
         </Border>
 
-        <ScrollViewer Padding="28,20,28,80">
+        <ScrollViewer Padding="28,24,28,80">
             <StackPanel Spacing="24">
 
                 <!-- Hardware stats row -->

@@ -13,4 +13,6 @@ public record ImageRecord(
     int      Height,
     int      Steps,
     double   Cfg,
+    string   Sampler,
+    string   Scheduler,
     DateTime GeneratedAt);

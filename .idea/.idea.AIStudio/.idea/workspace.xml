@@ -8,9 +8,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="307e7de2-1839-4f96-be8e-1d4bc2ce28d2" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/AIStudio.App/ViewModels/ImageStudio/GeneratedImageViewModel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.App/ViewModels/ImageStudio/GeneratedImageViewModel.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/AIStudio.App/ViewModels/ImageStudio/ImageGeneratorViewModel.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.App/ViewModels/ImageStudio/ImageGeneratorViewModel.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.App/Views/Chat/ChatPageView.axaml" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.App/Views/Chat/ChatPageView.axaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.App/Views/Chat/ChatPageView.axaml.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.App/Views/Chat/ChatPageView.axaml.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.App/Views/ImageStudio/ImageStudioPageView.axaml" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.App/Views/ImageStudio/ImageStudioPageView.axaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.App/Views/ImageStudio/ImageStudioPageView.axaml.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.App/Views/ImageStudio/ImageStudioPageView.axaml.cs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/AIStudio.App/Views/Models/ModelManagerPageView.axaml" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.App/Views/Models/ModelManagerPageView.axaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AIStudio.Core/Interfaces/IComfyService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.Core/Interfaces/IComfyService.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.App/Views/Settings/SettingsPageView.axaml" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.App/Views/Settings/SettingsPageView.axaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.App/Views/System/SystemPageView.axaml" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.App/Views/System/SystemPageView.axaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.Core/Models/ImageRecord.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.Core/Models/ImageRecord.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.Infrastructure/Services/ComfyWorkflowBuilder.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.Infrastructure/Services/ComfyWorkflowBuilder.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.Infrastructure/Services/SqliteImageRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.Infrastructure/Services/SqliteImageRepository.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AIStudio.Tests/SqliteImageRepositoryTests.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.Tests/SqliteImageRepositoryTests.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -114,7 +124,7 @@
       <workItem from="1777924860166" duration="575000" />
       <workItem from="1777949264520" duration="3978000" />
       <workItem from="1778145207947" duration="5510000" />
-      <workItem from="1778213242370" duration="3979000" />
+      <workItem from="1778213242370" duration="10047000" />
     </task>
     <servers />
   </component>

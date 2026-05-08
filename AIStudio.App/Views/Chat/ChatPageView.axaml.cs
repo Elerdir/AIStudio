@@ -203,11 +203,14 @@ public partial class ChatPageView : UserControl
 
     private void ScrollToBottom()
     {
+        // DispatcherPriority.Render zajistí, že layout (včetně MarkdownVieweru
+        // po dokončení streamu) je přepočítaný dřív než ScrollToEnd().
+        // Background priority nestačila — bublina se přerenderovala až po scrollu.
         Dispatcher.UIThread.Post(() =>
         {
             var scroll = this.FindControl<ScrollViewer>("MessagesScroll");
             scroll?.ScrollToEnd();
-        }, DispatcherPriority.Background);
+        }, DispatcherPriority.Render);
     }
 
     // ── Title inline edit ─────────────────────────────────────────────────────

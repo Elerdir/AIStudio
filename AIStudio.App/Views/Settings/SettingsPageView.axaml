@@ -49,7 +49,7 @@
                                       ItemsSource="{Binding Themes}"
                                       Width="170"
                                       Background="#2A2A2E" Foreground="#EBEBF5"
-                                      BorderBrush="#3A3A3E" CornerRadius="8"
+                                      BorderBrush="#2A2A2E" CornerRadius="8"
                                       VerticalAlignment="Center"/>
                         </Grid>
                     </Border>
@@ -69,7 +69,7 @@
                                       ItemsSource="{Binding Languages}"
                                       Width="170"
                                       Background="#2A2A2E" Foreground="#EBEBF5"
-                                      BorderBrush="#3A3A3E" CornerRadius="8"
+                                      BorderBrush="#2A2A2E" CornerRadius="8"
                                       VerticalAlignment="Center"/>
                         </Grid>
                     </Border>

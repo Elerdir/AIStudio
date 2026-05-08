@@ -37,8 +37,11 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     [ObservableProperty] private int _variantCount = 1;
     [ObservableProperty] private AspectRatio _selectedAspectRatio = AspectRatio.R1x1;
     [ObservableProperty] private ImageQuality _selectedQuality = ImageQuality.FHD;
+    [ObservableProperty] private string _selectedSampler   = ComfyWorkflowBuilder.DefaultSamplerSd;
+    [ObservableProperty] private string _selectedScheduler = ComfyWorkflowBuilder.DefaultSchedulerSd;
     [ObservableProperty] private bool _isActive;
     [ObservableProperty] private bool _isGenerating;
+    [ObservableProperty] private bool _isZoomed;
     [ObservableProperty] private int _generationProgress;
     [ObservableProperty] private string _generationStatus = string.Empty;
 
@@ -75,6 +78,16 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
     public static IReadOnlyList<AspectRatio> AspectRatios { get; } = Enum.GetValues<AspectRatio>();
     public static IReadOnlyList<ImageQuality> Qualities { get; }   = Enum.GetValues<ImageQuality>();
+
+    public static IReadOnlyList<string> Samplers { get; } = new[]
+    {
+        "euler", "euler_ancestral", "dpmpp_2m", "dpmpp_sde", "dpmpp_2m_sde", "lcm", "ddim", "heun"
+    };
+
+    public static IReadOnlyList<string> Schedulers { get; } = new[]
+    {
+        "normal", "karras", "simple", "exponential", "sgm_uniform", "beta"
+    };
 
     public string AspectRatioLabel => SelectedAspectRatio switch
     {
@@ -180,6 +193,17 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     [RelayCommand] void SetSmartMode()  => IsSmartMode = true;
     [RelayCommand] void SetManualMode() => IsSmartMode = false;
 
+    [RelayCommand] void ToggleZoom() => IsZoomed = !IsZoomed;
+    [RelayCommand] void CloseZoom()  => IsZoomed = false;
+
+    [RelayCommand]
+    private void UseAsReference(GeneratedImageViewModel img)
+    {
+        if (!File.Exists(img.FilePath)) return;
+        if (!ReferenceImagePaths.Contains(img.FilePath))
+            ReferenceImagePaths.Add(img.FilePath);
+    }
+
     [RelayCommand] void SetOrientationSquare()   => SelectedAspectRatio = AspectRatio.R1x1;
     [RelayCommand] void SetOrientationPortrait()  => SelectedAspectRatio = AspectRatio.R9x16;
     [RelayCommand] void SetOrientationLandscape() => SelectedAspectRatio = AspectRatio.R16x9;
@@ -191,13 +215,17 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         if (ComfyWorkflowBuilder.IsFluxModel(model))
         {
             var (steps, guidance) = ComfyWorkflowBuilder.FluxDefaults(model);
-            Steps = steps;
-            Cfg   = guidance;
+            Steps             = steps;
+            Cfg               = guidance;
+            SelectedSampler   = ComfyWorkflowBuilder.DefaultSamplerFlux;
+            SelectedScheduler = ComfyWorkflowBuilder.DefaultSchedulerFlux;
         }
         else
         {
-            Steps = 20;
-            Cfg   = 7.0;
+            Steps             = 20;
+            Cfg               = 7.0;
+            SelectedSampler   = ComfyWorkflowBuilder.DefaultSamplerSd;
+            SelectedScheduler = ComfyWorkflowBuilder.DefaultSchedulerSd;
         }
     }
 
@@ -308,13 +336,26 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 GenerationStatus = "Analyzuji popis…";
                 try
                 {
-                    var intent = await _intentParser.ParseAsync(CzechDescription);
+                    var intent    = await _intentParser.ParseAsync(CzechDescription);
+                    var usedLlm   = !intent.Reasoning.StartsWith("Fallback", StringComparison.OrdinalIgnoreCase);
                     Prompt         = intent.EnglishPrompt;
                     NegativePrompt = intent.NegativePrompt ?? string.Empty;
+                    if (!usedLlm)
+                        Log.Information("Smart mód: LLM fallback — popis použit přímo jako prompt");
                     if (_modelMatcher is not null && string.IsNullOrEmpty(SelectedModel))
                     {
                         var pick = _modelMatcher.Match(intent.Kind, AvailableCheckpoints);
                         if (!string.IsNullOrEmpty(pick)) SelectedModel = pick;
+                    }
+                    // Orientaci z intentu aplikujeme jen pokud uživatel nezměnil ručně
+                    if (usedLlm)
+                    {
+                        SelectedAspectRatio = intent.Aspect switch
+                        {
+                            Core.Models.ImageAspect.Landscape => AspectRatio.R16x9,
+                            Core.Models.ImageAspect.Portrait  => AspectRatio.R9x16,
+                            _                                  => AspectRatio.R1x1,
+                        };
                     }
                 }
                 catch (Exception ex)
@@ -404,7 +445,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 {
                     workflow = ComfyWorkflowBuilder.BuildFluxImg2Img(
                         SelectedModel, uploadedRefName,
-                        Prompt, res.W, res.H, Steps, Cfg, seed, denoise, VariantCount);
+                        Prompt, res.W, res.H, Steps, Cfg, seed, denoise, VariantCount,
+                        SelectedSampler, SelectedScheduler);
                 }
                 else if (isGguf)
                 {
@@ -416,13 +458,15 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                         ComfyWorkflowBuilder.DefaultFluxClipL,
                         ComfyWorkflowBuilder.DefaultFluxT5,
                         ComfyWorkflowBuilder.DefaultFluxVae,
-                        Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount);
+                        Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
+                        SelectedSampler, SelectedScheduler);
                 }
                 else
                 {
                     workflow = ComfyWorkflowBuilder.BuildStandardImg2Img(
                         SelectedModel, uploadedRefName,
-                        Prompt, NegativePrompt, res.W, res.H, Steps, Cfg, seed, denoise, VariantCount);
+                        Prompt, NegativePrompt, res.W, res.H, Steps, Cfg, seed, denoise, VariantCount,
+                        SelectedSampler, SelectedScheduler);
                 }
             }
             else if (isFlux && isGguf)
@@ -432,17 +476,20 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                     ComfyWorkflowBuilder.DefaultFluxClipL,
                     ComfyWorkflowBuilder.DefaultFluxT5,
                     ComfyWorkflowBuilder.DefaultFluxVae,
-                    Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount);
+                    Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
+                    SelectedSampler, SelectedScheduler);
             }
             else if (isFlux)
             {
                 workflow = ComfyWorkflowBuilder.BuildFlux(
-                    SelectedModel, Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount);
+                    SelectedModel, Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
+                    SelectedSampler, SelectedScheduler);
             }
             else
             {
                 workflow = ComfyWorkflowBuilder.BuildStandard(
-                    SelectedModel, Prompt, NegativePrompt, res.W, res.H, Steps, Cfg, seed, VariantCount);
+                    SelectedModel, Prompt, NegativePrompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
+                    SelectedSampler, SelectedScheduler);
             }
 
             // ── LoRA injection ────────────────────────────────────────────────
@@ -500,6 +547,10 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                     Width     = res.W,
                     Height    = res.H,
                     Timestamp = now,
+                    Sampler   = SelectedSampler,
+                    Scheduler = SelectedScheduler,
+                    Steps     = Steps,
+                    Cfg       = Cfg,
                 };
 
                 // Persist to SQLite — fire-and-forget with logging
@@ -513,6 +564,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                     res.H,
                     Steps,
                     Cfg,
+                    SelectedSampler,
+                    SelectedScheduler,
                     now);
 
                 _ = TrySaveImageAsync(record);
@@ -702,6 +755,10 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                         Seed      = rec.Seed,
                         Width     = rec.Width,
                         Height    = rec.Height,
+                        Sampler   = rec.Sampler,
+                        Scheduler = rec.Scheduler,
+                        Steps     = rec.Steps,
+                        Cfg       = rec.Cfg,
                         Timestamp = rec.GeneratedAt,
                     };
                     GeneratedImages.Add(vm);

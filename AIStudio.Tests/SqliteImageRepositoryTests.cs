@@ -40,6 +40,8 @@ public class SqliteImageRepositoryTests : IAsyncLifetime
         Height:      512,
         Steps:       20,
         Cfg:         7.0,
+        Sampler:     "euler",
+        Scheduler:   "simple",
         GeneratedAt: DateTime.UtcNow);
 
     // ── Tests ─────────────────────────────────────────────────────────────────
