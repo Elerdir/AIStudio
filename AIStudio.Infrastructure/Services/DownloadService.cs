@@ -9,20 +9,13 @@ namespace AIStudio.Infrastructure.Services;
 
 public sealed class DownloadService : IDownloadService
 {
-    private static readonly HttpClient Http = new(new HttpClientHandler
-    {
-        AllowAutoRedirect       = true,
-        MaxAutomaticRedirections = 10
-    })
-    {
-        Timeout = Timeout.InfiniteTimeSpan,
-        DefaultRequestHeaders =
-        {
-            { "User-Agent", "AIStudio/1.0 (.NET; https://github.com/aistudio)" }
-        }
-    };
-
+    private readonly HttpClient _http;
     private const int BufferSize = 81_920; // 80 KB chunks
+
+    public DownloadService(IHttpClientFactory httpFactory)
+    {
+        _http = httpFactory.CreateClient("download");
+    }
 
     public async Task DownloadFileAsync(
         string url,
@@ -52,7 +45,7 @@ public sealed class DownloadService : IDownloadService
         {
             using var rangedReq = BuildRequest(finalUrl, apiToken);
             rangedReq.Headers.Range = new RangeHeaderValue(existingBytes, null);
-            response = await Http.SendAsync(rangedReq, HttpCompletionOption.ResponseHeadersRead, ct);
+            response = await _http.SendAsync(rangedReq, HttpCompletionOption.ResponseHeadersRead, ct);
 
             if (response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable
                 || response.StatusCode == HttpStatusCode.OK)
@@ -64,7 +57,7 @@ public sealed class DownloadService : IDownloadService
                 existingBytes = 0;
 
                 using var fullReq = BuildRequest(finalUrl, apiToken);
-                response = await Http.SendAsync(fullReq, HttpCompletionOption.ResponseHeadersRead, ct);
+                response = await _http.SendAsync(fullReq, HttpCompletionOption.ResponseHeadersRead, ct);
             }
             else
             {
@@ -74,7 +67,7 @@ public sealed class DownloadService : IDownloadService
         else
         {
             using var req = BuildRequest(finalUrl, apiToken);
-            response = await Http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            response = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
         }
 
         response.EnsureSuccessStatusCode();

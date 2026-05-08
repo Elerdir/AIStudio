@@ -1,5 +1,9 @@
+using System.Collections.Concurrent;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Serilog;
 
 namespace AIStudio.App.ViewModels.Models;
 
@@ -8,17 +12,28 @@ public enum ModelSource { HuggingFace, Civitai, Local }
 
 public partial class ModelItemViewModel : ViewModelBase
 {
+    // ── Static thumbnail cache (sdílená přes všechny instance) ───────────────
+
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private static readonly ConcurrentDictionary<string, Bitmap?> _cache = new();
+    private static readonly SemaphoreSlim _semaphore = new(6, 6);
+
     // ── Metadata ─────────────────────────────────────────────────────────────
     [ObservableProperty] private string _name = string.Empty;
     [ObservableProperty] private string _description = string.Empty;
     [ObservableProperty] private string _version = string.Empty;
-    [ObservableProperty] private ModelCategory _category;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsChatCategory), nameof(IsImageCategory), nameof(CategoryLabel))]
+    private ModelCategory _category;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowHfFilePicker), nameof(ShowDirectDownloadButton),
                               nameof(IsHuggingFace), nameof(IsCivitai))]
     private ModelSource _source;
-    [ObservableProperty] private int _vramRequiredGb;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasVramInfo), nameof(VramLabel))]
+    private int _vramRequiredGb;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasContextLength))]
@@ -53,6 +68,11 @@ public partial class ModelItemViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(HasThumbnail))]
     private string _thumbnailUrl = string.Empty;
 
+    /// <summary>Načtený bitmap náhledu — null dokud se nestáhne z ThumbnailUrl.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLoadedThumbnail))]
+    private Bitmap? _thumbnailBitmap;
+
     /// <summary>Civitai base model label, např. "SDXL 1.0", "Pony", "Flux.1 D".</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasBaseModel))]
@@ -71,10 +91,15 @@ public partial class ModelItemViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(HasRating), nameof(RatingLabel))]
     private double _rating;
 
-    public bool HasThumbnail   => !string.IsNullOrEmpty(ThumbnailUrl);
-    public bool HasBaseModel   => !string.IsNullOrEmpty(BaseModel);
-    public bool HasRating      => Rating > 0;
-    public string RatingLabel  => Rating > 0 ? $"{Rating:F1}" : "";
+    public bool HasThumbnail       => !string.IsNullOrEmpty(ThumbnailUrl);
+    public bool HasLoadedThumbnail => ThumbnailBitmap is not null;
+    public bool HasBaseModel    => !string.IsNullOrEmpty(BaseModel);
+    public bool HasRating       => Rating > 0;
+    public string RatingLabel   => Rating > 0 ? $"{Rating:F1}" : "";
+    public bool HasVramInfo     => VramRequiredGb > 0;
+    public string VramLabel     => VramRequiredGb > 0 ? $"~{VramRequiredGb} GB VRAM" : "";
+    public bool IsChatCategory  => Category == ModelCategory.Chat;
+    public bool IsImageCategory => Category == ModelCategory.Image;
 
     /// <summary>True pro HF položku — v detailu se ukáže seznam GGUF souborů (kvantizací).</summary>
     public bool IsHuggingFace      => Source == ModelSource.HuggingFace;
@@ -207,6 +232,52 @@ public partial class ModelItemViewModel : ViewModelBase
         ModelSource.Local       => "Lokální",
         _ => string.Empty
     };
+
+    // ── Thumbnail async loading ───────────────────────────────────────────────
+
+    partial void OnThumbnailUrlChanged(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+
+        // Z cache vrátíme okamžitě, jinak spustíme stahování na pozadí
+        if (_cache.TryGetValue(value, out var cached))
+        {
+            ThumbnailBitmap = cached;
+            return;
+        }
+
+        _ = FetchThumbnailAsync(value);
+    }
+
+    private async Task FetchThumbnailAsync(string url)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            // Druhá kontrola cache po získání semaforu (jiný task mohl mezitím načíst)
+            if (_cache.TryGetValue(url, out var cached))
+            {
+                Dispatcher.UIThread.Post(() => ThumbnailBitmap = cached);
+                return;
+            }
+
+            var bytes  = await _http.GetByteArrayAsync(url);
+            using var stream = new MemoryStream(bytes);
+            var bitmap = new Bitmap(stream);
+
+            _cache[url] = bitmap;
+            Dispatcher.UIThread.Post(() => ThumbnailBitmap = bitmap);
+        }
+        catch (Exception ex)
+        {
+            _cache[url] = null; // označíme jako selhané, příště neopakujeme
+            Log.Debug("Thumbnail load failed for {Url}: {Msg}", url, ex.Message);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
 
     // ── Helper ────────────────────────────────────────────────────────────────
     private static string FormatBytes(long bytes) => bytes switch

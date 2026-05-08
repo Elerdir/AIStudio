@@ -5,14 +5,17 @@ using AIStudio.Core.Models;
 
 namespace AIStudio.Infrastructure.Services;
 
-public sealed class SqliteImageRepository : IImageRepository
+public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageRepository
 {
     private static readonly string DbPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "AIStudio", "images.db");
 
-    private readonly string _connectionString =
-        $"Data Source={DbPath};Mode=ReadWriteCreate;Pooling=False";
+    public SqliteImageRepository()
+        : base($"Data Source={DbPath};Mode=ReadWriteCreate;Pooling=False") { }
+
+    internal SqliteImageRepository(string connectionString)
+        : base(connectionString) { }
 
     // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -148,17 +151,4 @@ public sealed class SqliteImageRepository : IImageRepository
         }
     }
 
-    // ── Helper ─────────────────────────────────────────────────────────────────
-
-    private async Task<SqliteConnection> OpenAsync()
-    {
-        var conn = new SqliteConnection(_connectionString);
-        await conn.OpenAsync();
-
-        await using var pragma = conn.CreateCommand();
-        pragma.CommandText = "PRAGMA foreign_keys = ON;";
-        await pragma.ExecuteNonQueryAsync();
-
-        return conn;
-    }
 }

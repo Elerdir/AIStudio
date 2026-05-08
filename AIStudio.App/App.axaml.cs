@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using AIStudio.App.ViewModels;
 using AIStudio.App.ViewModels.Setup;
+using AIStudio.App.Services;
 using AIStudio.App.Views;
 using AIStudio.App.Views.Setup;
 using AIStudio.Core.Enums;
@@ -38,6 +39,14 @@ public partial class App : Application
             .CreateLogger();
 
         Log.Information("AI Studio starting");
+
+        // Nepozorované Task výjimky (fire-and-forget bloky) by jinak tiše zmizely.
+        // Registrujeme až po Serilogu, aby Log.Warning měl kam zapsat.
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            Log.Warning(e.Exception, "UnobservedTaskException — nepozorovaná výjimka v Task");
+            e.SetObserved();
+        };
 
         AvaloniaXamlLoader.Load(this);
     }
@@ -70,6 +79,34 @@ public partial class App : Application
         // DI kontejner
         var services = new ServiceCollection();
 
+        // HTTP klienti — centrální factory, žádný static HttpClient v service třídách
+        services.AddHttpClient("civitai", c =>
+        {
+            c.Timeout = TimeSpan.FromSeconds(30);
+            c.DefaultRequestHeaders.Add("User-Agent", "AIStudio/1.0 (https://github.com/aistudio)");
+        });
+        services.AddHttpClient("huggingface", c =>
+        {
+            c.Timeout = TimeSpan.FromSeconds(30);
+            c.DefaultRequestHeaders.Add("User-Agent", "AIStudio/1.0 (https://github.com/aistudio)");
+        });
+        services.AddHttpClient("comfy", c =>
+        {
+            c.Timeout = TimeSpan.FromSeconds(30);
+        });
+        services.AddHttpClient("download", c =>
+        {
+            c.Timeout = Timeout.InfiniteTimeSpan; // stahování řídí CancellationToken
+            c.DefaultRequestHeaders.Add("User-Agent", "AIStudio/1.0 (.NET; https://github.com/aistudio)");
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AllowAutoRedirect        = true,
+            MaxAutomaticRedirections = 10
+        });
+
+        // App services
+        services.AddSingleton<INavigationService, NavigationService>();
+
         // Infrastructure
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
@@ -85,7 +122,13 @@ public partial class App : Application
         services.AddSingleton<IImageIntentParser, ImageIntentParser>();
         services.AddSingleton<IImageModelMatcher, ImageModelMatcher>();
 
-        // ViewModels
+        // ViewModels — každý dostane ze DI jen vlastní závislosti
+        services.AddSingleton<AIStudio.App.ViewModels.Chat.ChatPageViewModel>();
+        services.AddSingleton<AIStudio.App.ViewModels.ImageStudio.ImageStudioPageViewModel>();
+        services.AddSingleton<AIStudio.App.ViewModels.Models.ModelManagerPageViewModel>();
+        services.AddSingleton<AIStudio.App.ViewModels.SystemMonitor.SystemPageViewModel>();
+        services.AddSingleton<AIStudio.App.ViewModels.Settings.SettingsPageViewModel>();
+        services.AddSingleton<AIStudio.App.ViewModels.Setup.FirstRunWizardViewModel>();
         services.AddSingleton<MainWindowViewModel>();
 
         Services = services.BuildServiceProvider();
@@ -155,9 +198,7 @@ public partial class App : Application
             if (!settings.Settings.SetupCompleted)
             {
                 // ── První spuštění: zobraz průvodce nastavením ─────────────────
-                var wizardVm = new FirstRunWizardViewModel(
-                    settings,
-                    Services.GetRequiredService<ISystemMonitorService>());
+                var wizardVm = Services.GetRequiredService<FirstRunWizardViewModel>();
 
                 var wizard = new FirstRunWizardWindow();
                 desktop.MainWindow = wizard;

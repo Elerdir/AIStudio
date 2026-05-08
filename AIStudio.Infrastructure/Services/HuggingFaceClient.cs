@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
 using Serilog;
 using AIStudio.Core.Interfaces;
@@ -7,27 +7,20 @@ using AIStudio.Core.Models;
 namespace AIStudio.Infrastructure.Services;
 
 /// <summary>
-/// Tenký HTTP klient nad <c>https://huggingface.co/api</c>. Umí vyhledat
-/// modely podle dotazu a vylistovat soubory v repu. Žádný token nepotřebuje
-/// pro veřejné modely; gated modely vyžadují HF token (předáme přes Settings).
+/// TenkĂ˝ HTTP klient nad <c>https://huggingface.co/api</c>. UmĂ­ vyhledat
+/// modely podle dotazu a vylistovat soubory v repu. Ĺ˝ĂˇdnĂ˝ token nepotĹ™ebuje
+/// pro veĹ™ejnĂ© modely; gated modely vyĹľadujĂ­ HF token (pĹ™edĂˇme pĹ™es Settings).
 /// </summary>
 public sealed class HuggingFaceClient : IHuggingFaceClient
 {
-    private readonly ISettingsService _settings;
-    private static readonly HttpClient Http = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30),
-        DefaultRequestHeaders =
-        {
-            { "User-Agent", "AIStudio/1.0 (https://github.com/aistudio)" }
-        }
-    };
+    private readonly ISettingsService   _settings;
+    private readonly IHttpClientFactory _httpFactory;
+    private const    string             BaseUrl = "https://huggingface.co";
 
-    private const string BaseUrl = "https://huggingface.co";
-
-    public HuggingFaceClient(ISettingsService settings)
+    public HuggingFaceClient(ISettingsService settings, IHttpClientFactory httpFactory)
     {
-        _settings = settings;
+        _settings    = settings;
+        _httpFactory = httpFactory;
     }
 
     public async Task<IReadOnlyList<HfModelInfo>> SearchGgufModelsAsync(
@@ -37,8 +30,8 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
     {
         if (string.IsNullOrWhiteSpace(query)) return Array.Empty<HfModelInfo>();
 
-        // filter=gguf zfiltruje repos, které obsahují GGUF soubory.
-        // sort=downloads + direction=-1 = nejstahovanější první.
+        // filter=gguf zfiltruje repos, kterĂ© obsahujĂ­ GGUF soubory.
+        // sort=downloads + direction=-1 = nejstahovanÄ›jĹˇĂ­ prvnĂ­.
         var url = $"{BaseUrl}/api/models" +
                   $"?search={Uri.EscapeDataString(query)}" +
                   $"&filter=gguf" +
@@ -47,8 +40,9 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
 
         try
         {
+            using var http = _httpFactory.CreateClient("huggingface");
             using var req  = BuildAuthorizedRequest(HttpMethod.Get, url);
-            using var resp = await Http.SendAsync(req, ct);
+            using var resp = await http.SendAsync(req, ct);
             resp.EnsureSuccessStatusCode();
 
             var json = await resp.Content.ReadAsStringAsync(ct);
@@ -70,7 +64,7 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
                 list.Add(new HfModelInfo(id, dl, lk, lm));
             }
 
-            Log.Information("HF search '{Query}' → {Count} výsledků", query, list.Count);
+            Log.Information("HF search '{Query}' â†’ {Count} vĂ˝sledkĹŻ", query, list.Count);
             return list;
         }
         catch (Exception ex)
@@ -90,8 +84,9 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
 
         try
         {
+            using var http = _httpFactory.CreateClient("huggingface");
             using var req  = BuildAuthorizedRequest(HttpMethod.Get, url);
-            using var resp = await Http.SendAsync(req, ct);
+            using var resp = await http.SendAsync(req, ct);
             resp.EnsureSuccessStatusCode();
 
             var json = await resp.Content.ReadAsStringAsync(ct);
@@ -110,7 +105,7 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
                 list.Add(new HfFileInfo(path, size));
             }
 
-            // Řadíme podle velikosti vzestupně — uživatel obvykle hledá menší kvantizaci napřed
+            // ĹadĂ­me podle velikosti vzestupnÄ› â€” uĹľivatel obvykle hledĂˇ menĹˇĂ­ kvantizaci napĹ™ed
             return list.OrderBy(f => f.Size).ToList();
         }
         catch (Exception ex)
@@ -155,8 +150,9 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
 
         try
         {
+            using var http = _httpFactory.CreateClient("huggingface");
             using var req  = BuildAuthorizedRequest(HttpMethod.Get, url);
-            using var resp = await Http.SendAsync(req, ct);
+            using var resp = await http.SendAsync(req, ct);
             resp.EnsureSuccessStatusCode();
 
             var json = await resp.Content.ReadAsStringAsync(ct);
@@ -178,7 +174,7 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
                 list.Add(new HfModelInfo(id, dl, lk, lm));
             }
 
-            Log.Information("HF search query='{Q}' filter='{F}' task='{T}' → {Count}",
+            Log.Information("HF search query='{Q}' filter='{F}' task='{T}' â†’ {Count}",
                             query ?? "*", filter ?? "*", task ?? "*", list.Count);
             return list;
         }
@@ -197,14 +193,15 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
         var url = $"{BaseUrl}/api/models/{repoId}";
         try
         {
+            using var http = _httpFactory.CreateClient("huggingface");
             using var req  = BuildAuthorizedRequest(HttpMethod.Get, url);
-            using var resp = await Http.SendAsync(req, ct);
+            using var resp = await http.SendAsync(req, ct);
             if (!resp.IsSuccessStatusCode) return string.Empty;
 
             var json = await resp.Content.ReadAsStringAsync(ct);
             using var doc = JsonDocument.Parse(json);
 
-            // Preferujeme cardData.summary (krátký výtah), pokud autor doplnil.
+            // Preferujeme cardData.summary (krĂˇtkĂ˝ vĂ˝tah), pokud autor doplnil.
             if (doc.RootElement.TryGetProperty("cardData", out var card) &&
                 card.ValueKind == JsonValueKind.Object &&
                 card.TryGetProperty("summary", out var sum) &&
@@ -214,7 +211,7 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
                 if (!string.IsNullOrWhiteSpace(s)) return s.Trim();
             }
 
-            // Fallback: tags joined — málo, ale lepší než nic.
+            // Fallback: tags joined â€” mĂˇlo, ale lepĹˇĂ­ neĹľ nic.
             if (doc.RootElement.TryGetProperty("tags", out var tags) &&
                 tags.ValueKind == JsonValueKind.Array)
             {
@@ -224,7 +221,7 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
                                   .Take(8)
                                   .ToArray();
                 if (tagList.Length > 0)
-                    return string.Join(" · ", tagList!);
+                    return string.Join(" Â· ", tagList!);
             }
         }
         catch (Exception ex)
@@ -235,8 +232,8 @@ public sealed class HuggingFaceClient : IHuggingFaceClient
     }
 
     /// <summary>
-    /// Pokud má uživatel v Nastavení HF token, přidá ho jako Bearer Auth header —
-    /// umožní stahování gated modelů (Llama, Gemma…). Bez tokenu jen veřejné.
+    /// Pokud mĂˇ uĹľivatel v NastavenĂ­ HF token, pĹ™idĂˇ ho jako Bearer Auth header â€”
+    /// umoĹľnĂ­ stahovĂˇnĂ­ gated modelĹŻ (Llama, Gemmaâ€¦). Bez tokenu jen veĹ™ejnĂ©.
     /// </summary>
     private HttpRequestMessage BuildAuthorizedRequest(HttpMethod method, string url)
     {

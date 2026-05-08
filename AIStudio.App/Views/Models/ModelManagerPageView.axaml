@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AIStudio.App.ViewModels.Models"
+             xmlns:mi="using:Material.Icons.Avalonia"
              x:Class="AIStudio.App.Views.Models.ModelManagerPageView"
              x:DataType="vm:ModelManagerPageViewModel">
 
@@ -17,17 +18,19 @@
                         CommandParameter="{Binding}">
                     <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="12">
 
-                        <!-- Thumbnail placeholder — Avalonia neuolží URL do IImage auto,
-                             tak zatím necháme jen barevný „badge" se znakem typu modelu.
-                             Plný image preview si nastavíme v navazujícím tasku přes
-                             AsyncImageLoader nebo vlastní lazy converter. -->
+                        <!-- Thumbnail: načtený obrázek nebo placeholder ikona -->
                         <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="0"
-                                Width="48" Height="48" CornerRadius="10"
+                                Width="48" Height="48" CornerRadius="10" ClipToBounds="True"
                                 Background="#1A1A2E" BorderBrush="#2A2A3E" BorderThickness="1"
                                 IsVisible="{Binding HasThumbnail}">
-                            <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="20"
-                                       Foreground="#5B6EAE"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Panel>
+                                <Image Source="{Binding ThumbnailBitmap}"
+                                       Stretch="UniformToFill"
+                                       IsVisible="{Binding HasLoadedThumbnail}"/>
+                                <mi:MaterialIcon Kind="ImageOutline" Width="22" Height="22" Foreground="#5B6EAE"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           IsVisible="{Binding !HasLoadedThumbnail}"/>
+                            </Panel>
                         </Border>
 
                         <!-- Name + badges -->
@@ -44,6 +47,16 @@
                                     Background="#151524" BorderBrush="#252540" BorderThickness="1"
                                     CornerRadius="4" Padding="7,2">
                                 <TextBlock Text="Staženo" FontSize="10" Foreground="#818CF8"/>
+                            </Border>
+                            <Border IsVisible="{Binding IsChatCategory}"
+                                    Background="#1A1830" BorderBrush="#2A2450" BorderThickness="1"
+                                    CornerRadius="4" Padding="7,2">
+                                <TextBlock Text="Chat" FontSize="10" Foreground="#A78BFA"/>
+                            </Border>
+                            <Border IsVisible="{Binding IsImageCategory}"
+                                    Background="#1A2520" BorderBrush="#254035" BorderThickness="1"
+                                    CornerRadius="4" Padding="7,2">
+                                <TextBlock Text="Obrázky" FontSize="10" Foreground="#34D399"/>
                             </Border>
                             <Border IsVisible="{Binding IsNsfw}"
                                     Background="#2A0E1A" BorderBrush="#5A1A30" BorderThickness="1"
@@ -113,20 +126,18 @@
                         <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="10">
                             <StackPanel Orientation="Horizontal" Spacing="4"
                                         IsVisible="{Binding Size, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                <TextBlock Text="&#xE950;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                           Foreground="#555560" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="Harddisk" Width="14" Height="14" Foreground="#555560" VerticalAlignment="Center"/>
                                 <TextBlock Text="{Binding Size}" FontSize="11" Foreground="#555560"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasBaseModel}">
                                 <TextBlock Text="{Binding BaseModel}" FontSize="11" Foreground="#5B6EAE"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="4">
-                                <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                           Foreground="#555560"/>
+                                <mi:MaterialIcon Kind="Download" Width="14" Height="14" Foreground="#555560"/>
                                 <TextBlock Text="{Binding DownloadCountLabel}" FontSize="11" Foreground="#666672"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRating}">
-                                <TextBlock Text="&#xE735;" FontFamily="Segoe MDL2 Assets" FontSize="11" Foreground="#FBBF24"/>
+                                <mi:MaterialIcon Kind="Star" Width="14" Height="14" Foreground="#FBBF24"/>
                                 <TextBlock Text="{Binding RatingLabel}" FontSize="11" Foreground="#FBBF24"/>
                             </StackPanel>
                             <Border Background="#1E1E2A" BorderBrush="#2A2A3E" BorderThickness="1"
@@ -138,6 +149,11 @@
                                     IsVisible="{Binding Quantization, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <TextBlock Text="{Binding Quantization}" FontSize="10" Foreground="#5B6EAE"/>
                             </Border>
+                            <Border Background="#162214" BorderBrush="#213320" BorderThickness="1"
+                                    CornerRadius="4" Padding="6,1"
+                                    IsVisible="{Binding HasVramInfo}">
+                                <TextBlock Text="{Binding VramLabel}" FontSize="10" Foreground="#4ADE80"/>
+                            </Border>
                         </StackPanel>
                     </Grid>
                 </Button>
@@ -145,10 +161,31 @@
         </DataTemplate>
     </UserControl.DataTemplates>
 
-    <Grid ColumnDefinitions="*,320" RowDefinitions="Auto,Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="360"/>
+            <ColumnDefinition Width="5"/>
+            <ColumnDefinition Width="340" MinWidth="240" MaxWidth="720"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Splitter mezi listem a detailem -->
+        <GridSplitter Grid.Column="1" Grid.Row="0" Grid.RowSpan="3"
+                      ResizeDirection="Columns"
+                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      Background="#1E1E22" Cursor="SizeWestEast">
+            <GridSplitter.Template>
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="0">
+                        <Border Width="1" Background="#2A2A2E"
+                                HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
+                    </Border>
+                </ControlTemplate>
+            </GridSplitter.Template>
+        </GridSplitter>
 
         <!-- Header -->
-        <Border Grid.Row="0" Grid.ColumnSpan="2" Padding="28,22,28,16"
+        <Border Grid.Row="0" Grid.ColumnSpan="3" Padding="28,22,28,16"
                 BorderBrush="#2A2A2E" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <StackPanel Grid.Column="0" Spacing="3">
@@ -160,21 +197,21 @@
                     <Button Classes="secondary" Command="{Binding AddLocalModelCommand}"
                             ToolTip.Tip="Přidat model ze svého disku">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="Plus" Width="16" Height="16" VerticalAlignment="Center"/>
                             <TextBlock Text="Přidat lokální" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button Classes="secondary" Command="{Binding RescanModelsCommand}"
                             ToolTip.Tip="Prohledat složku modelů znovu">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="Refresh" Width="16" Height="16" VerticalAlignment="Center"/>
                             <TextBlock Text="Prohledat" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                     <Button Classes="secondary" Command="{Binding OpenModelsFolderCommand}"
                             ToolTip.Tip="Otevřít složku modelů v Průzkumníku">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBlock Text="&#xE8DA;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="FolderOpen" Width="16" Height="16" VerticalAlignment="Center"/>
                             <TextBlock Text="Složka" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -191,7 +228,7 @@
                             Classes.activeTab="{Binding IsRecommendedTabActive}"
                             Command="{Binding SelectTabCommand}" CommandParameter="0">
                         <StackPanel Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="&#xE735;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="Star" Width="14" Height="14" VerticalAlignment="Center"/>
                             <TextBlock Text="Doporučené" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -199,7 +236,7 @@
                             Classes.activeTab="{Binding IsSearchTabActive}"
                             Command="{Binding SelectTabCommand}" CommandParameter="1">
                         <StackPanel Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="Magnify" Width="14" Height="14" VerticalAlignment="Center"/>
                             <TextBlock Text="Hledat" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -207,7 +244,7 @@
                             Classes.activeTab="{Binding IsDownloadedTabActive}"
                             Command="{Binding SelectTabCommand}" CommandParameter="2">
                         <StackPanel Orientation="Horizontal" Spacing="5">
-                            <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="Download" Width="14" Height="14" VerticalAlignment="Center"/>
                             <TextBlock Text="Stažené" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
@@ -219,7 +256,7 @@
                         Command="{Binding RefreshRecommendedCommand}"
                         ToolTip.Tip="Obnovit doporučené z internetu (mimo cache)">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="Refresh" Width="14" Height="14" VerticalAlignment="Center"/>
                         <TextBlock Text="Obnovit" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
@@ -227,8 +264,8 @@
         </Border>
 
         <!-- Detail panel header (top right) -->
-        <Border Grid.Row="1" Grid.Column="1" Padding="16,12"
-                BorderBrush="#2A2A2E" BorderThickness="1,0,0,1" Background="#0F0F11">
+        <Border Grid.Row="1" Grid.Column="2" Padding="16,12"
+                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1" Background="#0F0F11">
             <TextBlock Text="DETAIL MODELU" Classes="sectionHeader" VerticalAlignment="Center"/>
         </Border>
 
@@ -296,8 +333,7 @@
                 <Border Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
                         CornerRadius="10" Padding="6">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-                        <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" Foreground="#666672"
+                        <mi:MaterialIcon Kind="Magnify" Width="16" Height="16" Foreground="#666672"
                                    VerticalAlignment="Center" Margin="10,0,0,0"/>
                         <TextBox Grid.Column="1"
                                  Classes="chatInputInner"
@@ -313,7 +349,7 @@
                                 Command="{Binding RunSearchCommand}"
                                 IsEnabled="{Binding !IsSearching}" Padding="14,8">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="&#xE721;" FontFamily="Segoe MDL2 Assets" FontSize="12" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="Magnify" Width="14" Height="14" VerticalAlignment="Center"/>
                                 <TextBlock Text="Hledat" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
@@ -368,8 +404,7 @@
                         Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
                         CornerRadius="10" Padding="14,12">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <TextBlock Grid.Column="0" Text="&#xE946;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="14" Foreground="#A78BFA" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                        <mi:MaterialIcon Kind="InformationOutline" Width="16" Height="16" Foreground="#A78BFA" VerticalAlignment="Top" Margin="0,1,0,0"/>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="Hledej napříč HuggingFace a Civitai"
                                        FontSize="13" FontWeight="SemiBold" Foreground="#C4B5FD"/>
@@ -390,7 +425,7 @@
         <ScrollViewer Grid.Row="2" Grid.Column="0" Padding="20,12,20,12"
                       IsVisible="{Binding IsDownloadedTab}">
             <StackPanel Spacing="14">
-                <!-- Empty state -->
+                <!-- Empty state — žádné modely vůbec -->
                 <Border IsVisible="{Binding HasNoDownloadedModels}"
                         Background="#0F0F11" BorderBrush="#1E1E22" BorderThickness="1"
                         CornerRadius="10" Padding="16,14">
@@ -402,40 +437,88 @@
                     </StackPanel>
                 </Border>
 
-                <ItemsControl ItemsSource="{Binding DownloadedModels}"/>
+                <!-- Filter + sort toolbar — zobrazuje se jen pokud jsou vůbec nějaké modely -->
+                <Border Background="#0F0F11" BorderBrush="#1E1E22" BorderThickness="1"
+                        CornerRadius="10" Padding="12,8"
+                        IsVisible="{Binding !HasNoDownloadedModels}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <!-- Typ filtru -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                            <Button Classes="tabBtn"
+                                    Classes.activeTab="{Binding IsFilterAll}"
+                                    Command="{Binding SetDownloadedFilterCommand}" CommandParameter="0"
+                                    Content="Vše"/>
+                            <Button Classes="tabBtn"
+                                    Classes.activeTab="{Binding IsFilterChat}"
+                                    Command="{Binding SetDownloadedFilterCommand}" CommandParameter="1">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <mi:MaterialIcon Kind="Chat" Width="14" Height="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Chat" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Classes="tabBtn"
+                                    Classes.activeTab="{Binding IsFilterImage}"
+                                    Command="{Binding SetDownloadedFilterCommand}" CommandParameter="2">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <mi:MaterialIcon Kind="ImageOutline" Width="14" Height="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Obrázky" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Řazení -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Text="Řadit:" FontSize="11" Foreground="#888896" VerticalAlignment="Center"/>
+                            <ComboBox SelectedIndex="{Binding DownloadedSortIndex}" MinWidth="120">
+                                <ComboBoxItem Content="Název A–Z"/>
+                                <ComboBoxItem Content="Velikost ↑"/>
+                                <ComboBoxItem Content="Velikost ↓"/>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <ItemsControl ItemsSource="{Binding FilteredDownloadedModels}"/>
 
                 <Border Height="80"/>
             </StackPanel>
         </ScrollViewer>
 
         <!-- ═════════════════ DETAIL PANEL (PRAVÝ SLOUPEC) ═════════════════ -->
-        <Border Grid.Row="2" Grid.Column="1" Background="#111113"
-                BorderBrush="#2A2A2E" BorderThickness="1,0,0,0">
+        <Border Grid.Row="2" Grid.Column="2" Background="#111113"
+                BorderBrush="#2A2A2E" BorderThickness="0,0,0,0">
             <Panel>
                 <!-- Empty state -->
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10"
                             IsVisible="{Binding SelectedModel, Converter={x:Static ObjectConverters.IsNull}}">
-                    <TextBlock Text="&#xF158;" FontFamily="Segoe MDL2 Assets" FontSize="40"
-                               Foreground="#2A2A2E" HorizontalAlignment="Center"/>
+                    <mi:MaterialIcon Kind="Robot" Width="40" Height="40" Foreground="#2A2A2E" HorizontalAlignment="Center"/>
                     <TextBlock Text="Vyber model ze seznamu" FontSize="13"
                                Foreground="#444450" HorizontalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Model detail -->
                 <ScrollViewer IsVisible="{Binding SelectedModel, Converter={x:Static ObjectConverters.IsNotNull}}"
-                              Padding="20,20,20,80">
+                              Padding="20,20,20,0">
                     <StackPanel Spacing="16" DataContext="{Binding SelectedModel}">
 
-                        <!-- Thumbnail placeholder pro detail (viz poznámka v card template) -->
-                        <Border IsVisible="{Binding HasThumbnail}" CornerRadius="10"
-                                Height="120" Background="#1A1A2E"
+                        <!-- Thumbnail v detailu — obrázek nebo placeholder -->
+                        <Border IsVisible="{Binding HasThumbnail}" CornerRadius="10" ClipToBounds="True"
+                                MaxHeight="220" Background="#1A1A2E"
                                 BorderBrush="#2A2A3E" BorderThickness="1">
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6">
-                                <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets" FontSize="32"
-                                           Foreground="#5B6EAE" HorizontalAlignment="Center"/>
-                                <TextBlock Text="Náhled na civitai.com" FontSize="10"
-                                           Foreground="#5B6EAE" HorizontalAlignment="Center"/>
-                            </StackPanel>
+                            <Panel>
+                                <!-- Načtený náhled -->
+                                <Image Source="{Binding ThumbnailBitmap}"
+                                       Stretch="UniformToFill" MaxHeight="220"
+                                       IsVisible="{Binding HasLoadedThumbnail}"/>
+                                <!-- Placeholder dokud se načítá -->
+                                <StackPanel IsVisible="{Binding !HasLoadedThumbnail}"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Spacing="6" Margin="0,24">
+                                    <mi:MaterialIcon Kind="ImageOutline" Width="32" Height="32" Foreground="#5B6EAE" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Načítám náhled…" FontSize="10"
+                                               Foreground="#5B6EAE" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Panel>
                         </Border>
 
                         <!-- Název + badges -->
@@ -525,27 +608,31 @@
                                         <Border Margin="0,0,0,6" CornerRadius="8"
                                                 Background="#141416" BorderBrush="#222228" BorderThickness="1"
                                                 Padding="12,10">
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                                <StackPanel Grid.Column="0" Spacing="2">
-                                                    <TextBlock Text="{Binding Path}" FontSize="12"
-                                                               Foreground="#EBEBF5" TextTrimming="CharacterEllipsis"
-                                                               ToolTip.Tip="{Binding Path}"/>
-                                                    <TextBlock Text="{Binding SizeLabel}" FontSize="11" Foreground="#666672"/>
-                                                </StackPanel>
-                                                <Button Grid.Column="1" Classes="primary" Padding="14,6"
-                                                        IsEnabled="{Binding !IsDownloading}"
-                                                        Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadHfFileCommand}"
-                                                        CommandParameter="{Binding}">
-                                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                                                   VerticalAlignment="Center" IsVisible="{Binding !IsDownloading}"/>
-                                                        <TextBlock Text="Stáhnout" FontSize="12" VerticalAlignment="Center"
-                                                                   IsVisible="{Binding !IsDownloading}"/>
-                                                        <TextBlock Text="Stahuji…" FontSize="12" VerticalAlignment="Center"
-                                                                   IsVisible="{Binding IsDownloading}"/>
-                                                    </StackPanel>
-                                                </Button>
-                                            </Grid>
+                                            <StackPanel Spacing="8">
+                                                <!-- Název souboru — celý, zalamovat, tooltip pro kopírování -->
+                                                <TextBlock Text="{Binding Path}" FontSize="12"
+                                                           Foreground="#EBEBF5" TextWrapping="Wrap"
+                                                           ToolTip.Tip="{Binding Path}"/>
+                                                <!-- Velikost + tlačítko Stáhnout -->
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                    <TextBlock Grid.Column="0" Text="{Binding SizeLabel}"
+                                                               FontSize="11" Foreground="#666672"
+                                                               VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="1" Classes="primary" Padding="12,5"
+                                                            IsEnabled="{Binding !IsDownloading}"
+                                                            Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadHfFileCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                                            <mi:MaterialIcon Kind="Download" Width="14" Height="14"
+                                                                       VerticalAlignment="Center" IsVisible="{Binding !IsDownloading}"/>
+                                                            <TextBlock Text="Stáhnout" FontSize="11" VerticalAlignment="Center"
+                                                                       IsVisible="{Binding !IsDownloading}"/>
+                                                            <TextBlock Text="Stahuji…" FontSize="11" VerticalAlignment="Center"
+                                                                       IsVisible="{Binding IsDownloading}"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </Grid>
+                                            </StackPanel>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -611,7 +698,7 @@
                                     Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadCommand}"
                                     CommandParameter="{Binding}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="Download" Width="16" Height="16" VerticalAlignment="Center"/>
                                     <TextBlock Text="Stáhnout model" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -630,7 +717,7 @@
                                     Command="{ReflectionBinding $parent[UserControl].DataContext.OpenModelPageCommand}"
                                     CommandParameter="{Binding}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="OpenInNew" Width="16" Height="16" VerticalAlignment="Center"/>
                                     <TextBlock Text="Otevřít stránku modelu" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Button>
@@ -654,8 +741,7 @@
                                     CornerRadius="10" Padding="14,12">
                                 <StackPanel Spacing="10">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14" Foreground="#F87171"
+                                        <mi:MaterialIcon Kind="AlertOutline" Width="16" Height="16" Foreground="#F87171"
                                                    VerticalAlignment="Top" Margin="0,1,0,0"/>
                                         <StackPanel Spacing="3">
                                             <TextBlock Text="Opravdu smazat tento model?" FontSize="13"
@@ -681,6 +767,7 @@
                             </Border>
                         </StackPanel>
 
+                        <Border Height="60"/>
                     </StackPanel>
                 </ScrollViewer>
             </Panel>

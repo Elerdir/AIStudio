@@ -11,10 +11,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
 {
     private readonly ISettingsService _settings;
     private readonly IComfyInstaller  _installer;
-    private static readonly HttpClient _http = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30)
-    };
+    private readonly HttpClient       _http;
 
     private Process? _process;
     private readonly string _clientId = Guid.NewGuid().ToString("N")[..12];
@@ -28,10 +25,11 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
 
     public event Action<ComfyStatus>? StatusChanged;
 
-    public ComfyService(ISettingsService settings, IComfyInstaller installer)
+    public ComfyService(ISettingsService settings, IComfyInstaller installer, IHttpClientFactory httpFactory)
     {
         _settings  = settings;
         _installer = installer;
+        _http      = httpFactory.CreateClient("comfy");
     }
 
     // ── Init ──────────────────────────────────────────────────────────────────

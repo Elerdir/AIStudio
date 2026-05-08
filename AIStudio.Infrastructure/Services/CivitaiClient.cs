@@ -15,21 +15,14 @@ namespace AIStudio.Infrastructure.Services;
 /// </summary>
 public sealed class CivitaiClient : ICivitaiClient
 {
-    private readonly ISettingsService _settings;
-    private const    string           BaseUrl = "https://civitai.com/api/v1";
+    private readonly ISettingsService    _settings;
+    private readonly IHttpClientFactory  _httpFactory;
+    private const    string              BaseUrl = "https://civitai.com/api/v1";
 
-    private static readonly HttpClient Http = new()
+    public CivitaiClient(ISettingsService settings, IHttpClientFactory httpFactory)
     {
-        Timeout = TimeSpan.FromSeconds(30),
-        DefaultRequestHeaders =
-        {
-            { "User-Agent", "AIStudio/1.0 (https://github.com/aistudio)" }
-        }
-    };
-
-    public CivitaiClient(ISettingsService settings)
-    {
-        _settings = settings;
+        _settings    = settings;
+        _httpFactory = httpFactory;
     }
 
     public async Task<IReadOnlyList<CivitaiModelInfo>> SearchAsync(
@@ -48,8 +41,9 @@ public sealed class CivitaiClient : ICivitaiClient
 
         try
         {
+            using var http = _httpFactory.CreateClient("civitai");
             using var req  = BuildAuthorizedRequest(HttpMethod.Get, url);
-            using var resp = await Http.SendAsync(req, ct);
+            using var resp = await http.SendAsync(req, ct);
 
             if (!resp.IsSuccessStatusCode)
             {

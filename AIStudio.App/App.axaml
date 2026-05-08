@@ -11,6 +11,7 @@
     <Application.Styles>
         <FluentTheme/>
         <StyleInclude Source="avares://AIStudio.App/Themes/AppStyles.axaml"/>
+        <StyleInclude Source="avares://Material.Icons.Avalonia/MaterialIconStyles.axaml"/>
     </Application.Styles>
 
 </Application>

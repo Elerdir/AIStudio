@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AIStudio.App.ViewModels.Settings"
+             xmlns:mi="using:Material.Icons.Avalonia"
              x:Class="AIStudio.App.Views.Settings.SettingsPageView"
              x:DataType="vm:SettingsPageViewModel">
 
@@ -23,8 +24,7 @@
                         CornerRadius="8" Padding="12,6"
                         VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="12" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="Check" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
                         <TextBlock Text="Uloženo" FontSize="12" Foreground="#4ADE80" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -99,8 +99,7 @@
                                     Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10" Margin="0,12,0,0">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="14" Foreground="#F59E0B"
+                                    <mi:MaterialIcon Kind="AlertOutline" Width="16" Height="16" Foreground="#F59E0B"
                                                VerticalAlignment="Top" Margin="0,1,0,0"/>
                                     <TextBlock FontSize="11" Foreground="#7A6A40" TextWrapping="Wrap"
                                                Text="CPU inference je řádově pomalejší než GPU. Pro použitelné výsledky doporučujeme modely do 7B a trpělivost."/>
@@ -137,8 +136,7 @@
                                         VerticalAlignment="Stretch"
                                         Padding="14,0">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="&#xED25;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="13" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="FolderSearch" Width="16" Height="16" VerticalAlignment="Center"/>
                                         <TextBlock Text="Procházet" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -151,7 +149,7 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Obnovit výchozí cestu">
-                                    <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                    <mi:MaterialIcon Kind="RotateLeft" Width="16" Height="16"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
@@ -159,8 +157,7 @@
                             <!-- Výchozí cesta hint -->
                             <StackPanel Orientation="Horizontal" Spacing="6"
                                         IsVisible="{Binding ModelsDirectory, Converter={x:Static StringConverters.IsNullOrEmpty}}">
-                                <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="11" Foreground="#444450" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="InformationOutline" Width="14" Height="14" Foreground="#444450" VerticalAlignment="Center"/>
                                 <TextBlock Text="Výchozí: " FontSize="11" Foreground="#444450"/>
                                 <TextBlock Text="{Binding DefaultModelsPath}"
                                            FontSize="11" Foreground="#444450"/>
@@ -189,8 +186,7 @@
                                         VerticalAlignment="Top"
                                         Padding="10,6" FontSize="11">
                                     <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="11" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="OpenInNew" Width="14" Height="14" VerticalAlignment="Center"/>
                                         <TextBlock Text="Získat token" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -227,12 +223,10 @@
                                               Background="#1C1C1E" BorderBrush="#2A2A2E"
                                               ToolTip.Tip="Zobrazit / skrýt token">
                                     <Panel>
-                                        <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="15" Foreground="#888896"
+                                        <mi:MaterialIcon Kind="Eye" Width="18" Height="18" Foreground="#888896"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                                    IsVisible="{Binding !ShowHfToken}"/>
-                                        <TextBlock Text="&#xED1A;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="15" Foreground="#A78BFA"
+                                        <mi:MaterialIcon Kind="EyeOff" Width="18" Height="18" Foreground="#A78BFA"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                                    IsVisible="{Binding ShowHfToken}"/>
                                     </Panel>
@@ -249,8 +243,7 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Smazat token">
-                                    <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="13"
-                                               Foreground="#F87171"
+                                    <mi:MaterialIcon Kind="Close" Width="16" Height="16" Foreground="#F87171"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
@@ -259,8 +252,7 @@
                             <Border Background="#141416" CornerRadius="6" Padding="10,6"
                                     IsVisible="{Binding HuggingFaceToken, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="11" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="Check" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
                                     <TextBlock Text="Token nastaven — privátní modely jsou dostupné"
                                                FontSize="11" Foreground="#555560"/>
                                 </StackPanel>
@@ -284,8 +276,7 @@
                                         VerticalAlignment="Top"
                                         Padding="10,6" FontSize="11">
                                     <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="11" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="OpenInNew" Width="14" Height="14" VerticalAlignment="Center"/>
                                         <TextBlock Text="Otevřít Civitai" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -320,12 +311,10 @@
                                               Background="#1C1C1E" BorderBrush="#2A2A2E"
                                               ToolTip.Tip="Zobrazit / skrýt klíč">
                                     <Panel>
-                                        <TextBlock Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="15" Foreground="#888896"
+                                        <mi:MaterialIcon Kind="Eye" Width="18" Height="18" Foreground="#888896"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                                    IsVisible="{Binding !ShowCivitaiToken}"/>
-                                        <TextBlock Text="&#xED1A;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="15" Foreground="#A78BFA"
+                                        <mi:MaterialIcon Kind="EyeOff" Width="18" Height="18" Foreground="#A78BFA"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                                    IsVisible="{Binding ShowCivitaiToken}"/>
                                     </Panel>
@@ -341,8 +330,7 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Smazat klíč">
-                                    <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="13"
-                                               Foreground="#F87171"
+                                    <mi:MaterialIcon Kind="Close" Width="16" Height="16" Foreground="#F87171"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
@@ -350,8 +338,7 @@
                             <Border Background="#141416" CornerRadius="6" Padding="10,6"
                                     IsVisible="{Binding CivitaiApiKey, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="11" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="Check" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
                                     <TextBlock Text="API klíč nastaven — Civitai modely jsou dostupné"
                                                FontSize="11" Foreground="#555560"/>
                                 </StackPanel>
@@ -363,8 +350,7 @@
                             <Border Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10">
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                                    <TextBlock Grid.Column="0" Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="14" Foreground="#F59E0B" VerticalAlignment="Top"
+                                    <mi:MaterialIcon Kind="AlertOutline" Width="16" Height="16" Foreground="#F59E0B" VerticalAlignment="Top"
                                                Margin="0,1,0,0"/>
                                     <TextBlock Grid.Column="1"
                                                Text="Některé modely na Civitai vyžadují přihlášení nebo věkové ověření. Bez API klíče může stahování selhat s chybou 401."
@@ -390,8 +376,7 @@
                                  nekonečnou šířku a TextWrapping="Wrap" by byl bez efektu;
                                  Auto,* zaručí, že popisek dostane zbylý prostor a zalomí se. -->
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                                <TextBlock Grid.Column="0" Text="&#xE946;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="14" Foreground="#A78BFA"
+                                <mi:MaterialIcon Kind="InformationOutline" Width="16" Height="16" Foreground="#A78BFA"
                                            VerticalAlignment="Top" Margin="0,1,0,0"/>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="Jak rozjet generování obrázků"
@@ -414,8 +399,7 @@
                                         Padding="14,7"
                                         Command="{Binding InstallComfyUiCommand}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="12" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="Download" Width="14" Height="14" VerticalAlignment="Center"/>
                                         <TextBlock Text="Nainstalovat automaticky"
                                                    FontSize="12" VerticalAlignment="Center"/>
                                     </StackPanel>
@@ -424,8 +408,7 @@
                                         Padding="12,7"
                                         Command="{Binding OpenComfyUiReleasesCommand}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="12" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="OpenInNew" Width="14" Height="14" VerticalAlignment="Center"/>
                                         <TextBlock Text="Stránka GitHub"
                                                    FontSize="12" VerticalAlignment="Center"/>
                                     </StackPanel>
@@ -439,8 +422,7 @@
                                     Background="#0F1A0F" BorderBrush="#1F3A1F" BorderThickness="1"
                                     CornerRadius="8" Padding="12,8" HorizontalAlignment="Left">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="13" Foreground="#4ADE80"
+                                    <mi:MaterialIcon Kind="Check" Width="16" Height="16" Foreground="#4ADE80"
                                                VerticalAlignment="Center"/>
                                     <TextBlock Text="ComfyUI je nainstalovaný a připravený"
                                                FontSize="12" Foreground="#86EFAC"
@@ -488,8 +470,7 @@
                                     Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
                                     CornerRadius="8" Padding="12,8">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="12" Foreground="#F87171"
+                                    <mi:MaterialIcon Kind="AlertOutline" Width="14" Height="14" Foreground="#F87171"
                                                VerticalAlignment="Top" Margin="0,1,0,0"/>
                                     <TextBlock Text="{Binding InstallError}"
                                                FontSize="11" Foreground="#F87171"
@@ -521,8 +502,7 @@
                                         VerticalAlignment="Stretch"
                                         Padding="14,0">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="&#xED25;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="13" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="FolderSearch" Width="16" Height="16" VerticalAlignment="Center"/>
                                         <TextBlock Text="Procházet" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
@@ -535,7 +515,7 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Smazat cestu">
-                                    <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                    <mi:MaterialIcon Kind="RotateLeft" Width="16" Height="16"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
@@ -565,8 +545,7 @@
                                             VerticalAlignment="Stretch"
                                             Padding="14,0">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="&#xED25;" FontFamily="Segoe MDL2 Assets"
-                                                       FontSize="13" VerticalAlignment="Center"/>
+                                            <mi:MaterialIcon Kind="FolderSearch" Width="16" Height="16" VerticalAlignment="Center"/>
                                             <TextBlock Text="Procházet" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
@@ -579,7 +558,7 @@
                                             HorizontalContentAlignment="Center"
                                             VerticalContentAlignment="Center"
                                             ToolTip.Tip="Obnovit výchozí">
-                                        <TextBlock Text="&#xE894;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                        <mi:MaterialIcon Kind="RotateLeft" Width="16" Height="16"
                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     </Button>
                                 </Grid>
@@ -646,8 +625,7 @@
                                         VerticalAlignment="Center"
                                         Command="{Binding BeginChatClearConfirmationCommand}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="13" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="Delete" Width="16" Height="16" VerticalAlignment="Center"/>
                                         <TextBlock Text="Smazat všechny chaty"
                                                    FontSize="12" VerticalAlignment="Center"/>
                                     </StackPanel>
@@ -661,8 +639,7 @@
                                     CornerRadius="10" Padding="14,12">
                                 <StackPanel Spacing="10">
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="14" Foreground="#F87171"
+                                        <mi:MaterialIcon Kind="AlertOutline" Width="16" Height="16" Foreground="#F87171"
                                                    VerticalAlignment="Top" Margin="0,1,0,0"/>
                                         <StackPanel Spacing="3">
                                             <TextBlock Text="Opravdu smazat všechny chaty?" FontSize="13"
@@ -713,8 +690,7 @@
                                     Command="{Binding OpenLogViewerCommand}"
                                     VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="13" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="ConsoleLine" Width="16" Height="16" VerticalAlignment="Center"/>
                                     <TextBlock Text="Otevřít Log Viewer"
                                                FontSize="12" VerticalAlignment="Center"/>
                                 </StackPanel>

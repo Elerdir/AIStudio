@@ -5,19 +5,17 @@ using AIStudio.Core.Models;
 
 namespace AIStudio.Infrastructure.Services;
 
-public sealed class SqliteChatRepository : IChatRepository
+public sealed class SqliteChatRepository : SqliteRepositoryBase, IChatRepository
 {
     private static readonly string DbPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "AIStudio", "conversations.db");
 
-    // Pooling=False — chceme garanci, že connection.Close() opravdu zavře file handle
-    // a sync transakce na disk. S poolem zůstává connection v paměti a poslední
-    // transakce mohou uvíznout v WAL.
-    // Cache=Shared záměrně NE — sdílená cache může držet uncommit data v paměti
-    // mezi connectiony jen v rámci jednoho procesu, mizí při exit.
-    private readonly string _connectionString =
-        $"Data Source={DbPath};Mode=ReadWriteCreate;Pooling=False";
+    public SqliteChatRepository()
+        : base($"Data Source={DbPath};Mode=ReadWriteCreate;Pooling=False") { }
+
+    internal SqliteChatRepository(string connectionString)
+        : base(connectionString) { }
 
     // ── Init ───────────────────────────────────────────────────────────────────
 
@@ -350,17 +348,4 @@ public sealed class SqliteChatRepository : IChatRepository
         }
     }
 
-    // ── Helper ─────────────────────────────────────────────────────────────────
-
-    private async Task<SqliteConnection> OpenAsync()
-    {
-        var conn = new SqliteConnection(_connectionString);
-        await conn.OpenAsync();
-
-        await using var pragma = conn.CreateCommand();
-        pragma.CommandText = "PRAGMA foreign_keys = ON;";
-        await pragma.ExecuteNonQueryAsync();
-
-        return conn;
-    }
 }

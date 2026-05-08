@@ -6,9 +6,15 @@ namespace AIStudio.Infrastructure.Services;
 
 public class SettingsService : ISettingsService
 {
-    private static readonly string SettingsPath = Path.Combine(
+    private static readonly string DefaultSettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "AIStudio", "settings.json");
+
+    private readonly string SettingsPath;
+
+    public SettingsService() => SettingsPath = DefaultSettingsPath;
+
+    internal SettingsService(string settingsPath) => SettingsPath = settingsPath;
 
     public AppSettings Settings { get; private set; } = new();
 

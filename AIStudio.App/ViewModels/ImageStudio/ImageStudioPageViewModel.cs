@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AIStudio.Core.Enums;
 using AIStudio.Core.Interfaces;
+using AIStudio.App.Services;
 
 namespace AIStudio.App.ViewModels.ImageStudio;
 
@@ -14,6 +15,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     private readonly IImageIntentParser   _intentParser;
     private readonly IImageModelMatcher   _modelMatcher;
     private readonly ILlamaService        _llama;
+    private readonly INavigationService   _nav;
 
     [ObservableProperty] private ImageGeneratorViewModel? _activeGenerator;
 
@@ -42,9 +44,6 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         }
     }
 
-    /// <summary>Callback pro navigaci na jinou stránku — nastavuje MainWindowViewModel.</summary>
-    public Action<NavigationPage>? RequestNavigate { get; set; }
-
     public ObservableCollection<ImageGeneratorViewModel> Generators { get; } = new();
 
     public ImageStudioPageViewModel(
@@ -53,7 +52,8 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         IImageRepository     imageRepo,
         IImageIntentParser   intentParser,
         IImageModelMatcher   modelMatcher,
-        ILlamaService        llama)
+        ILlamaService        llama,
+        INavigationService   nav)
     {
         _comfy        = comfy;
         _settings     = settings;
@@ -61,6 +61,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         _intentParser = intentParser;
         _modelMatcher = modelMatcher;
         _llama        = llama;
+        _nav          = nav;
 
         _comfy.StatusChanged += OnComfyStatusChanged;
         SyncComfyStatus(_comfy.Status, _comfy.StatusMessage);
@@ -98,7 +99,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     }
 
     [RelayCommand]
-    private void OpenSettings() => RequestNavigate?.Invoke(NavigationPage.Settings);
+    private void OpenSettings() => _nav.Navigate(NavigationPage.Settings);
 
     // ── ComfyUI lifecycle ─────────────────────────────────────────────────────
 
@@ -196,7 +197,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         return gen;
     }
 
-    public async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsyncCore()
     {
         _comfy.StatusChanged -= OnComfyStatusChanged;
         await ValueTask.CompletedTask;

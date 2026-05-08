@@ -19,10 +19,28 @@ public partial class ChatPageView : UserControl
         InitializeComponent();
 
         DataContextChanged += OnDataContextChanged;
-        AttachedToVisualTree += (_, _) => FocusInputBox();   // první přepnutí na chat = fokus
+        AttachedToVisualTree += (_, _) => FocusInputBox();
+        Unloaded += OnUnloaded;
 
         var scroll = this.FindControl<ScrollViewer>("MessagesScroll")!;
         scroll.ScrollChanged += OnScrollChanged;
+    }
+
+    private void OnUnloaded(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_vm is not null)
+        {
+            _vm.PropertyChanged -= OnVmPropertyChanged;
+            _vm = null;
+        }
+
+        if (_subscribedConv is not null)
+        {
+            _subscribedConv.Messages.CollectionChanged -= OnMessagesChanged;
+            foreach (var m in _subscribedConv.Messages)
+                m.PropertyChanged -= OnMessagePropertyChanged;
+            _subscribedConv = null;
+        }
     }
 
     /// <summary>

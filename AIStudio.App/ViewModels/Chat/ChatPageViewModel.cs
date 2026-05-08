@@ -11,14 +11,17 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using AIStudio.Core.Enums;
 using AIStudio.Core.Interfaces;
+using AIStudio.Core.Models;
+using AIStudio.App.Services;
 
 namespace AIStudio.App.ViewModels.Chat;
 
 public partial class ChatPageViewModel : ViewModelBase
 {
-    private readonly ILlamaService    _llama;
-    private readonly IChatRepository  _repo;
-    private readonly ISettingsService _settings;
+    private readonly ILlamaService       _llama;
+    private readonly IChatRepository     _repo;
+    private readonly ISettingsService    _settings;
+    private readonly INavigationService  _nav;
 
     [ObservableProperty] private string                 _inputText            = string.Empty;
     [ObservableProperty] private ConversationViewModel? _selectedConversation;
@@ -166,45 +169,25 @@ public partial class ChatPageViewModel : ViewModelBase
     /// </summary>
     [ObservableProperty] private bool _hasDownloadedModels = true; // optimisticky true do prvního scanu
 
-    /// <summary>Callback pro navigaci na jinou stránku — nastavuje MainWindowViewModel.</summary>
-    public Action<NavigationPage>? RequestNavigate { get; set; }
-
     [RelayCommand]
-    private void NavigateToModels() => RequestNavigate?.Invoke(NavigationPage.Models);
+    private void NavigateToModels() => _nav.Navigate(NavigationPage.Models);
 
+    // Model names/filenames jsou centralizovány v ModelRegistry (AIStudio.Core)
     private static readonly IReadOnlyDictionary<string, string> ModelFileNames =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Llama 3.1 8B Instruct Q4_K_M"]    = "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-            ["Mistral 7B Instruct v0.3 Q4_K_M"] = "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
-            ["Llama 3.3 70B Instruct Q4_K_M"]   = "Llama-3.3-70B-Instruct-Q4_K_M.gguf",
-            ["Gemma 3 27B Instruct Q4_K_M"]     = "gemma-3-27b-it-Q4_K_M.gguf",
-            ["Qwen 2.5 14B Instruct Q4_K_M"]    = "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
-            ["Phi-4 Q4_K_M"]                    = "phi-4-Q4_K_M.gguf",
-            // Qwen3
-            ["Qwen3 8B Q4_K_M"]                 = "Qwen3-8B-Q4_K_M.gguf",
-            ["Qwen3 14B Q4_K_M"]                = "Qwen3-14B-Q4_K_M.gguf",
-            ["Qwen3 32B Q4_K_M"]                = "Qwen3-32B-Q4_K_M.gguf",
-            ["Qwen3 30B-A3B Q4_K_M"]            = "Qwen3-30B-A3B-Q4_K_M.gguf",
-            // Tvůrčí psaní / méně cenzurované fine-tuny
-            ["Mistral Nemo Instruct 2407 Q4_K_M"]            = "Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
-            ["Magnum v4 22B Q4_K_M"]                         = "magnum-v4-22b-Q4_K_M.gguf",
-            ["Cydonia 22B v1 Q4_K_M"]                        = "Cydonia-22B-v1-Q4_K_M.gguf",
-            ["Lumimaid v0.2 12B Q4_K_M"]                     = "Lumimaid-v0.2-12B-Q4_K_M.gguf",
-            ["L3 Stheno v3.2 8B Q4_K_M"]                     = "L3-8B-Stheno-v3.2-Q4_K_M.gguf",
-            ["Llama 3.3 70B Instruct abliterated Q4_K_M"]    = "Llama-3.3-70B-Instruct-abliterated-Q4_K_M.gguf",
-        };
+        ModelRegistry.AsFileNameDictionary();
 
     public ObservableCollection<ConversationViewModel> Conversations { get; } = new();
 
     // Sledovaná konverzace pro CollectionChanged (kvůli CanRegenerate)
     private ConversationViewModel? _subscribedConv;
 
-    public ChatPageViewModel(ILlamaService llama, IChatRepository repo, ISettingsService settings)
+    public ChatPageViewModel(ILlamaService llama, IChatRepository repo, ISettingsService settings,
+                             INavigationService nav)
     {
         _llama    = llama;
         _repo     = repo;
         _settings = settings;
+        _nav      = nav;
 
         _llama.StatusChanged += status =>
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -238,7 +221,7 @@ public partial class ChatPageViewModel : ViewModelBase
 
     // ── Startup ────────────────────────────────────────────────────────────────
 
-    public async Task InitializeAsync()
+    public override async Task InitializeAsync()
     {
         try
         {

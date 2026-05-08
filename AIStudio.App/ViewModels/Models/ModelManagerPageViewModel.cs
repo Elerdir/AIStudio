@@ -71,6 +71,21 @@ public partial class ModelManagerPageViewModel : ViewModelBase
     /// <summary>Lokálně stažené modely v tabu „Stažené".</summary>
     public ObservableCollection<ModelItemViewModel> DownloadedModels { get; } = new();
 
+    /// <summary>Filtrovaný+seřazený pohled na DownloadedModels — tento se binduje do UI.</summary>
+    public ObservableCollection<ModelItemViewModel> FilteredDownloadedModels { get; } = new();
+
+    /// <summary>0 = Vše, 1 = Chat, 2 = Obrázky.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFilterAll), nameof(IsFilterChat), nameof(IsFilterImage))]
+    private int _downloadedFilterIndex;
+
+    /// <summary>0 = Název A–Z, 1 = Velikost ↑, 2 = Velikost ↓.</summary>
+    [ObservableProperty] private int _downloadedSortIndex;
+
+    public bool IsFilterAll   => DownloadedFilterIndex == 0;
+    public bool IsFilterChat  => DownloadedFilterIndex == 1;
+    public bool IsFilterImage => DownloadedFilterIndex == 2;
+
     /// <summary>True dokud se „Doporučené" načítá poprvé — UI ukáže globální spinner.</summary>
     [ObservableProperty] private bool _isLoadingRecommended;
 
@@ -137,7 +152,11 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         // Notifikace prázdného stavu v tabech Hledat/Stažené — ObservableCollection
         // sám PropertyChanged nefiruje, ale CollectionChanged fíruje při Add/Clear.
         SearchResults.CollectionChanged    += (_, _) => OnPropertyChanged(nameof(HasNoSearchResults));
-        DownloadedModels.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoDownloadedModels));
+        DownloadedModels.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasNoDownloadedModels));
+            RefreshFilteredDownloaded();
+        };
 
         // Sken disku + load doporučených na pozadí — všechno v Task.Run, aby UI
         // thread mohl rovnou vykreslit page bez čekání na I/O. Bez Task.Run
@@ -556,6 +575,43 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         foreach (var section in RecommendedSections)
             MergeDownloadedFlagsInto(section.Models);
         MergeDownloadedFlagsInto(SearchResults);
+    }
+
+    [RelayCommand]
+    private void SetDownloadedFilter(string index)
+    {
+        if (int.TryParse(index, out var i))
+            DownloadedFilterIndex = i;
+    }
+
+    partial void OnDownloadedFilterIndexChanged(int value) => RefreshFilteredDownloaded();
+    partial void OnDownloadedSortIndexChanged(int value)   => RefreshFilteredDownloaded();
+
+    private void RefreshFilteredDownloaded()
+    {
+        IEnumerable<ModelItemViewModel> view = DownloadedModels;
+
+        view = DownloadedFilterIndex switch
+        {
+            1 => view.Where(m => m.Category == ModelCategory.Chat),
+            2 => view.Where(m => m.Category == ModelCategory.Image),
+            _ => view
+        };
+
+        view = DownloadedSortIndex switch
+        {
+            1 => view.OrderBy(m => m.VramRequiredGb),
+            2 => view.OrderByDescending(m => m.VramRequiredGb),
+            _ => view.OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+        };
+
+        var result = view.ToList();
+        Dispatcher.UIThread.Post(() =>
+        {
+            FilteredDownloadedModels.Clear();
+            foreach (var m in result)
+                FilteredDownloadedModels.Add(m);
+        });
     }
 
     [RelayCommand]

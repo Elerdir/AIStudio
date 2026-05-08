@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AIStudio.App.ViewModels.ImageStudio"
              xmlns:conv="using:AIStudio.App.Converters"
+             xmlns:mi="using:Material.Icons.Avalonia"
              x:Class="AIStudio.App.Views.ImageStudio.ImageStudioPageView"
              x:DataType="vm:ImageStudioPageViewModel">
 
@@ -61,7 +62,7 @@
                         Command="{Binding OpenSettingsCommand}"
                         IsVisible="{Binding !ComfyConfigured}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="Cog" Width="14" Height="14" VerticalAlignment="Center"/>
                         <TextBlock Text="Otevřít Nastavení" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
@@ -81,7 +82,7 @@
                         </MultiBinding>
                     </Button.IsVisible>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="Play" Width="14" Height="14" VerticalAlignment="Center"/>
                         <TextBlock Text="Spustit ComfyUI" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
@@ -98,8 +99,7 @@
                         Command="{Binding StopComfyCommand}"
                         IsVisible="{Binding ComfyRunning}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="11"
-                                   Foreground="#F87171" VerticalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="Power" Width="14" Height="14" Foreground="#F87171" VerticalAlignment="Center"/>
                         <TextBlock Text="Zastavit" Foreground="#F87171" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
@@ -222,8 +222,7 @@
                                             Command="{Binding SetSmartModeCommand}"
                                             CommandParameter="True">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="12"
-                                                       VerticalAlignment="Center"/>
+                                            <mi:MaterialIcon Kind="AutoFix" Width="14" Height="14" VerticalAlignment="Center"/>
                                             <TextBlock Text="Smart" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
@@ -233,8 +232,7 @@
                                             Command="{Binding SetSmartModeCommand}"
                                             CommandParameter="False">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="12"
-                                                       VerticalAlignment="Center"/>
+                                            <mi:MaterialIcon Kind="Cog" Width="14" Height="14" VerticalAlignment="Center"/>
                                             <TextBlock Text="Manuál" VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </Button>
@@ -339,8 +337,7 @@
                                             CornerRadius="8" Padding="0,12"
                                             Command="{Binding PickReferenceImageCommand}">
                                             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
-                                                <TextBlock Text="&#xEB9F;" FontFamily="Segoe MDL2 Assets"
-                                                           FontSize="14" Foreground="#666672"
+                                                <mi:MaterialIcon Kind="ImageOutline" Width="16" Height="16" Foreground="#666672"
                                                            VerticalAlignment="Center"/>
                                                 <TextBlock Text="Přidat referenční obrázky"
                                                            FontSize="11" Foreground="#888896"
@@ -386,8 +383,7 @@
                                                                     ToolTip.Tip="Odebrat"
                                                                     Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.RemoveReferenceImageCommand}"
                                                                     CommandParameter="{Binding}">
-                                                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
-                                                                           FontSize="9" Foreground="#F87171"
+                                                                <mi:MaterialIcon Kind="Close" Width="12" Height="12" Foreground="#F87171"
                                                                            HorizontalAlignment="Center"
                                                                            VerticalAlignment="Center"/>
                                                             </Button>
@@ -406,8 +402,7 @@
                                                     Command="{Binding PickReferenceImageCommand}">
                                                 <StackPanel Orientation="Horizontal" Spacing="6"
                                                             HorizontalAlignment="Center">
-                                                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
-                                                               FontSize="10" Foreground="#888896"
+                                                    <mi:MaterialIcon Kind="Plus" Width="12" Height="12" Foreground="#888896"
                                                                VerticalAlignment="Center"/>
                                                     <TextBlock Text="Přidat další"
                                                                FontSize="11" Foreground="#888896"
@@ -441,8 +436,7 @@
                                         Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
                                         CornerRadius="8" Padding="12,8">
                                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
-                                        <TextBlock Grid.Column="0" Text="&#xE946;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="12" Foreground="#A78BFA"
+                                        <mi:MaterialIcon Kind="InformationOutline" Width="14" Height="14" Foreground="#A78BFA"
                                                    VerticalAlignment="Top" Margin="0,1,0,0"/>
                                         <TextBlock Grid.Column="1" Text="{Binding SmartReasoning}"
                                                    FontSize="11" Foreground="#A78BFA" TextWrapping="Wrap"/>
@@ -547,9 +541,7 @@
                                             Padding="0,20"
                                             Command="{Binding PickReferenceImageCommand}">
                                         <StackPanel Spacing="6" HorizontalAlignment="Center">
-                                            <TextBlock Text="&#xEB9F;"
-                                                       FontFamily="Segoe MDL2 Assets"
-                                                       FontSize="24"
+                                            <mi:MaterialIcon Kind="ImageOutline" Width="26" Height="26"
                                                        Foreground="#444450"
                                                        HorizontalAlignment="Center"/>
                                             <TextBlock Text="Přidat referenční obrázky"
@@ -600,8 +592,7 @@
                                                                     ToolTip.Tip="Odebrat"
                                                                     Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.RemoveReferenceImageCommand}"
                                                                     CommandParameter="{Binding}">
-                                                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"
-                                                                           FontSize="10" Foreground="#F87171"
+                                                                <mi:MaterialIcon Kind="Close" Width="12" Height="12" Foreground="#F87171"
                                                                            HorizontalAlignment="Center"
                                                                            VerticalAlignment="Center"/>
                                                             </Button>
@@ -623,8 +614,7 @@
                                                 Command="{Binding PickReferenceImageCommand}">
                                             <StackPanel Orientation="Horizontal" Spacing="6"
                                                         HorizontalAlignment="Center">
-                                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets"
-                                                           FontSize="11" Foreground="#888896"
+                                                <mi:MaterialIcon Kind="Plus" Width="14" Height="14" Foreground="#888896"
                                                            VerticalAlignment="Center"/>
                                                 <TextBlock Text="Přidat další"
                                                            FontSize="11" Foreground="#888896"
@@ -740,7 +730,7 @@
                                         Padding="10,10"
                                         ToolTip.Tip="Náhodný seed"
                                         Command="{Binding RandomizeSeedCommand}">
-                                    <TextBlock Text="&#xE8D5;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
+                                    <mi:MaterialIcon Kind="Shuffle" Width="16" Height="16"/>
                                 </Button>
                             </Grid>
 
@@ -834,8 +824,7 @@
                                         Command="{Binding StopGenerationCommand}"
                                         IsVisible="{Binding IsGenerating}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets"
-                                                   FontSize="13" Foreground="#F87171" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="Stop" Width="16" Height="16" Foreground="#F87171" VerticalAlignment="Center"/>
                                         <TextBlock Text="Zastavit" FontSize="14" FontWeight="SemiBold"
                                                    Foreground="#F87171" VerticalAlignment="Center"/>
                                     </StackPanel>
@@ -863,9 +852,7 @@
                                 <Binding Path="!IsGenerating"/>
                             </MultiBinding>
                         </StackPanel.IsVisible>
-                        <TextBlock Text="&#xEB9F;"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="52"
+                        <mi:MaterialIcon Kind="ImageOutline" Width="52" Height="52"
                                    Foreground="#222228"
                                    HorizontalAlignment="Center"/>
                         <TextBlock Text="Zatím žádný obrázek"
@@ -976,8 +963,7 @@
                                         Padding="6,4" CornerRadius="6"
                                         ToolTip.Tip="Kopírovat prompt"
                                         Command="{Binding CopyPromptCommand}">
-                                    <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="13" Foreground="#555560"/>
+                                    <mi:MaterialIcon Kind="ContentCopy" Width="16" Height="16" Foreground="#555560"/>
                                 </Button>
                                 <!-- Copy seed -->
                                 <Button Grid.Column="3"
@@ -985,8 +971,7 @@
                                         Padding="6,4" CornerRadius="6"
                                         ToolTip.Tip="Kopírovat seed"
                                         Command="{Binding CopySeedCommand}">
-                                    <TextBlock Text="&#xE8AB;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="13" Foreground="#555560"/>
+                                    <mi:MaterialIcon Kind="ContentCopy" Width="16" Height="16" Foreground="#555560"/>
                                 </Button>
                                 <!-- Open in Explorer -->
                                 <Button Grid.Column="4"
@@ -994,8 +979,7 @@
                                         Padding="6,4" CornerRadius="6"
                                         ToolTip.Tip="Otevřít v Průzkumníku"
                                         Command="{Binding OpenInExplorerCommand}">
-                                    <TextBlock Text="&#xEC50;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="13" Foreground="#555560"/>
+                                    <mi:MaterialIcon Kind="FolderOpen" Width="16" Height="16" Foreground="#555560"/>
                                 </Button>
                                 <!-- Delete -->
                                 <Button Grid.Column="5"
@@ -1004,8 +988,7 @@
                                         ToolTip.Tip="Smazat obrázek"
                                         Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.DeleteImageCommand}"
                                         CommandParameter="{Binding}">
-                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="13" Foreground="#7A4040"/>
+                                    <mi:MaterialIcon Kind="Delete" Width="16" Height="16" Foreground="#7A4040"/>
                                 </Button>
                             </Grid>
                         </Border>
@@ -1054,20 +1037,20 @@
                                                 <MenuItem Header="Kopírovat prompt"
                                                           Command="{Binding CopyPromptCommand}">
                                                     <MenuItem.Icon>
-                                                        <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                                        <mi:MaterialIcon Kind="ContentCopy" Width="14" Height="14"/>
                                                     </MenuItem.Icon>
                                                 </MenuItem>
                                                 <MenuItem Header="Kopírovat seed"
                                                           Command="{Binding CopySeedCommand}">
                                                     <MenuItem.Icon>
-                                                        <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                                        <mi:MaterialIcon Kind="ContentCopy" Width="14" Height="14"/>
                                                     </MenuItem.Icon>
                                                 </MenuItem>
                                                 <Separator/>
                                                 <MenuItem Header="Otevřít v Průzkumníku"
                                                           Command="{Binding OpenInExplorerCommand}">
                                                     <MenuItem.Icon>
-                                                        <TextBlock Text="&#xEC50;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
+                                                        <mi:MaterialIcon Kind="FolderOpen" Width="14" Height="14"/>
                                                     </MenuItem.Icon>
                                                 </MenuItem>
                                                 <Separator/>
@@ -1076,8 +1059,7 @@
                                                           Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.DeleteImageCommand}"
                                                           CommandParameter="{Binding}">
                                                     <MenuItem.Icon>
-                                                        <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets"
-                                                                   FontSize="12" Foreground="#F87171"/>
+                                                        <mi:MaterialIcon Kind="Delete" Width="14" Height="14" Foreground="#F87171"/>
                                                     </MenuItem.Icon>
                                                 </MenuItem>
                                             </ContextMenu>

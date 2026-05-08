@@ -7,52 +7,57 @@ using AIStudio.App.ViewModels.ImageStudio;
 using AIStudio.App.ViewModels.Models;
 using AIStudio.App.ViewModels.Settings;
 using AIStudio.App.ViewModels.SystemMonitor;
+using AIStudio.App.Services;
 
 namespace AIStudio.App.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly ISystemMonitorService _monitor;
-    private readonly ILlamaService _llama;
+    private readonly ILlamaService         _llama;
 
-    [ObservableProperty] private ViewModelBase _currentPage;
-    [ObservableProperty] private NavigationPage _activePage = NavigationPage.Chat;
-    [ObservableProperty] private string _statusText = "Připraven";
+    [ObservableProperty] private ViewModelBase   _currentPage;
+    [ObservableProperty] private NavigationPage  _activePage  = NavigationPage.Chat;
+    [ObservableProperty] private string          _statusText  = "Připraven";
 
-    // Compact VRAM / GPU badge pro sidebar
-    [ObservableProperty] private string _vramCompact   = "VRAM —";
+    [ObservableProperty] private string _vramCompact  = "VRAM —";
     [ObservableProperty] private double _vramPercent;
     [ObservableProperty] private bool   _gpuAvailable;
-    [ObservableProperty] private string _gpuNameShort  = string.Empty;
+    [ObservableProperty] private string _gpuNameShort = string.Empty;
 
-    public ChatPageViewModel ChatPage { get; }
-    public ImageStudioPageViewModel ImageStudioPage { get; }
+    public ChatPageViewModel         ChatPage         { get; }
+    public ImageStudioPageViewModel  ImageStudioPage  { get; }
     public ModelManagerPageViewModel ModelManagerPage { get; }
-    public SystemPageViewModel SystemPage { get; }
-    public SettingsPageViewModel SettingsPage { get; }
+    public SystemPageViewModel       SystemPage       { get; }
+    public SettingsPageViewModel     SettingsPage     { get; }
 
-    public MainWindowViewModel(ISystemMonitorService monitor, ILlamaService llama,
-                               IDownloadService downloader, ISettingsService settings,
-                               IChatRepository chatRepo, IComfyService comfy,
-                               IImageRepository imageRepo, IComfyInstaller comfyInstaller,
-                               IHuggingFaceClient hfClient,
-                               IModelDiscoveryService discovery,
-                               IImageIntentParser imageIntentParser,
-                               IImageModelMatcher imageModelMatcher)
+    /// <summary>
+    /// Každý child ViewModel dostane ze DI kontejneru jen závislosti, které
+    /// reálně potřebuje. MainWindowViewModel jen orchestruje navigaci a
+    /// sidebar status — nezná interní závislosti child VM.
+    /// </summary>
+    public MainWindowViewModel(
+        ISystemMonitorService     monitor,
+        ILlamaService             llama,
+        INavigationService        nav,
+        ChatPageViewModel         chatPage,
+        ImageStudioPageViewModel  imageStudioPage,
+        ModelManagerPageViewModel modelManagerPage,
+        SystemPageViewModel       systemPage,
+        SettingsPageViewModel     settingsPage)
     {
         _monitor = monitor;
-        _llama = llama;
+        _llama   = llama;
 
-        ChatPage = new ChatPageViewModel(llama, chatRepo, settings);
-        ChatPage.RequestNavigate = page => Navigate(page);
+        ChatPage         = chatPage;
+        ImageStudioPage  = imageStudioPage;
+        ModelManagerPage = modelManagerPage;
+        SystemPage       = systemPage;
+        SettingsPage     = settingsPage;
+
+        nav.PageChanged += Navigate;
+
         _ = ChatPage.InitializeAsync();
-        ImageStudioPage = new ImageStudioPageViewModel(comfy, settings, imageRepo,
-                                                       imageIntentParser, imageModelMatcher,
-                                                       llama);
-        ImageStudioPage.RequestNavigate = page => Navigate(page);
-        ModelManagerPage = new ModelManagerPageViewModel(downloader, settings, llama, hfClient, discovery);
-        SystemPage = new SystemPageViewModel(monitor, llama);
-        SettingsPage = new SettingsPageViewModel(settings, comfyInstaller, chatRepo);
 
         _currentPage = ChatPage;
 
@@ -62,14 +67,12 @@ public partial class MainWindowViewModel : ViewModelBase
                 GpuAvailable = s.GpuAvailable;
                 VramPercent  = s.VramTotalGb > 0 ? s.VramUsedGb / s.VramTotalGb * 100.0 : 0;
 
-                // VramUsedGb == 0 = detekováno přes WMI (nelze číst usage) → zobraz jen total
                 VramCompact = s.GpuAvailable
                     ? (s.VramUsedGb > 0
                         ? $"{s.VramUsedGb:F1} / {s.VramTotalGb:F0} GB"
                         : s.VramTotalGb > 0 ? $"{s.VramTotalGb:F0} GB total" : "GPU detekováno")
                     : "GPU —";
 
-                // Zkrácený název GPU pro sidebar (max 22 znaků)
                 GpuNameShort = s.GpuAvailable && !string.IsNullOrEmpty(s.GpuName)
                     ? (s.GpuName.Length > 22 ? s.GpuName[..22] + "…" : s.GpuName)
                     : string.Empty;
@@ -86,12 +89,12 @@ public partial class MainWindowViewModel : ViewModelBase
         ActivePage = page;
         CurrentPage = page switch
         {
-            NavigationPage.Chat => ChatPage,
+            NavigationPage.Chat        => ChatPage,
             NavigationPage.ImageStudio => ImageStudioPage,
-            NavigationPage.Models => ModelManagerPage,
-            NavigationPage.System => SystemPage,
-            NavigationPage.Settings => SettingsPage,
-            _ => ChatPage
+            NavigationPage.Models      => ModelManagerPage,
+            NavigationPage.System      => SystemPage,
+            NavigationPage.Settings    => SettingsPage,
+            _                          => ChatPage
         };
     }
 }
