@@ -18,6 +18,9 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     private readonly IComfyService      _comfy;
     private readonly ISettingsService   _settings;
     private readonly IImageRepository   _imageRepo;
+    private readonly IImageIntentParser? _intentParser;
+    private readonly IImageModelMatcher? _modelMatcher;
+    private readonly ILlamaService?      _llama;
     private static int _counter;
 
     private CancellationTokenSource? _genCts;
@@ -111,13 +114,19 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     public bool HasGeneratedImages => GeneratedImages.Count > 0;
 
     public ImageGeneratorViewModel(
-        IComfyService    comfy,
-        ISettingsService settings,
-        IImageRepository imageRepo)
+        IComfyService         comfy,
+        ISettingsService      settings,
+        IImageRepository      imageRepo,
+        IImageIntentParser?   intentParser = null,
+        IImageModelMatcher?   modelMatcher = null,
+        ILlamaService?        llama        = null)
     {
-        _comfy     = comfy;
-        _settings  = settings;
-        _imageRepo = imageRepo;
+        _comfy        = comfy;
+        _settings     = settings;
+        _imageRepo    = imageRepo;
+        _intentParser = intentParser;
+        _modelMatcher = modelMatcher;
+        _llama        = llama;
         var n = System.Threading.Interlocked.Increment(ref _counter);
         _title = $"Generátor {n}";
 
@@ -474,6 +483,14 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     private void ClearAllReferenceImages()
     {
         ReferenceImagePaths.Clear();
+    }
+
+    /// <summary>Hromadné přidání cest z drag &amp; drop nebo jiného externího zdroje.</summary>
+    public void AddReferenceImages(IEnumerable<string> paths)
+    {
+        foreach (var p in paths)
+            if (!string.IsNullOrEmpty(p) && !ReferenceImagePaths.Contains(p))
+                ReferenceImagePaths.Add(p);
     }
 
     [RelayCommand]

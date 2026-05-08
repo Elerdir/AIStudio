@@ -35,10 +35,4 @@ public interface IComfyService
                                     string type = "output",
                                     CancellationToken ct = default);
 
-    /// <summary>
-    /// Nahraje lokální soubor do ComfyUI <c>input/</c> složky a vrátí jméno,
-    /// pod kterým je dostupný v <c>LoadImage</c> nodech (může se lišit od
-    /// originálního file name, pokud ComfyUI deduplikuje).
-    /// </summary>
-    Task<string> UploadImageAsync(string localPath, CancellationToken ct = default);
 }
