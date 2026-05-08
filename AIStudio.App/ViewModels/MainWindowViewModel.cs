@@ -30,12 +30,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public ModelManagerPageViewModel ModelManagerPage { get; }
     public SystemPageViewModel       SystemPage       { get; }
     public SettingsPageViewModel     SettingsPage     { get; }
+    public UpdateViewModel           Updates          { get; }
 
-    /// <summary>
-    /// Každý child ViewModel dostane ze DI kontejneru jen závislosti, které
-    /// reálně potřebuje. MainWindowViewModel jen orchestruje navigaci a
-    /// sidebar status — nezná interní závislosti child VM.
-    /// </summary>
     public MainWindowViewModel(
         ISystemMonitorService     monitor,
         ILlamaService             llama,
@@ -44,7 +40,8 @@ public partial class MainWindowViewModel : ViewModelBase
         ImageStudioPageViewModel  imageStudioPage,
         ModelManagerPageViewModel modelManagerPage,
         SystemPageViewModel       systemPage,
-        SettingsPageViewModel     settingsPage)
+        SettingsPageViewModel     settingsPage,
+        UpdateViewModel           updates)
     {
         _monitor = monitor;
         _llama   = llama;
@@ -54,10 +51,18 @@ public partial class MainWindowViewModel : ViewModelBase
         ModelManagerPage = modelManagerPage;
         SystemPage       = systemPage;
         SettingsPage     = settingsPage;
+        Updates          = updates;
 
         nav.PageChanged += Navigate;
 
         _ = ChatPage.InitializeAsync();
+
+        // Kontrola aktualizací na pozadí — netblokuje start, tiše selže
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(8_000);   // počkej 8 s než se app usadí
+            await Updates.CheckAsync();
+        });
 
         _currentPage = ChatPage;
 

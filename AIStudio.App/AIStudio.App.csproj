@@ -16,6 +16,16 @@
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
+    <!-- ResX soubory pro lokalizaci — SDK je auto-embedduje s logickým názvem
+         AIStudio.App.Strings.Strings.cs / .en (bez přípony .resx) -->
+    <EmbeddedResource Update="Strings\Strings.cs.resx">
+      <Generator></Generator>
+      <LastGenOutput></LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Update="Strings\Strings.en.resx">
+      <Generator></Generator>
+      <LastGenOutput></LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

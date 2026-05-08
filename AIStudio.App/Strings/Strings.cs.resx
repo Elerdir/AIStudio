@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string"/>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+
+  <!-- ── Navigace ── -->
+  <data name="Nav.Chat"><value>Chat</value></data>
+  <data name="Nav.ImageStudio"><value>Image Studio</value></data>
+  <data name="Nav.Models"><value>Modely</value></data>
+  <data name="Nav.System"><value>Systém</value></data>
+  <data name="Nav.Settings"><value>Nastavení</value></data>
+
+  <!-- ── Chat ── -->
+  <data name="Chat.NewChat"><value>+ Nový chat</value></data>
+  <data name="Chat.Send"><value>Odeslat</value></data>
+  <data name="Chat.Stop"><value>Stop</value></data>
+  <data name="Chat.SearchPlaceholder"><value>&#xE721; Hledat…</value></data>
+  <data name="Chat.InputPlaceholder"><value>Napiš zprávu… (Enter = odeslat, Shift+Enter = nový řádek)</value></data>
+  <data name="Chat.NoConversations"><value>Žádné konverzace</value></data>
+  <data name="Chat.EmptyHint"><value>Vytvoř nový chat tlačítkem výše nebo klávesou Ctrl+N</value></data>
+  <data name="Chat.Conversations"><value>KONVERZACE</value></data>
+  <data name="Chat.SystemPrompt"><value>SYSTÉMOVÝ PROMPT</value></data>
+  <data name="Chat.Model"><value>MODEL</value></data>
+  <data name="Chat.Unload"><value>Uvolnit</value></data>
+  <data name="Chat.Export"><value>Exportovat</value></data>
+  <data name="Chat.Copy"><value>Kopírovat</value></data>
+  <data name="Chat.Delete"><value>Smazat</value></data>
+  <data name="Chat.You"><value>Ty</value></data>
+  <data name="Chat.Assistant"><value>Asistent</value></data>
+  <data name="Chat.Loading"><value>Načítám…</value></data>
+  <data name="Chat.Thinking"><value>Přemýšlím…</value></data>
+  <data name="Chat.TokensUsed"><value>tokenů</value></data>
+
+  <!-- ── Image Studio ── -->
+  <data name="Image.Title"><value>Image Studio</value></data>
+  <data name="Image.NewGenerator"><value>Nový generátor</value></data>
+  <data name="Image.Generate"><value>Generovat</value></data>
+  <data name="Image.Stop"><value>Zastavit</value></data>
+  <data name="Image.Prompt"><value>PROMPT</value></data>
+  <data name="Image.NegativePrompt"><value>NEGATIVNÍ PROMPT</value></data>
+  <data name="Image.Model"><value>MODEL</value></data>
+  <data name="Image.Steps"><value>KROKY</value></data>
+  <data name="Image.Seed"><value>SEED</value></data>
+  <data name="Image.AspectRatio"><value>POMĚR STRAN</value></data>
+  <data name="Image.Quality"><value>KVALITA</value></data>
+  <data name="Image.ReferenceImages"><value>REFERENČNÍ OBRÁZKY</value></data>
+  <data name="Image.Loras"><value>LORA ADAPTERY</value></data>
+  <data name="Image.Variants"><value>VARIANTY</value></data>
+  <data name="Image.NoImagesYet"><value>Žádné obrázky</value></data>
+  <data name="Image.NoImagesHint"><value>Vyber model, napiš prompt a klikni Generovat</value></data>
+
+  <!-- ── Modely ── -->
+  <data name="Models.Title"><value>Správa modelů</value></data>
+  <data name="Models.Search"><value>Hledat modely…</value></data>
+  <data name="Models.Download"><value>Stáhnout</value></data>
+  <data name="Models.Delete"><value>Smazat</value></data>
+  <data name="Models.SetDefault"><value>Nastavit výchozí</value></data>
+  <data name="Models.Local"><value>LOKÁLNÍ MODELY</value></data>
+  <data name="Models.HuggingFace"><value>HUGGING FACE</value></data>
+  <data name="Models.Civitai"><value>CIVITAI</value></data>
+  <data name="Models.NoModels"><value>Žádné modely</value></data>
+  <data name="Models.NoModelsHint"><value>Stáhni model z HuggingFace nebo Civitai</value></data>
+  <data name="Models.Downloading"><value>Stahování…</value></data>
+  <data name="Models.Downloaded"><value>Staženo</value></data>
+
+  <!-- ── Nastavení ── -->
+  <data name="Settings.Title"><value>Nastavení</value></data>
+  <data name="Settings.Theme"><value>TÉMA</value></data>
+  <data name="Settings.Language"><value>JAZYK</value></data>
+  <data name="Settings.ModelsDirectory"><value>SLOŽKA MODELŮ</value></data>
+  <data name="Settings.UseGpu"><value>Použít GPU</value></data>
+  <data name="Settings.HuggingFaceToken"><value>HUGGING FACE TOKEN</value></data>
+  <data name="Settings.CivitaiKey"><value>CIVITAI API KLÍČ</value></data>
+  <data name="Settings.ComfyUI"><value>COMFYUI</value></data>
+  <data name="Settings.Save"><value>Uložit</value></data>
+  <data name="Settings.Saved"><value>Uloženo</value></data>
+
+  <!-- ── Obecné ── -->
+  <data name="Common.Cancel"><value>Zrušit</value></data>
+  <data name="Common.Confirm"><value>Potvrdit</value></data>
+  <data name="Common.Close"><value>Zavřít</value></data>
+  <data name="Common.Loading"><value>Načítám…</value></data>
+  <data name="Common.Error"><value>Chyba</value></data>
+  <data name="Common.Success"><value>Hotovo</value></data>
+  <data name="Common.Yes"><value>Ano</value></data>
+  <data name="Common.No"><value>Ne</value></data>
+  <data name="Common.Browse"><value>Procházet…</value></data>
+  <data name="Common.Refresh"><value>↻ Obnovit</value></data>
+  <data name="Common.Add"><value>+ Přidat</value></data>
+  <data name="Common.Remove"><value>Odebrat</value></data>
+  <data name="Common.Clear"><value>Vymazat</value></data>
+
+  <!-- ── Témata ── -->
+  <data name="Theme.Dark"><value>Tmavé</value></data>
+  <data name="Theme.Light"><value>Světlé</value></data>
+  <data name="Theme.System"><value>Systémové</value></data>
+
+  <!-- ── Jazyky ── -->
+  <data name="Language.Czech"><value>Čeština</value></data>
+  <data name="Language.English"><value>English</value></data>
+</root>

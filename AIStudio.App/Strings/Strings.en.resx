@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string"/>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+
+  <!-- ── Navigation ── -->
+  <data name="Nav.Chat"><value>Chat</value></data>
+  <data name="Nav.ImageStudio"><value>Image Studio</value></data>
+  <data name="Nav.Models"><value>Models</value></data>
+  <data name="Nav.System"><value>System</value></data>
+  <data name="Nav.Settings"><value>Settings</value></data>
+
+  <!-- ── Chat ── -->
+  <data name="Chat.NewChat"><value>+ New Chat</value></data>
+  <data name="Chat.Send"><value>Send</value></data>
+  <data name="Chat.Stop"><value>Stop</value></data>
+  <data name="Chat.SearchPlaceholder"><value>&#xE721; Search…</value></data>
+  <data name="Chat.InputPlaceholder"><value>Type a message… (Enter = send, Shift+Enter = new line)</value></data>
+  <data name="Chat.NoConversations"><value>No conversations</value></data>
+  <data name="Chat.EmptyHint"><value>Create a new chat using the button above or Ctrl+N</value></data>
+  <data name="Chat.Conversations"><value>CONVERSATIONS</value></data>
+  <data name="Chat.SystemPrompt"><value>SYSTEM PROMPT</value></data>
+  <data name="Chat.Model"><value>MODEL</value></data>
+  <data name="Chat.Unload"><value>Unload</value></data>
+  <data name="Chat.Export"><value>Export</value></data>
+  <data name="Chat.Copy"><value>Copy</value></data>
+  <data name="Chat.Delete"><value>Delete</value></data>
+  <data name="Chat.You"><value>You</value></data>
+  <data name="Chat.Assistant"><value>Assistant</value></data>
+  <data name="Chat.Loading"><value>Loading…</value></data>
+  <data name="Chat.Thinking"><value>Thinking…</value></data>
+  <data name="Chat.TokensUsed"><value>tokens</value></data>
+
+  <!-- ── Image Studio ── -->
+  <data name="Image.Title"><value>Image Studio</value></data>
+  <data name="Image.NewGenerator"><value>New generator</value></data>
+  <data name="Image.Generate"><value>Generate</value></data>
+  <data name="Image.Stop"><value>Stop</value></data>
+  <data name="Image.Prompt"><value>PROMPT</value></data>
+  <data name="Image.NegativePrompt"><value>NEGATIVE PROMPT</value></data>
+  <data name="Image.Model"><value>MODEL</value></data>
+  <data name="Image.Steps"><value>STEPS</value></data>
+  <data name="Image.Seed"><value>SEED</value></data>
+  <data name="Image.AspectRatio"><value>ASPECT RATIO</value></data>
+  <data name="Image.Quality"><value>QUALITY</value></data>
+  <data name="Image.ReferenceImages"><value>REFERENCE IMAGES</value></data>
+  <data name="Image.Loras"><value>LORA ADAPTERS</value></data>
+  <data name="Image.Variants"><value>VARIANTS</value></data>
+  <data name="Image.NoImagesYet"><value>No images yet</value></data>
+  <data name="Image.NoImagesHint"><value>Select a model, write a prompt and click Generate</value></data>
+
+  <!-- ── Models ── -->
+  <data name="Models.Title"><value>Model Manager</value></data>
+  <data name="Models.Search"><value>Search models…</value></data>
+  <data name="Models.Download"><value>Download</value></data>
+  <data name="Models.Delete"><value>Delete</value></data>
+  <data name="Models.SetDefault"><value>Set as default</value></data>
+  <data name="Models.Local"><value>LOCAL MODELS</value></data>
+  <data name="Models.HuggingFace"><value>HUGGING FACE</value></data>
+  <data name="Models.Civitai"><value>CIVITAI</value></data>
+  <data name="Models.NoModels"><value>No models</value></data>
+  <data name="Models.NoModelsHint"><value>Download a model from HuggingFace or Civitai</value></data>
+  <data name="Models.Downloading"><value>Downloading…</value></data>
+  <data name="Models.Downloaded"><value>Downloaded</value></data>
+
+  <!-- ── Settings ── -->
+  <data name="Settings.Title"><value>Settings</value></data>
+  <data name="Settings.Theme"><value>THEME</value></data>
+  <data name="Settings.Language"><value>LANGUAGE</value></data>
+  <data name="Settings.ModelsDirectory"><value>MODELS DIRECTORY</value></data>
+  <data name="Settings.UseGpu"><value>Use GPU</value></data>
+  <data name="Settings.HuggingFaceToken"><value>HUGGING FACE TOKEN</value></data>
+  <data name="Settings.CivitaiKey"><value>CIVITAI API KEY</value></data>
+  <data name="Settings.ComfyUI"><value>COMFYUI</value></data>
+  <data name="Settings.Save"><value>Save</value></data>
+  <data name="Settings.Saved"><value>Saved</value></data>
+
+  <!-- ── Common ── -->
+  <data name="Common.Cancel"><value>Cancel</value></data>
+  <data name="Common.Confirm"><value>Confirm</value></data>
+  <data name="Common.Close"><value>Close</value></data>
+  <data name="Common.Loading"><value>Loading…</value></data>
+  <data name="Common.Error"><value>Error</value></data>
+  <data name="Common.Success"><value>Done</value></data>
+  <data name="Common.Yes"><value>Yes</value></data>
+  <data name="Common.No"><value>No</value></data>
+  <data name="Common.Browse"><value>Browse…</value></data>
+  <data name="Common.Refresh"><value>↻ Refresh</value></data>
+  <data name="Common.Add"><value>+ Add</value></data>
+  <data name="Common.Remove"><value>Remove</value></data>
+  <data name="Common.Clear"><value>Clear</value></data>
+
+  <!-- ── Themes ── -->
+  <data name="Theme.Dark"><value>Dark</value></data>
+  <data name="Theme.Light"><value>Light</value></data>
+  <data name="Theme.System"><value>System</value></data>
+
+  <!-- ── Languages ── -->
+  <data name="Language.Czech"><value>Czech</value></data>
+  <data name="Language.English"><value>English</value></data>
+</root>

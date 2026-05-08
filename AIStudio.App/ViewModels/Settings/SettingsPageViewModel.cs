@@ -76,13 +76,17 @@ public partial class SettingsPageViewModel : ViewModelBase
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                      "AIStudio", "Models");
 
+    private readonly ILocalizationService? _loc;
+
     public SettingsPageViewModel(ISettingsService settings,
                                  IComfyInstaller comfyInstaller,
-                                 IChatRepository chatRepo)
+                                 IChatRepository chatRepo,
+                                 ILocalizationService? loc = null)
     {
         _settings        = settings;
         _comfyInstaller  = comfyInstaller;
         _chatRepo        = chatRepo;
+        _loc             = loc;
 
         // Načteme hodnoty ze stávajících nastavení
         var s = _settings.Settings;
@@ -110,6 +114,7 @@ public partial class SettingsPageViewModel : ViewModelBase
     partial void OnSelectedLanguageChanged(AppLanguage value)
     {
         _settings.Settings.Language = value;
+        if (_loc is not null) _loc.Language = value;
         ScheduleSave();
     }
 

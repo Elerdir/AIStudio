@@ -147,6 +147,17 @@
                         <TextBlock Text="v0.1.0-beta"
                                    FontSize="10"
                                    Foreground="#333338"/>
+
+                        <!-- Badge: dostupná aktualizace -->
+                        <Button Classes="secondary"
+                                Padding="6,3"
+                                FontSize="10"
+                                IsVisible="{Binding Updates.HasUpdate}"
+                                Command="{Binding Updates.InstallCommand}"
+                                ToolTip.Tip="{Binding Updates.StatusMessage}">
+                            <TextBlock Text="{Binding Updates.UpdateLabel}"
+                                       Foreground="#F59E0B"/>
+                        </Button>
                     </StackPanel>
                 </Border>
 

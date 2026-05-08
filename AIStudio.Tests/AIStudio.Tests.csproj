@@ -24,6 +24,8 @@
   <ItemGroup>
     <ProjectReference Include="..\AIStudio.Core\AIStudio.Core.csproj" />
     <ProjectReference Include="..\AIStudio.Infrastructure\AIStudio.Infrastructure.csproj" />
+    <!-- Pro FirstRunWizardViewModelTests — jen logika VM, Avalonia se neinicializuje -->
+    <ProjectReference Include="..\AIStudio.App\AIStudio.App.csproj" />
   </ItemGroup>
 
 </Project>

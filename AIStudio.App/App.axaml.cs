@@ -105,6 +105,8 @@ public partial class App : Application
 
         // App services
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<ILocalizationService, LocalizationService>();
+        services.AddSingleton<IUpdateService, UpdateService>();
 
         // Infrastructure
         services.AddSingleton<ISettingsService, SettingsService>();
@@ -128,6 +130,7 @@ public partial class App : Application
         services.AddSingleton<AIStudio.App.ViewModels.SystemMonitor.SystemPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Settings.SettingsPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Setup.FirstRunWizardViewModel>();
+        services.AddSingleton<UpdateViewModel>();
         services.AddSingleton<MainWindowViewModel>();
 
         Services = services.BuildServiceProvider();
@@ -152,11 +155,13 @@ public partial class App : Application
         // Aplikuj uložený theme. Pozn.: pro plný light mode by chtělo refaktor
         // všech custom hardcoded barev (#161618 atd.) na DynamicResource — to je
         // další iterace. Pro teď přepneme aspoň ovládací prvky FluentTheme.
-        ApplyTheme(Services.GetRequiredService<ISettingsService>().Settings.Theme);
+        var settings = Services.GetRequiredService<ISettingsService>().Settings;
+        ApplyTheme(settings.Theme);
+        Services.GetRequiredService<ILocalizationService>().Language = settings.Language;
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var settings = Services.GetRequiredService<ISettingsService>();
+            var settingsSvc = Services.GetRequiredService<ISettingsService>();
             var monitor  = (SystemMonitorService)Services.GetRequiredService<ISystemMonitorService>();
 
             // Při zavření AIStudio:
@@ -194,7 +199,7 @@ public partial class App : Application
                 try { Log.CloseAndFlush(); } catch { /* nemůžeme udělat víc */ }
             };
 
-            if (!settings.Settings.SetupCompleted)
+            if (!settings.SetupCompleted)
             {
                 // ── První spuštění: zobraz průvodce nastavením ─────────────────
                 var wizardVm = Services.GetRequiredService<FirstRunWizardViewModel>();
@@ -246,24 +251,57 @@ public partial class App : Application
     /// takže Light variant je v tuhle chvíli kompromisní. Plný light theme
     /// vyžaduje refactor všech barev na DynamicResource.
     /// </summary>
+    // Handler pro odhlášení ze sledování OS tématu (jen AppTheme.System).
+    private static EventHandler<Avalonia.Platform.PlatformColorValues>? _osColorHandler;
+
     public static void ApplyTheme(AppTheme theme)
     {
-        if (Avalonia.Application.Current is null) return;
+        var app = Avalonia.Application.Current;
+        if (app is null) return;
 
-        // Pozn.: AppTheme.System → Dark, ne Default. Aplikace má hard-coded dark
-        // barvy v AppStyles.axaml (#0D0D0D, #1C1C1E, …); když uživatel běží
-        // Windows v Light módu, FluentTheme by jinak ze System udělal Light
-        // variant a TextBoxy/ComboBoxy by byly bílé na našem tmavém pozadí.
-        // Light variant vyřešíme až plným DynamicResource refactorem.
-        Avalonia.Application.Current.RequestedThemeVariant = theme switch
+        // Odhlásíme předchozí OS subscription — jen AppTheme.System ji registruje.
+        if (_osColorHandler is not null && app.PlatformSettings is { } ps0)
         {
-            AppTheme.Light  => ThemeVariant.Light,
-            AppTheme.Dark   => ThemeVariant.Dark,
-            AppTheme.System => ThemeVariant.Dark,
-            _               => ThemeVariant.Dark,
-        };
+            ps0.ColorValuesChanged -= _osColorHandler;
+            _osColorHandler = null;
+        }
 
-        Log.Information("App: applied theme variant {Theme}", theme);
+        switch (theme)
+        {
+            case AppTheme.Light:
+                app.RequestedThemeVariant = ThemeVariant.Light;
+                break;
+
+            case AppTheme.Dark:
+                app.RequestedThemeVariant = ThemeVariant.Dark;
+                break;
+
+            case AppTheme.System:
+                // Nastav okamžitě dle aktuálního OS tématu, pak sleduj změny.
+                app.RequestedThemeVariant = ResolveOsVariant(app);
+                if (app.PlatformSettings is { } ps)
+                {
+                    _osColorHandler = (_, colors) =>
+                    {
+                        var v = colors.ThemeVariant == Avalonia.Platform.PlatformThemeVariant.Light
+                            ? ThemeVariant.Light : ThemeVariant.Dark;
+                        Avalonia.Threading.Dispatcher.UIThread.Post(
+                            () => { if (Avalonia.Application.Current is { } a) a.RequestedThemeVariant = v; });
+                        Log.Information("App: OS theme change → {Variant}", v);
+                    };
+                    ps.ColorValuesChanged += _osColorHandler;
+                }
+                break;
+        }
+
+        Log.Information("App: applied theme {Theme}", theme);
+    }
+
+    private static ThemeVariant ResolveOsVariant(Avalonia.Application app)
+    {
+        var colors = app.PlatformSettings?.GetColorValues();
+        return colors?.ThemeVariant == Avalonia.Platform.PlatformThemeVariant.Light
+            ? ThemeVariant.Light : ThemeVariant.Dark;
     }
 
     /// <summary>
