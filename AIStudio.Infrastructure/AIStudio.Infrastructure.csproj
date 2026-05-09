@@ -17,6 +17,8 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <!-- Pro rozbalení ComfyUI Portable .7z archivu při auto-instalaci -->
     <PackageReference Include="SharpCompress" Version="0.40.0" />
+    <!-- Bundluje 7z.dll (x64+x86) — nativní 7-Zip engine bez nutnosti instalace 7-Zipu uživatelem -->
+    <PackageReference Include="SevenZipExtractor" Version="1.0.17" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.7" />
     <PackageReference Include="System.Management" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />

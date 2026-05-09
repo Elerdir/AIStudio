@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Serilog;
+using SevenZipExtractor;
 using SharpCompress.Archives;
 using SharpCompress.Archives.SevenZip;
 using SharpCompress.Common;
@@ -270,9 +271,9 @@ public sealed class ComfyInstaller : IComfyInstaller
 
     /// <summary>
     /// Rozbalí .7z archiv. Pořadí pokusů:
-    ///   1) Externí <c>7z.exe</c> — nativní, multithreaded, 5–10× rychlejší.
-    ///      Hledáme ho v PATH a na běžných instalačních cestách.
-    ///   2) Fallback: SharpCompress — managed .NET, single-threaded, pomalý
+    ///   1) Externí <c>7z.exe</c> — nativní, multithreaded, nejrychlejší.
+    ///   2) Bundlovaný <c>7z.dll</c> přes SevenZipExtractor NuGet — nativní rychlost, žádná instalace.
+    ///   3) Fallback: SharpCompress — managed .NET, single-threaded, pomalý
     ///      ale 100% spolehlivý (žádná závislost na externích nástrojích).
     /// </summary>
     private static void Extract7z(
@@ -289,9 +290,44 @@ public sealed class ComfyInstaller : IComfyInstaller
             return;
         }
 
-        Log.Warning("ComfyInstaller: 7-Zip nenalezen, padám na pomalý SharpCompress fallback. " +
-                    "Pro výrazně rychlejší rozbalování doporučuj nainstalovat 7-Zip.");
+        try
+        {
+            Log.Information("ComfyInstaller: zkouším nativní 7z.dll přes SevenZipExtractor");
+            ExtractViaNative7z(sevenZipPath, destDir, progress, ct);
+            return;
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            Log.Warning(ex, "ComfyInstaller: nativní extrakce selhala, padám na SharpCompress fallback");
+        }
+
+        Log.Warning("ComfyInstaller: 7z.dll nenalezena nebo nefunkční, padám na pomalý SharpCompress fallback.");
         ExtractViaSharpCompress(sevenZipPath, destDir, progress, ct);
+    }
+
+    /// <summary>
+    /// Rozbalí .7z archiv přes nativní 7z.dll bundlovanou v SevenZipExtractor NuGet balíčku.
+    /// Výrazně rychlejší než SharpCompress — žádná instalace ze strany uživatele.
+    /// </summary>
+    private static void ExtractViaNative7z(
+        string                            archivePath,
+        string                            destDir,
+        IProgress<ComfyInstallProgress>?  progress,
+        CancellationToken                 ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var archive = new ArchiveFile(archivePath);
+
+        var totalFiles = archive.Entries.Count(e => !e.IsFolder);
+        progress?.Report(new(ComfyInstallStage.Extracting,
+            $"Rozbaluji {totalFiles} souborů (nativní 7z engine)…", 81, 0, 0, 0, null));
+
+        archive.Extract(destDir, overwrite: true);
+
+        ct.ThrowIfCancellationRequested();
+        progress?.Report(new(ComfyInstallStage.Extracting,
+            "Rozbalování dokončeno", 94, 0, 0, 0, null));
     }
 
     /// <summary>
