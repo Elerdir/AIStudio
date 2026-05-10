@@ -243,12 +243,24 @@ public sealed class FluxDependencyService : IFluxDependencyService
     public static bool IsFluxDep(string fileName)
     {
         var lower = fileName.ToLowerInvariant();
-        return lower.StartsWith("clip_l")
-            || lower.StartsWith("t5xxl")
-            || lower.StartsWith("t5-xxl")
-            || lower == "ae.safetensors"
-            || lower.StartsWith("ae.")
-            || lower.StartsWith("flux_vae");
+
+        // Exact matches — FLUX VAE and CLIP encoders have well-known filenames.
+        // Avoid prefix-based matching like "ae.*" which would incorrectly filter
+        // user checkpoints named e.g. "aesthetic_embed.safetensors".
+        if (lower is "ae.safetensors" or "ae.gguf") return true;
+
+        // CLIP-L encoders — always start with "clip_l"
+        if (lower.StartsWith("clip_l", StringComparison.Ordinal)) return true;
+
+        // T5 encoders (several naming conventions)
+        if (lower.StartsWith("t5xxl", StringComparison.Ordinal)) return true;
+        if (lower.StartsWith("t5-xxl", StringComparison.Ordinal)) return true;
+        if (lower.StartsWith("t5_xxl", StringComparison.Ordinal)) return true;
+
+        // FLUX VAE named explicitly
+        if (lower.StartsWith("flux_vae", StringComparison.Ordinal)) return true;
+
+        return false;
     }
 
     // ── Privátní record pro metadata závislosti ───────────────────────────────
