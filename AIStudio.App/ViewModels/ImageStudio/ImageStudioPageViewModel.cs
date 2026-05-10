@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AIStudio.Core.Enums;
@@ -9,13 +10,15 @@ namespace AIStudio.App.ViewModels.ImageStudio;
 
 public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
 {
-    private readonly IComfyService        _comfy;
-    private readonly ISettingsService     _settings;
-    private readonly IImageRepository     _imageRepo;
-    private readonly IImageIntentParser   _intentParser;
-    private readonly IImageModelMatcher   _modelMatcher;
-    private readonly ILlamaService        _llama;
-    private readonly INavigationService   _nav;
+    private readonly IComfyService            _comfy;
+    private readonly ISettingsService         _settings;
+    private readonly IImageRepository         _imageRepo;
+    private readonly IImageIntentParser       _intentParser;
+    private readonly IImageModelMatcher       _modelMatcher;
+    private readonly ILlamaService            _llama;
+    private readonly INavigationService       _nav;
+    private readonly IFluxDependencyService?  _fluxDeps;
+    private          DispatcherTimer?         _fluxPollTimer;
 
     [ObservableProperty] private ImageGeneratorViewModel? _activeGenerator;
 
@@ -24,6 +27,11 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     [ObservableProperty] private bool   _comfyRunning;
     [ObservableProperty] private bool   _comfyStarting;
     [ObservableProperty] private bool   _comfyError;
+
+    // ── FLUX dependency download status ───────────────────────────────────────
+    [ObservableProperty] private bool   _fluxDownloading;
+    [ObservableProperty] private string _fluxDownloadStatus = string.Empty;
+    [ObservableProperty] private double _fluxDownloadPercent;   // 0–100
 
     /// <summary>True pokud ComfyUI není ani Running, Starting ani Error (idle/offline).</summary>
     public bool ComfyIdle => !ComfyRunning && !ComfyStarting && !ComfyError;
@@ -47,13 +55,14 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     public ObservableCollection<ImageGeneratorViewModel> Generators { get; } = new();
 
     public ImageStudioPageViewModel(
-        IComfyService        comfy,
-        ISettingsService     settings,
-        IImageRepository     imageRepo,
-        IImageIntentParser   intentParser,
-        IImageModelMatcher   modelMatcher,
-        ILlamaService        llama,
-        INavigationService   nav)
+        IComfyService            comfy,
+        ISettingsService         settings,
+        IImageRepository         imageRepo,
+        IImageIntentParser       intentParser,
+        IImageModelMatcher       modelMatcher,
+        ILlamaService            llama,
+        INavigationService       nav,
+        IFluxDependencyService?  fluxDeps = null)
     {
         _comfy        = comfy;
         _settings     = settings;
@@ -62,6 +71,17 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         _modelMatcher = modelMatcher;
         _llama        = llama;
         _nav          = nav;
+        _fluxDeps     = fluxDeps;
+
+        // Pollujeme FluxDependencyService každých 500 ms — service není INotifyPropertyChanged,
+        // takže timer je nejjednodušší způsob jak zobrazit živý progress v UI.
+        if (_fluxDeps is not null)
+        {
+            _fluxPollTimer = new DispatcherTimer(TimeSpan.FromMilliseconds(500),
+                                                  DispatcherPriority.Background,
+                                                  OnFluxPollTick);
+            _fluxPollTimer.Start();
+        }
 
         _comfy.StatusChanged += OnComfyStatusChanged;
         SyncComfyStatus(_comfy.Status, _comfy.StatusMessage);
@@ -96,6 +116,29 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
 
         // Load saved images into the first generator
         _ = first.LoadSavedImagesAsync();
+    }
+
+    // ── FLUX poll ─────────────────────────────────────────────────────────────
+
+    private void OnFluxPollTick(object? sender, EventArgs e)
+    {
+        if (_fluxDeps is null) return;
+
+        var downloading = _fluxDeps.IsDownloading;
+        FluxDownloading = downloading;
+
+        if (!downloading)
+        {
+            FluxDownloadStatus  = string.Empty;
+            FluxDownloadPercent = 0;
+            return;
+        }
+
+        FluxDownloadStatus = _fluxDeps.DownloadStatusLine;
+
+        var total = _fluxDeps.TotalBytes;
+        var done  = _fluxDeps.DownloadedBytes;
+        FluxDownloadPercent = total > 0 ? Math.Round(done * 100.0 / total, 1) : 0;
     }
 
     [RelayCommand]
@@ -189,7 +232,8 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     private ImageGeneratorViewModel CreateGenerator()
     {
         var gen = new ImageGeneratorViewModel(_comfy, _settings, _imageRepo,
-                                               _intentParser, _modelMatcher, _llama);
+                                               _intentParser, _modelMatcher, _llama,
+                                               fluxDeps: _fluxDeps);
         // LoadCheckpointsAsync sloučí ComfyUI i lokální sken — voláme ho vždy,
         // aby uživatel hned viděl stažené modely v dropdownu (ať už ComfyUI běží či ne).
         _ = gen.LoadCheckpointsAsync();
@@ -200,6 +244,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     protected override async ValueTask DisposeAsyncCore()
     {
         _comfy.StatusChanged -= OnComfyStatusChanged;
+        _fluxPollTimer?.Stop();
         await ValueTask.CompletedTask;
     }
 }

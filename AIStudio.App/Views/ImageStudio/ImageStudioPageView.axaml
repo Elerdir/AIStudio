@@ -17,7 +17,7 @@
         <KeyBinding Gesture="Escape" Command="{ReflectionBinding ActiveGenerator.CloseZoomCommand}"/>
     </UserControl.KeyBindings>
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
 
         <!-- ── Header ──────────────────────────────────────────────────────── -->
         <Border Grid.Row="0" Padding="28,22,28,14"
@@ -111,8 +111,50 @@
             </Grid>
         </Border>
 
-        <!-- ── Generator tabs ──────────────────────────────────────────────── -->
+        <!-- ── FLUX dependency download banner ────────────────────────────── -->
         <Border Grid.Row="2"
+                Background="#0D1018"
+                BorderBrush="#1A2A3A"
+                BorderThickness="0,0,0,1"
+                Padding="20,7"
+                IsVisible="{Binding FluxDownloading}">
+            <Grid ColumnDefinitions="Auto,*,Auto,80">
+                <!-- Ikona -->
+                <mi:MaterialIcon Grid.Column="0"
+                                 Kind="{x:Static miKind:MaterialIconKind.CloudDownloadOutline}"
+                                 Width="14" Height="14"
+                                 Foreground="#38BDF8"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,8,0"/>
+                <!-- Status text -->
+                <TextBlock Grid.Column="1"
+                           Text="{Binding FluxDownloadStatus}"
+                           FontSize="12"
+                           Foreground="#7DD3FC"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>
+                <!-- Procenta -->
+                <TextBlock Grid.Column="2"
+                           FontSize="11"
+                           Foreground="#38BDF8"
+                           VerticalAlignment="Center"
+                           Margin="10,0,8,0">
+                    <Run Text="{Binding FluxDownloadPercent, StringFormat='{}{0:0.0}'}"/>
+                    <Run Text="%"/>
+                </TextBlock>
+                <!-- Progress bar -->
+                <ProgressBar Grid.Column="3"
+                             Value="{Binding FluxDownloadPercent}"
+                             Minimum="0" Maximum="100"
+                             Height="4" CornerRadius="2"
+                             Foreground="#0EA5E9"
+                             Background="#1A2A3A"
+                             VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- ── Generator tabs ──────────────────────────────────────────────── -->
+        <Border Grid.Row="3"
                 Background="#0F0F11"
                 BorderBrush="#2A2A2E"
                 BorderThickness="0,0,0,1"
@@ -184,7 +226,7 @@
         </Border>
 
         <!-- ── Active generator ─────────────────────────────────────────────── -->
-        <Grid Grid.Row="3" DataContext="{Binding ActiveGenerator}">
+        <Grid Grid.Row="4" DataContext="{Binding ActiveGenerator}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="320" MinWidth="320"/>
                 <ColumnDefinition Width="5"/>
@@ -293,6 +335,30 @@
                             </Border>
 
                             <!-- ══ SMART MÓD — sekce jsou přímí potomci vnějšího StackPanelu ══ -->
+
+                            <!-- Info banner: Smart mód bez LLM -->
+                            <Border Background="#1A140A"
+                                    BorderBrush="#4A3010"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="10,8"
+                                    IsVisible="{Binding IsSmartModeWithoutLlm}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.InformationOutline}"
+                                                     Width="14" Height="14"
+                                                     Foreground="#D97706"
+                                                     VerticalAlignment="Top"
+                                                     Margin="0,1,0,0"/>
+                                    <TextBlock TextWrapping="Wrap"
+                                               FontSize="11"
+                                               Foreground="#B45309"
+                                               MaxWidth="240">
+                                        <Run Text="LLM model není načten — popis bude použit přímo jako prompt (bez překladu do angličtiny). Načti model v "/>
+                                        <Run Text="Chatu" FontWeight="SemiBold"/>
+                                        <Run Text=" pro plný Smart mód."/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
 
                             <!-- Model (Smart) -->
                             <StackPanel Spacing="6" IsVisible="{Binding IsSmartMode}">

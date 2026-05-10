@@ -141,6 +141,13 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
     public bool IsManualMode      => !IsSmartMode;
 
+    /// <summary>
+    /// True pokud je Smart mód aktivní, ale LLM není načten.
+    /// V tom případě se český popis použije přímo jako prompt (bez překladu).
+    /// Slouží pro zobrazení info banneru v UI.
+    /// </summary>
+    public bool IsSmartModeWithoutLlm => IsSmartMode && (_llama is null || !_llama.IsLoaded);
+
     // Orientace — zjednodušené 3-tlačítko pro Smart mód
     public bool OrientationSquare    => SelectedAspectRatio == AspectRatio.R1x1;
     public bool OrientationPortrait  => SelectedAspectRatio is AspectRatio.R9x16 or AspectRatio.R3x4;
@@ -175,8 +182,11 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
     // ── Property hooks ────────────────────────────────────────────────────────
 
-    partial void OnIsSmartModeChanged(bool value) =>
+    partial void OnIsSmartModeChanged(bool value)
+    {
         OnPropertyChanged(nameof(IsManualMode));
+        OnPropertyChanged(nameof(IsSmartModeWithoutLlm));
+    }
 
     partial void OnSelectedAspectRatioChanged(AspectRatio value)
     {
@@ -345,7 +355,9 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 try
                 {
                     var intent    = await _intentParser.ParseAsync(CzechDescription);
-                    var usedLlm   = !intent.Reasoning.StartsWith("Fallback", StringComparison.OrdinalIgnoreCase);
+                    var usedLlm   = _llama is { IsLoaded: true }
+                                    && !intent.Reasoning.StartsWith("Fallback", StringComparison.OrdinalIgnoreCase)
+                                    && !intent.Reasoning.StartsWith("LLM není", StringComparison.OrdinalIgnoreCase);
                     Prompt         = intent.EnglishPrompt;
                     NegativePrompt = intent.NegativePrompt ?? string.Empty;
                     if (!usedLlm)
