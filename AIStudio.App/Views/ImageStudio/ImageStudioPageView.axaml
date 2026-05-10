@@ -198,8 +198,9 @@
                     BorderThickness="0,0,0,0">
                 <Grid RowDefinitions="*,Auto">
 
-                    <ScrollViewer Grid.Row="0" Padding="18,16,18,80">
-                        <StackPanel Spacing="16" HorizontalAlignment="Stretch">
+                    <ScrollViewer Grid.Row="0" Padding="18,16,0,80"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel Spacing="16" HorizontalAlignment="Stretch" MaxWidth="284">
 
                             <!-- ── Přepínač Smart / Manuální ───────────────────── -->
                             <Border Background="#0F0F11"
@@ -216,23 +217,33 @@
                                             CornerRadius="7"
                                             FontSize="13"
                                             FontWeight="SemiBold"
-                                            Command="{Binding SetSmartModeCommand}">
+                                            Command="{Binding SetSmartModeCommand}"
+                                            Classes.activeToggle="{Binding IsSmartMode}"
+                                            Classes.inactiveToggle="{Binding IsManualMode}">
                                         <Button.Styles>
-                                            <Style Selector="Button">
-                                                <Setter Property="Background" Value="Transparent"/>
-                                                <Setter Property="Foreground" Value="#888896"/>
+                                            <Style Selector="Button.activeToggle">
                                                 <Setter Property="BorderThickness" Value="0"/>
                                             </Style>
+                                            <Style Selector="Button.activeToggle /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="#2A1F5A"/>
+                                                <Setter Property="TextElement.Foreground" Value="#EBEBF5"/>
+                                            </Style>
+                                            <Style Selector="Button.activeToggle:pointerover /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="#2A1F5A"/>
+                                                <Setter Property="TextElement.Foreground" Value="#EBEBF5"/>
+                                            </Style>
+                                            <Style Selector="Button.inactiveToggle">
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                            </Style>
+                                            <Style Selector="Button.inactiveToggle /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="TextElement.Foreground" Value="#555560"/>
+                                            </Style>
+                                            <Style Selector="Button.inactiveToggle:pointerover /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="#1A1A20"/>
+                                                <Setter Property="TextElement.Foreground" Value="#888896"/>
+                                            </Style>
                                         </Button.Styles>
-                                        <Button.IsEnabled>
-                                            <Binding Path="IsManualMode"/>
-                                        </Button.IsEnabled>
-                                        <Button.Background>
-                                            <MultiBinding Converter="{x:Static BoolConverters.Or}">
-                                                <Binding Path="IsSmartMode" Converter="{x:Static BoolConverters.Not}"/>
-                                                <Binding Path="IsSmartMode" Converter="{x:Static BoolConverters.Not}"/>
-                                            </MultiBinding>
-                                        </Button.Background>
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AutoFix}" Width="14" Height="14" VerticalAlignment="Center"/>
                                             <TextBlock Text="Smart" VerticalAlignment="Center"/>
@@ -246,17 +257,33 @@
                                             CornerRadius="7"
                                             FontSize="13"
                                             FontWeight="SemiBold"
-                                            Command="{Binding SetManualModeCommand}">
+                                            Command="{Binding SetManualModeCommand}"
+                                            Classes.activeToggle="{Binding IsManualMode}"
+                                            Classes.inactiveToggle="{Binding IsSmartMode}">
                                         <Button.Styles>
-                                            <Style Selector="Button">
-                                                <Setter Property="Background" Value="Transparent"/>
-                                                <Setter Property="Foreground" Value="#888896"/>
+                                            <Style Selector="Button.activeToggle">
                                                 <Setter Property="BorderThickness" Value="0"/>
                                             </Style>
+                                            <Style Selector="Button.activeToggle /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="#2A1F5A"/>
+                                                <Setter Property="TextElement.Foreground" Value="#EBEBF5"/>
+                                            </Style>
+                                            <Style Selector="Button.activeToggle:pointerover /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="#2A1F5A"/>
+                                                <Setter Property="TextElement.Foreground" Value="#EBEBF5"/>
+                                            </Style>
+                                            <Style Selector="Button.inactiveToggle">
+                                                <Setter Property="BorderThickness" Value="0"/>
+                                            </Style>
+                                            <Style Selector="Button.inactiveToggle /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="Transparent"/>
+                                                <Setter Property="TextElement.Foreground" Value="#555560"/>
+                                            </Style>
+                                            <Style Selector="Button.inactiveToggle:pointerover /template/ ContentPresenter">
+                                                <Setter Property="Background" Value="#1A1A20"/>
+                                                <Setter Property="TextElement.Foreground" Value="#888896"/>
+                                            </Style>
                                         </Button.Styles>
-                                        <Button.IsEnabled>
-                                            <Binding Path="IsSmartMode"/>
-                                        </Button.IsEnabled>
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.TuneVariant}" Width="14" Height="14" VerticalAlignment="Center"/>
                                             <TextBlock Text="Manuální" VerticalAlignment="Center"/>

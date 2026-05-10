@@ -617,6 +617,23 @@
                                 <TextBlock Grid.Column="1" Text="%AppData%\AIStudio\settings.json"
                                            FontSize="12" Foreground="#444450" FontFamily="Consolas,monospace"/>
                             </Grid>
+                            <Border Height="1" Background="#222228"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="Logy aplikace" FontSize="13" Foreground="#9999AA"/>
+                                    <TextBlock Text="Diagnostika, chyby, události ComfyUI a LLM" FontSize="11" Foreground="#444450"/>
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        Classes="secondary"
+                                        Command="{Binding OpenLogViewerCommand}"
+                                        VerticalAlignment="Center"
+                                        Padding="12,6">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FileDocumentOutline}" Width="14" Height="14" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Otevřít LogViewer" FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
                         </StackPanel>
                     </Border>
                 </StackPanel>

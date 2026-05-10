@@ -122,6 +122,7 @@ public partial class App : Application
         services.AddSingleton<IModelDiscoveryService, ModelDiscoveryService>();
         services.AddSingleton<IImageIntentParser, ImageIntentParser>();
         services.AddSingleton<IImageModelMatcher, ImageModelMatcher>();
+        services.AddSingleton<IFluxDependencyService, FluxDependencyService>();
 
         // ViewModels — každý dostane ze DI jen vlastní závislosti
         services.AddSingleton<AIStudio.App.ViewModels.Chat.ChatPageViewModel>();
@@ -220,6 +221,7 @@ public partial class App : Application
                         mainWindow.Show();
                         _ = monitor.StartAsync();
                         _ = Task.Run(() => Services.GetRequiredService<IComfyService>().InitializeAsync());
+                        _ = Task.Run(() => TriggerFluxDepsAsync(Services));
                     }
                     catch (Exception ex)
                     {
@@ -237,6 +239,8 @@ public partial class App : Application
                 _ = monitor.StartAsync();
                 // ComfyService init po zobrazení okna — dělá HTTP request, nesmí blokovat startup
                 _ = Task.Run(() => Services.GetRequiredService<IComfyService>().InitializeAsync());
+                // FLUX deps — stahujeme na pozadí pokud models dir obsahuje GGUF modely
+                _ = Task.Run(() => TriggerFluxDepsAsync(Services));
             }
         }
     }
@@ -295,6 +299,44 @@ public partial class App : Application
         }
 
         Log.Information("App: applied theme {Theme}", theme);
+    }
+
+    /// <summary>
+    /// Spustí kontrolu a případné stahování FLUX závislostí na pozadí.
+    /// Trigger podmínka: models adresář je nastaven A obsahuje alespoň jeden .gguf soubor.
+    /// Tím se vyhneme zbytečnému stahování ~5 GB pro uživatele, kteří FLUX nepoužívají.
+    /// </summary>
+    private static async Task TriggerFluxDepsAsync(IServiceProvider sp)
+    {
+        try
+        {
+            var settings = sp.GetRequiredService<ISettingsService>().Settings;
+            var modelsDir = string.IsNullOrWhiteSpace(settings.ModelsDirectory)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                               "AIStudio", "Models")
+                : settings.ModelsDirectory;
+
+            var fluxSvc = sp.GetRequiredService<IFluxDependencyService>();
+
+            if (!fluxSvc.HasGgufModels(modelsDir))
+            {
+                Log.Debug("TriggerFluxDeps: žádné GGUF modely v {Dir}, přeskakuji", modelsDir);
+                return;
+            }
+
+            if (fluxSvc.AreDependenciesPresent(modelsDir))
+            {
+                Log.Debug("TriggerFluxDeps: FLUX závislosti již přítomny v {Dir}", modelsDir);
+                return;
+            }
+
+            Log.Information("TriggerFluxDeps: spouštím stahování FLUX závislostí na pozadí");
+            await fluxSvc.EnsureAsync(modelsDir, settings.HuggingFaceToken);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "TriggerFluxDeps: chyba při stahování FLUX závislostí");
+        }
     }
 
     private static ThemeVariant ResolveOsVariant(Avalonia.Application app)

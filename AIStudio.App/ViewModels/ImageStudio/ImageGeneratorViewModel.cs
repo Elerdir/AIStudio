@@ -15,12 +15,13 @@ public enum ImageQuality { SD, FHD, QHD, UHD4K }
 
 public partial class ImageGeneratorViewModel : ViewModelBase
 {
-    private readonly IComfyService      _comfy;
-    private readonly ISettingsService   _settings;
-    private readonly IImageRepository   _imageRepo;
-    private readonly IImageIntentParser? _intentParser;
-    private readonly IImageModelMatcher? _modelMatcher;
-    private readonly ILlamaService?      _llama;
+    private readonly IComfyService           _comfy;
+    private readonly ISettingsService        _settings;
+    private readonly IImageRepository        _imageRepo;
+    private readonly IImageIntentParser?     _intentParser;
+    private readonly IImageModelMatcher?     _modelMatcher;
+    private readonly ILlamaService?          _llama;
+    private readonly IFluxDependencyService? _fluxDeps;
     private static int _counter;
 
     private CancellationTokenSource? _genCts;
@@ -146,12 +147,13 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     public bool OrientationLandscape => SelectedAspectRatio is AspectRatio.R16x9 or AspectRatio.R4x3;
 
     public ImageGeneratorViewModel(
-        IComfyService         comfy,
-        ISettingsService      settings,
-        IImageRepository      imageRepo,
-        IImageIntentParser?   intentParser = null,
-        IImageModelMatcher?   modelMatcher = null,
-        ILlamaService?        llama        = null)
+        IComfyService            comfy,
+        ISettingsService         settings,
+        IImageRepository         imageRepo,
+        IImageIntentParser?      intentParser = null,
+        IImageModelMatcher?      modelMatcher = null,
+        ILlamaService?           llama        = null,
+        IFluxDependencyService?  fluxDeps     = null)
     {
         _comfy        = comfy;
         _settings     = settings;
@@ -159,6 +161,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         _intentParser = intentParser;
         _modelMatcher = modelMatcher;
         _llama        = llama;
+        _fluxDeps     = fluxDeps;
         var n = System.Threading.Interlocked.Increment(ref _counter);
         _title = $"Generátor {n}";
 
@@ -294,7 +297,12 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         try
         {
             foreach (var path in Directory.EnumerateFiles(dir, "*.safetensors", SearchOption.AllDirectories))
-                found.Add(Path.GetFileName(path));
+            {
+                var fn = Path.GetFileName(path);
+                // Vynecháme FLUX pomocné soubory (clip_l, t5xxl, ae) — nejsou checkpointy
+                if (!FluxDependencyService.IsFluxDep(fn))
+                    found.Add(fn);
+            }
 
             // Image GGUF jsou typicky pojmenované flux1-* nebo sd-*
             foreach (var path in Directory.EnumerateFiles(dir, "*.gguf", SearchOption.AllDirectories))
@@ -389,7 +397,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             var isFlux = ComfyWorkflowBuilder.IsFluxModel(SelectedModel);
             var isGguf = ComfyWorkflowBuilder.IsGgufModel(SelectedModel);
 
-            // Pre-flight check: FLUX GGUF potřebuje samostatné CLIP-L + T5 + VAE
+            // Pre-flight check A: FLUX GGUF potřebuje samostatné CLIP-L + T5 + VAE
             // soubory v Models složce. Když chybí, ušetříme kruhovou cestu přes
             // ComfyUI validation error a uživateli rovnou řekneme, co stáhnout.
             if (isFlux && isGguf)
@@ -397,11 +405,49 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 var missing = FindMissingFluxDependencies();
                 if (missing.Count > 0)
                 {
-                    GenerationStatus =
-                        $"Chybí FLUX závislosti: {string.Join(", ", missing)}. " +
-                        "Stáhni je v sekci Modely — položky s označením povinné.";
+                    // Pokud deps stahujeme na pozadí, ukažeme uživateli přesný stav
+                    if (_fluxDeps is { IsDownloading: true })
+                    {
+                        GenerationStatus = $"⏳ {_fluxDeps.DownloadStatusLine} — počkej na dokončení a zkus znovu.";
+                    }
+                    else
+                    {
+                        GenerationStatus =
+                            $"Chybí FLUX závislosti: {string.Join(", ", missing)}. " +
+                            "Stáhni je v sekci Modely — položky s označením povinné.";
+                    }
                     return;
                 }
+            }
+
+            // Pre-flight check B: .safetensors model — čteme záhlaví a zjistíme,
+            // jestli soubor je kompletní checkpoint nebo jen UNet bez CLIP/VAE.
+            // Tím se vyhneme matoucí ComfyUI chybě "clip input is invalid: None".
+            if (!isGguf && SelectedModel.EndsWith(".safetensors", StringComparison.OrdinalIgnoreCase))
+            {
+                GenerationStatus = "Kontroluji formát modelu…";
+                var modelPath = await Task.Run(() =>
+                    SafetensorsInspector.FindModelPath(
+                        SelectedModel,
+                        _settings.Settings.ModelsDirectory,
+                        _settings.Settings.ComfyUiDirectory));
+
+                if (modelPath is not null)
+                {
+                    var components = await Task.Run(() => SafetensorsInspector.Inspect(modelPath));
+                    if (components is { IsUnetOnly: true })
+                    {
+                        GenerationStatus = isFlux
+                            ? "⚠ Model obsahuje jen UNet (bez CLIP a VAE). " +
+                              "Pro generování potřebuješ buď: " +
+                              "(A) kompletní FLUX checkpoint — stáhni flux1-dev-fp8.safetensors nebo flux1-schnell-fp8.safetensors, nebo " +
+                              "(B) GGUF soubor + clip_l.safetensors + t5xxl_fp8_e4m3fn.safetensors + ae.safetensors."
+                            : "⚠ Model obsahuje jen UNet (bez CLIP a VAE) — ověř, že máš kompletní checkpoint soubor.";
+                        return;
+                    }
+                }
+
+                GenerationStatus = "Odesílám do fronty…";
             }
 
             // ── Referenční obrázky → img2img ─────────────────────────────────
@@ -586,7 +632,20 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            GenerationStatus = $"Chyba: {ex.Message}";
+            var msg = ex.Message;
+            if (msg.Contains("clip input is invalid", StringComparison.OrdinalIgnoreCase))
+            {
+                var isFluxModel = ComfyWorkflowBuilder.IsFluxModel(SelectedModel);
+                GenerationStatus = isFluxModel
+                    ? "Model neobsahuje CLIP/VAE — stáhni kompletní FLUX checkpoint (ne jen UNet), nebo použij GGUF soubor se samostatnými clip_l + t5xxl + ae soubory."
+                    : "Model neobsahuje CLIP — ověř, že jde o kompletní checkpoint soubor (ne jen UNet/transformer).";
+                Log.Warning("GenerateAsync: CLIP error pro model {Model}: {Msg}", SelectedModel, msg);
+            }
+            else
+            {
+                GenerationStatus = $"Chyba: {msg}";
+                Log.Warning("GenerateAsync: {Msg}", msg);
+            }
         }
         finally
         {

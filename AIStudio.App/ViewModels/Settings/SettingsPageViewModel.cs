@@ -12,9 +12,10 @@ namespace AIStudio.App.ViewModels.Settings;
 
 public partial class SettingsPageViewModel : ViewModelBase
 {
-    private readonly ISettingsService _settings;
-    private readonly IComfyInstaller  _comfyInstaller;
-    private readonly IChatRepository  _chatRepo;
+    private readonly ISettingsService        _settings;
+    private readonly IComfyInstaller         _comfyInstaller;
+    private readonly IChatRepository         _chatRepo;
+    private readonly IFluxDependencyService? _fluxDeps;
     private CancellationTokenSource? _saveDebounceCts;
     private CancellationTokenSource? _installCts;
 
@@ -81,12 +82,14 @@ public partial class SettingsPageViewModel : ViewModelBase
     public SettingsPageViewModel(ISettingsService settings,
                                  IComfyInstaller comfyInstaller,
                                  IChatRepository chatRepo,
-                                 ILocalizationService? loc = null)
+                                 ILocalizationService? loc = null,
+                                 IFluxDependencyService? fluxDeps = null)
     {
         _settings        = settings;
         _comfyInstaller  = comfyInstaller;
         _chatRepo        = chatRepo;
         _loc             = loc;
+        _fluxDeps        = fluxDeps;
 
         // Načteme hodnoty ze stávajících nastavení
         var s = _settings.Settings;
@@ -187,6 +190,8 @@ public partial class SettingsPageViewModel : ViewModelBase
                     IsSaved = true;
                     _ = HideSavedBadgeAfterDelayAsync();
                 });
+                // Trigger FLUX dep check po uložení — detekuje nové gguf modely nebo nový token
+                _ = TriggerFluxDepsAfterSaveAsync();
             }
             catch (OperationCanceledException) { /* nová změna přišla dřív */ }
         }, ct);
@@ -196,6 +201,26 @@ public partial class SettingsPageViewModel : ViewModelBase
     {
         await Task.Delay(2500);
         Avalonia.Threading.Dispatcher.UIThread.Post(() => IsSaved = false);
+    }
+
+    private async Task TriggerFluxDepsAfterSaveAsync()
+    {
+        if (_fluxDeps is null) return;
+        try
+        {
+            var s = _settings.Settings;
+            var modelsDir = string.IsNullOrWhiteSpace(s.ModelsDirectory)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                               "AIStudio", "Models")
+                : s.ModelsDirectory;
+
+            if (!_fluxDeps.HasGgufModels(modelsDir)) return;
+            await _fluxDeps.EnsureAsync(modelsDir, s.HuggingFaceToken);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "SettingsPageViewModel: TriggerFluxDeps selhal");
+        }
     }
 
     // ── Commands ──────────────────────────────────────────────────────────────
