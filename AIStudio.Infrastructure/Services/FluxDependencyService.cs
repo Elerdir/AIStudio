@@ -1,3 +1,4 @@
+using System.Net;
 using Serilog;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
@@ -16,7 +17,7 @@ namespace AIStudio.Infrastructure.Services;
 /// Umístění:
 ///   {modelsDir}/clip/clip_l.safetensors              (~246 MB, veřejné)
 ///   {modelsDir}/clip/t5xxl_fp8_e4m3fn.safetensors    (~4.9 GB, veřejné)
-///   {modelsDir}/vae/ae.safetensors                   (~335 MB, vyžaduje HF token)
+///   {modelsDir}/vae/ae.safetensors                   (~335 MB, veřejné přes FLUX.1-dev)
 ///
 /// ComfyUI tyto cesty vidí přes extra_model_paths.yaml, který AIStudio generuje
 /// při startu ComfyUI.
@@ -26,22 +27,28 @@ public sealed class FluxDependencyService : IFluxDependencyService
     private readonly IDownloadService _downloader;
 
     // Definice závislostí — pořadí = pořadí stahování (nejdřív menší soubory)
+    // PublicUrl   = zkusíme vždy první (bez tokenu)
+    // GatedUrl    = záloha pokud PublicUrl vrátí 401/403 — vyžaduje HF Bearer token
     private static readonly DepInfo[] Deps =
     [
-        new("clip_l.safetensors",
-            "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
-            Subdir: "clip",
-            RequiresToken: false),
+        new(FileName:  "clip_l.safetensors",
+            PublicUrl: "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
+            GatedUrl:  null,
+            Subdir:    "clip"),
 
-        new("ae.safetensors",
-            "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors",
-            Subdir: "vae",
-            RequiresToken: true),   // FLUX.1-schnell je gated — potřebuje HF token
+        new(FileName:  "ae.safetensors",
+            // comfyanonymous hostuje pouze text encodery, VAE je od BFL.
+            // FLUX.1-dev má VAE přístupnou přes Apache-2.0 licenci bez nutnosti
+            // přijmout extra podmínky — zkusíme nejdřív bez tokenu;
+            // pokud HF vrátí 401, zkusíme s tokenem (pro uživatele s HF účtem).
+            PublicUrl: "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
+            GatedUrl:  "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors",
+            Subdir:    "vae"),
 
-        new("t5xxl_fp8_e4m3fn.safetensors",
-            "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors",
-            Subdir: "clip",
-            RequiresToken: false),  // stahujeme jako poslední — největší (~4.9 GB)
+        new(FileName:  "t5xxl_fp8_e4m3fn.safetensors",
+            PublicUrl: "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors",
+            GatedUrl:  null,
+            Subdir:    "clip"),  // stahujeme jako poslední — největší (~4.9 GB)
     ];
 
     // ── Stav probíhajícího stahování (volatile pro thread-safe read bez lock) ──
@@ -158,17 +165,6 @@ public sealed class FluxDependencyService : IFluxDependencyService
                 continue;
             }
 
-            // ae.safetensors potřebuje HF token — pokud ho uživatel nemá nastavený,
-            // přeskočíme s informativním logem (pre-flight check v generátoru to vysvětlí).
-            if (dep.RequiresToken && string.IsNullOrWhiteSpace(hfToken))
-            {
-                Log.Warning(
-                    "FluxDependencyService: {File} vyžaduje HuggingFace token — " +
-                    "nastav ho v Nastavení → Stahování modelů → HuggingFace Token. " +
-                    "Mezitím přeskakuji.", dep.FileName);
-                continue;
-            }
-
             var subDir  = Path.Combine(modelsDir, dep.Subdir);
             var tmpPath = Path.Combine(subDir, dep.FileName + ".tmp");
             var dstPath = Path.Combine(subDir, dep.FileName);
@@ -190,10 +186,7 @@ public sealed class FluxDependencyService : IFluxDependencyService
 
             try
             {
-                await _downloader.DownloadFileAsync(
-                    dep.Url, tmpPath, progress,
-                    apiToken: dep.RequiresToken ? hfToken : null,
-                    ct);
+                await DownloadDepAsync(dep, tmpPath, hfToken, progress, ct);
 
                 // Přesuneme .tmp → finální jméno — atomičtější než psát přímo
                 if (File.Exists(dstPath)) File.Delete(dstPath);
@@ -214,6 +207,62 @@ public sealed class FluxDependencyService : IFluxDependencyService
                 TryDeleteTmp(tmpPath);
                 // Pokračujeme dalšími soubory — chyba v jednom nesmí zastavit ostatní
             }
+        }
+    }
+
+    /// <summary>
+    /// Stáhne jednu závislost. Strategie:
+    ///   1) Zkus PublicUrl bez tokenu — funguje pro veřejné soubory i repos kde BFL
+    ///      nepožaduje přijetí podmínek.
+    ///   2) Pokud dostaneme 401/403 a dep má GatedUrl, zkus GatedUrl s tokenem.
+    ///   3) Pokud ani to nejde (žádný token nebo GatedUrl chybí), vyhoď výjimku.
+    /// </summary>
+    private async Task DownloadDepAsync(
+        DepInfo dep, string tmpPath, string? hfToken,
+        IProgress<DownloadProgressInfo> progress, CancellationToken ct)
+    {
+        // Pokus č.1 — bez tokenu
+        if (await TryDownloadAsync(dep.PublicUrl, tmpPath, token: null, progress, ct))
+            return;
+
+        Log.Information(
+            "FluxDependencyService: {File} z veřejné URL vrátil 401/403, zkouším zálohu s tokenem",
+            dep.FileName);
+
+        // Pokus č.2 — s tokenem (jen pokud máme token A gated URL)
+        var gatedUrl = dep.GatedUrl ?? dep.PublicUrl;
+
+        if (string.IsNullOrWhiteSpace(hfToken))
+        {
+            throw new InvalidOperationException(
+                $"Soubor {dep.FileName} vyžaduje přihlášení k HuggingFace. " +
+                "Nastav HuggingFace token v Nastavení → Stahování modelů.");
+        }
+
+        // Smaž případný .tmp z prvního pokusu, aby se nestahoval zbytečný prefix
+        TryDeleteTmp(tmpPath);
+        await _downloader.DownloadFileAsync(gatedUrl, tmpPath, progress, apiToken: hfToken, ct);
+    }
+
+    /// <summary>
+    /// Pokusí se stáhnout URL. Vrátí false pokud server odpoví 401 nebo 403
+    /// (tj. vyžaduje autentizaci), true pokud se stahování podařilo.
+    /// Ostatní HTTP chyby propaguje jako výjimku.
+    /// </summary>
+    private async Task<bool> TryDownloadAsync(
+        string url, string tmpPath, string? token,
+        IProgress<DownloadProgressInfo> progress, CancellationToken ct)
+    {
+        try
+        {
+            await _downloader.DownloadFileAsync(url, tmpPath, progress, apiToken: token, ct);
+            return true;
+        }
+        catch (HttpRequestException ex)
+            when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            TryDeleteTmp(tmpPath);
+            return false;
         }
     }
 
@@ -266,8 +315,8 @@ public sealed class FluxDependencyService : IFluxDependencyService
     // ── Privátní record pro metadata závislosti ───────────────────────────────
 
     private sealed record DepInfo(
-        string FileName,
-        string Url,
-        string Subdir,
-        bool   RequiresToken);
+        string  FileName,
+        string  PublicUrl,   // Vyzkoušíme bez tokenu — veřejné nebo polopřístupné
+        string? GatedUrl,    // Záloha s tokenem pokud PublicUrl vrátí 401/403
+        string  Subdir);
 }
