@@ -178,6 +178,10 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasLoras));
 
         UpdateModelDefaults(SelectedModel);
+
+        // Ihned naskenuj lokální LoRA soubory — uživatel vidí dropdown naplněný
+        // bez nutnosti klikat „Načíst". Refresh přes tlačítko načte i ComfyUI seznam.
+        _ = LoadLorasAsync();
     }
 
     // ── Property hooks ────────────────────────────────────────────────────────
@@ -597,17 +601,53 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             }
 
             // ── LoRA injection ────────────────────────────────────────────────
-            // Funguje pro Standard SD/SDXL a FLUX safetensors (ne GGUF).
-            if (SelectedLoras.Count > 0 && !isGguf && uploadedRefName is null)
+            // Pokrývá všechny kombinace workflow / img2img / GGUF.
+            if (SelectedLoras.Count > 0)
             {
-                var (ckptKey, modelNodes, clipNodes) = isFlux
-                    ? ("1", new[] { "6" }, new[] { "3", "4" })   // BuildFlux
-                    : ("4", new[] { "3" }, new[] { "6", "7" });   // BuildStandard
+                var loras = SelectedLoras.ToList();
 
-                ComfyWorkflowBuilder.InjectLoras(
-                    workflow, ckptKey,
-                    modelNodes, clipNodes,
-                    SelectedLoras.ToList());
+                if (isGguf)
+                {
+                    // GGUF: model a clip přicházejí ze dvou různých uzlů.
+                    //   Node "1" = UnetLoaderGGUF  → model output 0
+                    //   Node "2" = DualCLIPLoader   → clip  output 0
+                    //   Node "8" = KSampler, Nodes "5"+"6" = CLIPTextEncodes
+                    // (platí pro txt2img i pro fallback img2img kdy jsme použili BuildFluxGguf)
+                    ComfyWorkflowBuilder.InjectLoras(
+                        workflow,
+                        initialModelRef:   ComfyWorkflowBuilder.GgufModelRef,
+                        initialClipRef:    ComfyWorkflowBuilder.GgufClipRef,
+                        modelConsumerKeys: new[] { "8" },
+                        clipConsumerKeys:  new[] { "5", "6" },
+                        loras);
+                }
+                else if (uploadedRefName is not null)
+                {
+                    // Img2img větev — obě BuildStandardImg2Img i BuildFluxImg2Img
+                    // používají checkpoint key "1"; spotřebitelé se liší:
+                    //   SD/SDXL img2img: KSampler = "7", CLIP = "5","6"
+                    //   FLUX img2img:    KSampler = "8", CLIP = "5","6"
+                    var imgModelNode = isFlux ? "8" : "7";
+                    ComfyWorkflowBuilder.InjectLoras(
+                        workflow, checkpointKey: "1",
+                        modelConsumerKeys: new[] { imgModelNode },
+                        clipConsumerKeys:  new[] { "5", "6" },
+                        loras);
+                }
+                else
+                {
+                    // Txt2img větev
+                    //   FLUX safetensors: checkpoint "1", KSampler "6", CLIP "3"+"4"
+                    //   SD/SDXL:          checkpoint "4", KSampler "3", CLIP "6"+"7"
+                    var (ckptKey, modelNodes, clipNodes) = isFlux
+                        ? ("1", new[] { "6" }, new[] { "3", "4" })
+                        : ("4", new[] { "3" }, new[] { "6", "7" });
+
+                    ComfyWorkflowBuilder.InjectLoras(
+                        workflow, ckptKey,
+                        modelNodes, clipNodes,
+                        loras);
+                }
             }
 
             var promptId = await _comfy.QueuePromptAsync(workflow, cts.Token);
@@ -779,21 +819,36 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
     private List<string> ScanLocalLoras()
     {
-        var dir = string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
+        var modelsRoot = string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                           "AIStudio", "Models", "loras")
-            : Path.Combine(_settings.Settings.ModelsDirectory, "loras");
+                           "AIStudio", "Models")
+            : _settings.Settings.ModelsDirectory;
 
-        if (!Directory.Exists(dir)) return new List<string>();
+        // ComfyUI může mít podsložku "lora" nebo "loras" (obě jsou běžné).
+        // Skenujeme obě plus rootový adresář (někteří uživatelé dávají LoRA přímo sem).
+        var dirsToScan = new[]
+        {
+            Path.Combine(modelsRoot, "lora"),
+            Path.Combine(modelsRoot, "loras"),
+        }.Where(Directory.Exists).ToArray();
 
+        if (dirsToScan.Length == 0) return new List<string>();
+
+        var seen  = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var found = new List<string>();
+
         try
         {
+            foreach (var dir in dirsToScan)
             foreach (var ext in new[] { "*.safetensors", "*.pt", "*.ckpt" })
-                foreach (var path in Directory.EnumerateFiles(dir, ext, SearchOption.AllDirectories))
-                    found.Add(Path.GetFileName(path));
+            foreach (var path in Directory.EnumerateFiles(dir, ext, SearchOption.AllDirectories))
+            {
+                var name = Path.GetFileName(path);
+                if (seen.Add(name))
+                    found.Add(name);
+            }
         }
-        catch (Exception ex) { Log.Warning(ex, "ScanLocalLoras {Dir} failed", dir); }
+        catch (Exception ex) { Log.Warning(ex, "ScanLocalLoras failed"); }
 
         return found;
     }

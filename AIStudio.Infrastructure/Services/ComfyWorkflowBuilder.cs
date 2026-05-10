@@ -591,19 +591,36 @@ public static class ComfyWorkflowBuilder
     // ── LoRA injection ────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Vloží řetěz LoraLoader uzlů za checkpoint loader a přepojí spotřebitele
-    /// modelu a clipu na výstupy posledního LoRA uzlu.
-    /// Funguje pro Standard SD/SDXL a FLUX safetensors checkpointy (kde jedna node
-    /// vrací model i clip). GGUF a img2img s odděleným UnetLoader tato metoda nepokrývá.
+    /// Vloží řetěz LoraLoader uzlů a přepojí spotřebitele modelu a clipu
+    /// na výstupy posledního LoRA uzlu.
+    ///
+    /// Overload pro checkpointy, kde jedna node vrací model (output 0) i clip (output 1):
+    /// Standard SD/SDXL, FLUX safetensors a jejich img2img varianty.
     /// </summary>
     /// <param name="workflow">Workflow ke změně (in-place).</param>
-    /// <param name="checkpointKey">ID uzlu CheckpointLoaderSimple (výstupy: model=0, clip=1).</param>
-    /// <param name="modelConsumerKeys">Klíče uzlů, jejichž vstup "model" se přepojí na poslední LoRA.</param>
-    /// <param name="clipConsumerKeys">Klíče uzlů, jejichž vstup "clip" se přepojí na poslední LoRA.</param>
-    /// <param name="loras">LoRA adaptery k vložení (v tomto pořadí se zřetězí).</param>
+    /// <param name="checkpointKey">ID uzlu (CheckpointLoaderSimple); výstupy 0=model, 1=clip.</param>
+    /// <param name="modelConsumerKeys">Uzly, jejichž vstup "model" se přepojí na poslední LoRA.</param>
+    /// <param name="clipConsumerKeys">Uzly, jejichž vstup "clip" se přepojí na poslední LoRA.</param>
+    /// <param name="loras">LoRA adaptery k vložení (v pořadí).</param>
     public static void InjectLoras(
         Dictionary<string, object> workflow,
         string                     checkpointKey,
+        IReadOnlyList<string>      modelConsumerKeys,
+        IReadOnlyList<string>      clipConsumerKeys,
+        IReadOnlyList<LoraItem>    loras)
+        => InjectLoras(workflow, Ref(checkpointKey, 0), Ref(checkpointKey, 1),
+                       modelConsumerKeys, clipConsumerKeys, loras);
+
+    /// <summary>
+    /// Overload pro GGUF workflow, kde model (UnetLoaderGGUF) a clip (DualCLIPLoader)
+    /// přicházejí z <b>oddělených</b> uzlů — každý poskytuje jen jeden výstup.
+    /// </summary>
+    /// <param name="initialModelRef">Odkaz na výstup model-loaderu (Ref("1",0) pro GGUF).</param>
+    /// <param name="initialClipRef">Odkaz na výstup clip-loaderu (Ref("2",0) pro GGUF).</param>
+    public static void InjectLoras(
+        Dictionary<string, object> workflow,
+        object                     initialModelRef,
+        object                     initialClipRef,
         IReadOnlyList<string>      modelConsumerKeys,
         IReadOnlyList<string>      clipConsumerKeys,
         IReadOnlyList<LoraItem>    loras)
@@ -612,8 +629,8 @@ public static class ComfyWorkflowBuilder
 
         // Vyhradíme ID rozsah 50–59 pro LoRA uzly (mimo rozsah build metod 1–10
         // a mimo 100+ používaný pro reference images injection).
-        var modelRef = Ref(checkpointKey, 0);
-        var clipRef  = Ref(checkpointKey, 1);
+        var modelRef = initialModelRef;
+        var clipRef  = initialClipRef;
         var nextId   = 50;
 
         foreach (var lora in loras)
@@ -638,6 +655,12 @@ public static class ComfyWorkflowBuilder
         foreach (var key in clipConsumerKeys)
             SetInput(workflow, key, "clip", clipRef);
     }
+
+    // Source refs pro GGUF workflow (UnetLoaderGGUF="1", DualCLIPLoader="2")
+    /// <summary>Model output ref pro FLUX GGUF workflow (UnetLoaderGGUF, výstup 0).</summary>
+    public static object GgufModelRef => Ref("1", 0);
+    /// <summary>Clip output ref pro FLUX GGUF workflow (DualCLIPLoader, výstup 0).</summary>
+    public static object GgufClipRef  => Ref("2", 0);
 
     private static void SetInput(
         Dictionary<string, object> workflow, string nodeKey,
