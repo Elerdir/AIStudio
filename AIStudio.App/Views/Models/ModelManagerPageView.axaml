@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AIStudio.App.ViewModels.Models"
              xmlns:mi="using:Material.Icons.Avalonia"
@@ -11,7 +11,7 @@
              Funguje napříč všemi nested ItemsControly bez StaticResource lookupu
              (kterej v Avalonia 12 uvnitř nested DataTemplate má scoping kvirky). -->
         <DataTemplate DataType="vm:ModelItemViewModel" x:DataType="vm:ModelItemViewModel">
-            <Border Margin="0,0,0,6" CornerRadius="12" Cursor="Hand" Background="#1C1C1E">
+            <Border Margin="0,0,0,6" CornerRadius="12" Cursor="Hand" Background="{DynamicResource CardBgBrush}">
                 <Button Background="Transparent" BorderThickness="0" Padding="14"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                         Command="{ReflectionBinding $parent[UserControl].DataContext.SelectModelCommand}"
@@ -36,7 +36,7 @@
                         <!-- Name + badges -->
                         <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
-                                       Foreground="#EBEBF5" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"/>
                             <Border IsVisible="{Binding IsActive}"
                                     Background="#172917" BorderBrush="#264726" BorderThickness="1"
@@ -73,16 +73,16 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                                     <ProgressBar Grid.Column="0" Value="{Binding DownloadProgress}"
                                                  Minimum="0" Maximum="100" Height="4" CornerRadius="2"
-                                                 Foreground="#7C3AED" Background="#2A2A2E"/>
+                                                 Foreground="#7C3AED" Background="{DynamicResource AppBorderBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding DownloadProgressLabel}"
-                                               FontSize="10" Foreground="#888896" VerticalAlignment="Center"/>
+                                               FontSize="10" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                                 </Grid>
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                                     <StackPanel Grid.Column="0" Spacing="1">
-                                        <TextBlock Text="{Binding DownloadedLabel}" FontSize="10" Foreground="#555560"/>
+                                        <TextBlock Text="{Binding DownloadedLabel}" FontSize="10" Foreground="{DynamicResource TextWeakBrush}"/>
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="{Binding DownloadSpeedLabel}" FontSize="10" Foreground="#555560"/>
-                                            <TextBlock Text="{Binding EtaLabel}" FontSize="10" Foreground="#444450"
+                                            <TextBlock Text="{Binding DownloadSpeedLabel}" FontSize="10" Foreground="{DynamicResource TextWeakBrush}"/>
+                                            <TextBlock Text="{Binding EtaLabel}" FontSize="10" Foreground="{DynamicResource TextDisabledBrush}"
                                                        IsVisible="{Binding EtaLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                         </StackPanel>
                                     </StackPanel>
@@ -120,21 +120,21 @@
                         <!-- Description -->
                         <TextBlock Grid.Row="1" Grid.Column="1"
                                    Text="{Binding Description}" FontSize="12"
-                                   Foreground="#888896" TextWrapping="Wrap"/>
+                                   Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
 
                         <!-- Meta info -->
                         <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="10">
                             <StackPanel Orientation="Horizontal" Spacing="4"
                                         IsVisible="{Binding Size, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                <mi:MaterialIcon Kind="Harddisk" Width="14" Height="14" Foreground="#555560" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding Size}" FontSize="11" Foreground="#555560"/>
+                                <mi:MaterialIcon Kind="Harddisk" Width="14" Height="14" Foreground="{DynamicResource TextWeakBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding Size}" FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasBaseModel}">
                                 <TextBlock Text="{Binding BaseModel}" FontSize="11" Foreground="#5B6EAE"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="4">
-                                <mi:MaterialIcon Kind="Download" Width="14" Height="14" Foreground="#555560"/>
-                                <TextBlock Text="{Binding DownloadCountLabel}" FontSize="11" Foreground="#666672"/>
+                                <mi:MaterialIcon Kind="Download" Width="14" Height="14" Foreground="{DynamicResource TextWeakBrush}"/>
+                                <TextBlock Text="{Binding DownloadCountLabel}" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRating}">
                                 <mi:MaterialIcon Kind="Star" Width="14" Height="14" Foreground="#FBBF24"/>
@@ -177,7 +177,7 @@
                 <ControlTemplate>
                     <Border Background="{TemplateBinding Background}"
                             CornerRadius="0">
-                        <Border Width="1" Background="#2A2A2E"
+                        <Border Width="1" Background="{DynamicResource AppBorderBrush}"
                                 HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
                     </Border>
                 </ControlTemplate>
@@ -186,12 +186,12 @@
 
         <!-- Header -->
         <Border Grid.Row="0" Grid.ColumnSpan="3" Padding="28,22,28,16"
-                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1">
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                 <StackPanel Grid.Column="0" Spacing="3">
                     <TextBlock Text="Modely" Classes="pageTitle"/>
                     <TextBlock Text="Doporučené modely z HuggingFace a Civitai — nebo si najdi vlastní"
-                               FontSize="12" Foreground="#666672"/>
+                               FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <Button Classes="secondary" Command="{Binding AddLocalModelCommand}"
@@ -221,7 +221,7 @@
 
         <!-- Toolbar: 3 taby -->
         <Border Grid.Row="1" Grid.Column="0" Padding="20,12,20,10"
-                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1" Background="#0F0F11">
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Background="{DynamicResource DeepPanelBgBrush}">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
                     <Button Classes="tabBtn"
@@ -265,7 +265,7 @@
 
         <!-- Detail panel header (top right) -->
         <Border Grid.Row="1" Grid.Column="2" Padding="16,12"
-                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1" Background="#0F0F11">
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Background="{DynamicResource DeepPanelBgBrush}">
             <TextBlock Text="DETAIL MODELU" Classes="sectionHeader" VerticalAlignment="Center"/>
         </Border>
 
@@ -277,8 +277,8 @@
                 <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
                             IsVisible="{Binding IsLoadingRecommended}">
                     <ProgressBar IsIndeterminate="True" Width="220" Height="3"
-                                 Foreground="#7C3AED" Background="#222228"/>
-                    <TextBlock Text="Načítám doporučené modely…" FontSize="12" Foreground="#888896"/>
+                                 Foreground="#7C3AED" Background="{DynamicResource HoverBgBrush}"/>
+                    <TextBlock Text="Načítám doporučené modely…" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
                 </StackPanel>
 
                 <!-- Sekce -->
@@ -289,8 +289,8 @@
                                 <!-- Header sekce -->
                                 <StackPanel Spacing="2">
                                     <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold"
-                                               Foreground="#EBEBF5"/>
-                                    <TextBlock Text="{Binding Hint}" FontSize="11" Foreground="#888896"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="{Binding Hint}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                                TextWrapping="Wrap"/>
                                 </StackPanel>
 
@@ -309,7 +309,7 @@
 
                                 <!-- Empty state (load proběhl, ale nic) -->
                                 <TextBlock Text="Pro tento výběr nic dostupného."
-                                           FontSize="11" Foreground="#555560"
+                                           FontSize="11" Foreground="{DynamicResource TextWeakBrush}"
                                            IsVisible="{Binding ShowEmptyState}"/>
 
                                 <!-- Modely v sekci — DataTemplate se použije automaticky
@@ -330,16 +330,16 @@
             <StackPanel Spacing="14">
 
                 <!-- Search box -->
-                <Border Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="6">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-                        <mi:MaterialIcon Kind="Magnify" Width="16" Height="16" Foreground="#666672"
+                        <mi:MaterialIcon Kind="Magnify" Width="16" Height="16" Foreground="{DynamicResource TextHintBrush}"
                                    VerticalAlignment="Center" Margin="10,0,0,0"/>
                         <TextBox Grid.Column="1"
                                  Classes="chatInputInner"
                                  Text="{Binding SearchQuery}"
                                  PlaceholderText="Hledat — např. magnum, juggernaut, qwen 14b, flux dev"
-                                 Foreground="#EBEBF5" CaretBrush="#A78BFA"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" CaretBrush="#A78BFA"
                                  Padding="8,8" FontSize="13">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter" Command="{Binding RunSearchCommand}"/>
@@ -357,10 +357,10 @@
                 </Border>
 
                 <!-- Filtry: provider + kind + nsfw -->
-                <Border Background="#0F0F11" BorderBrush="#1E1E22" BorderThickness="1"
+                <Border Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="#1E1E22" BorderThickness="1"
                         CornerRadius="10" Padding="14,10">
                     <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="14">
-                        <TextBlock Grid.Column="0" Text="Zdroj:" FontSize="11" Foreground="#888896"
+                        <TextBlock Grid.Column="0" Text="Zdroj:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Center"/>
                         <ComboBox Grid.Column="1" SelectedIndex="{Binding SearchProviderIndex}"
                                   HorizontalAlignment="Stretch">
@@ -368,7 +368,7 @@
                             <ComboBoxItem Content="HuggingFace"/>
                             <ComboBoxItem Content="Civitai"/>
                         </ComboBox>
-                        <TextBlock Grid.Column="2" Text="Typ:" FontSize="11" Foreground="#888896"
+                        <TextBlock Grid.Column="2" Text="Typ:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                    VerticalAlignment="Center"/>
                         <ComboBox Grid.Column="3" SelectedIndex="{Binding SearchKindIndex}"
                                   HorizontalAlignment="Stretch">
@@ -379,7 +379,7 @@
                         </ComboBox>
                         <CheckBox Grid.Column="4" IsChecked="{Binding IncludeNsfw}"
                                   Content="Včetně NSFW" FontSize="11"
-                                  Foreground="#888896" VerticalAlignment="Center"/>
+                                  Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
 
@@ -387,8 +387,8 @@
                 <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
                             IsVisible="{Binding IsSearching}">
                     <ProgressBar IsIndeterminate="True" Width="200" Height="3"
-                                 Foreground="#7C3AED" Background="#222228"/>
-                    <TextBlock Text="Vyhledávám…" FontSize="12" Foreground="#888896"/>
+                                 Foreground="#7C3AED" Background="{DynamicResource HoverBgBrush}"/>
+                    <TextBlock Text="Vyhledávám…" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
                 </StackPanel>
 
                 <!-- Error -->
@@ -427,18 +427,18 @@
             <StackPanel Spacing="14">
                 <!-- Empty state — žádné modely vůbec -->
                 <Border IsVisible="{Binding HasNoDownloadedModels}"
-                        Background="#0F0F11" BorderBrush="#1E1E22" BorderThickness="1"
+                        Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="#1E1E22" BorderThickness="1"
                         CornerRadius="10" Padding="16,14">
                     <StackPanel Spacing="6">
                         <TextBlock Text="Zatím nic není stažené" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="#9999AA"/>
-                        <TextBlock FontSize="11" Foreground="#666672" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock FontSize="11" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
                                    Text="Pro stažení přejdi do tabu Doporučené nebo Hledat. Můžeš taky přidat lokální soubor (.gguf, .safetensors, .ckpt, .pt) tlačítkem nahoře."/>
                     </StackPanel>
                 </Border>
 
                 <!-- Filter + sort toolbar — zobrazuje se jen pokud jsou vůbec nějaké modely -->
-                <Border Background="#0F0F11" BorderBrush="#1E1E22" BorderThickness="1"
+                <Border Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="#1E1E22" BorderThickness="1"
                         CornerRadius="10" Padding="12,8"
                         IsVisible="{Binding !HasNoDownloadedModels}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
@@ -468,7 +468,7 @@
 
                         <!-- Řazení -->
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <TextBlock Text="Řadit:" FontSize="11" Foreground="#888896" VerticalAlignment="Center"/>
+                            <TextBlock Text="Řadit:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                             <ComboBox SelectedIndex="{Binding DownloadedSortIndex}" MinWidth="120">
                                 <ComboBoxItem Content="Název A–Z"/>
                                 <ComboBoxItem Content="Velikost ↑"/>
@@ -485,15 +485,15 @@
         </ScrollViewer>
 
         <!-- ═════════════════ DETAIL PANEL (PRAVÝ SLOUPEC) ═════════════════ -->
-        <Border Grid.Row="2" Grid.Column="2" Background="#111113"
-                BorderBrush="#2A2A2E" BorderThickness="0,0,0,0">
+        <Border Grid.Row="2" Grid.Column="2" Background="{DynamicResource PanelBgBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,0">
             <Panel>
                 <!-- Empty state -->
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10"
                             IsVisible="{Binding SelectedModel, Converter={x:Static ObjectConverters.IsNull}}">
-                    <mi:MaterialIcon Kind="Robot" Width="40" Height="40" Foreground="#2A2A2E" HorizontalAlignment="Center"/>
+                    <mi:MaterialIcon Kind="Robot" Width="40" Height="40" Foreground="{DynamicResource AppBorderBrush}" HorizontalAlignment="Center"/>
                     <TextBlock Text="Vyber model ze seznamu" FontSize="13"
-                               Foreground="#444450" HorizontalAlignment="Center"/>
+                               Foreground="{DynamicResource TextDisabledBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Model detail -->
@@ -540,28 +540,28 @@
                                 </Border>
                             </StackPanel>
                             <TextBlock Text="{Binding Description}" FontSize="12"
-                                       Foreground="#888896" TextWrapping="Wrap"/>
+                                       Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
                         </StackPanel>
 
                         <!-- Download progress -->
                         <Border IsVisible="{Binding ShowDownloading}"
-                                Background="#0F0F11" CornerRadius="10" Padding="14">
+                                Background="{DynamicResource DeepPanelBgBrush}" CornerRadius="10" Padding="14">
                             <StackPanel Spacing="10">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Grid.Column="0" Text="Stahování…" FontSize="12"
-                                               FontWeight="SemiBold" Foreground="#EBEBF5"/>
+                                               FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding DownloadProgressLabel}"
                                                FontSize="12" Foreground="#A78BFA" FontWeight="SemiBold"/>
                                 </Grid>
                                 <ProgressBar Value="{Binding DownloadProgress}" Minimum="0" Maximum="100"
                                              Height="6" CornerRadius="3"
-                                             Foreground="#7C3AED" Background="#2A2A2E"/>
+                                             Foreground="#7C3AED" Background="{DynamicResource AppBorderBrush}"/>
                                 <Grid ColumnDefinitions="*,Auto">
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="{Binding DownloadedLabel}" FontSize="11" Foreground="#555560"/>
+                                        <TextBlock Text="{Binding DownloadedLabel}" FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{Binding DownloadSpeedLabel}" FontSize="11" Foreground="#555560"/>
-                                            <TextBlock Text="{Binding EtaLabel}" FontSize="11" Foreground="#444450"
+                                            <TextBlock Text="{Binding DownloadSpeedLabel}" FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
+                                            <TextBlock Text="{Binding EtaLabel}" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
                                                        IsVisible="{Binding EtaLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                         </StackPanel>
                                     </StackPanel>
@@ -598,25 +598,25 @@
                             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
                                         IsVisible="{ReflectionBinding $parent[UserControl].DataContext.IsLoadingHfFiles}">
                                 <ProgressBar IsIndeterminate="True" Width="120" Height="3"
-                                             Foreground="#7C3AED" Background="#222228"/>
-                                <TextBlock Text="Načítám…" FontSize="12" Foreground="#888896"/>
+                                             Foreground="#7C3AED" Background="{DynamicResource HoverBgBrush}"/>
+                                <TextBlock Text="Načítám…" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
                             </StackPanel>
 
                             <ItemsControl ItemsSource="{ReflectionBinding $parent[UserControl].DataContext.HfFiles}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:HfFileInfoVm">
                                         <Border Margin="0,0,0,6" CornerRadius="8"
-                                                Background="#141416" BorderBrush="#222228" BorderThickness="1"
+                                                Background="{DynamicResource SubtlePanelBgBrush}" BorderBrush="{DynamicResource HoverBgBrush}" BorderThickness="1"
                                                 Padding="12,10">
                                             <StackPanel Spacing="8">
                                                 <!-- Název souboru — celý, zalamovat, tooltip pro kopírování -->
                                                 <TextBlock Text="{Binding Path}" FontSize="12"
-                                                           Foreground="#EBEBF5" TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"
                                                            ToolTip.Tip="{Binding Path}"/>
                                                 <!-- Velikost + tlačítko Stáhnout -->
                                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                     <TextBlock Grid.Column="0" Text="{Binding SizeLabel}"
-                                                               FontSize="11" Foreground="#666672"
+                                                               FontSize="11" Foreground="{DynamicResource TextHintBrush}"
                                                                VerticalAlignment="Center"/>
                                                     <Button Grid.Column="1" Classes="primary" Padding="12,5"
                                                             IsEnabled="{Binding !IsDownloading}"
@@ -644,47 +644,47 @@
                             <StackPanel Spacing="10">
                                 <Grid ColumnDefinitions="*,Auto"
                                       IsVisible="{Binding Size, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                    <TextBlock Grid.Column="0" Text="Velikost" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="0" Text="Velikost" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                        <TextBlock FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"
                                                    Text="{Binding SizeOnDisk}"
                                                    IsVisible="{Binding SizeOnDisk, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                                        <TextBlock FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"
                                                    Text="{Binding Size}"
                                                    IsVisible="{Binding SizeOnDisk, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
                                     </StackPanel>
                                 </Grid>
-                                <Border Height="1" Background="#222228" IsVisible="{Binding HasBaseModel}"/>
+                                <Border Height="1" Background="{DynamicResource HoverBgBrush}" IsVisible="{Binding HasBaseModel}"/>
                                 <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasBaseModel}">
-                                    <TextBlock Grid.Column="0" Text="Base model" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="0" Text="Base model" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding BaseModel}"
-                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                               FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
                                 </Grid>
-                                <Border Height="1" Background="#222228"
+                                <Border Height="1" Background="{DynamicResource HoverBgBrush}"
                                         IsVisible="{Binding Quantization, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                 <Grid ColumnDefinitions="*,Auto"
                                       IsVisible="{Binding Quantization, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                    <TextBlock Grid.Column="0" Text="Formát / kvantizace" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="0" Text="Formát / kvantizace" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Quantization}"
-                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                               FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
                                 </Grid>
-                                <Border Height="1" Background="#222228"/>
+                                <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
                                 <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock Grid.Column="0" Text="Stažení" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="0" Text="Stažení" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding DownloadCountLabel}"
-                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                               FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
                                 </Grid>
-                                <Border Height="1" Background="#222228" IsVisible="{Binding HasRating}"/>
+                                <Border Height="1" Background="{DynamicResource HoverBgBrush}" IsVisible="{Binding HasRating}"/>
                                 <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasRating}">
-                                    <TextBlock Grid.Column="0" Text="Hodnocení" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="0" Text="Hodnocení" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding RatingLabel}"
                                                FontSize="12" Foreground="#FBBF24" FontWeight="SemiBold"/>
                                 </Grid>
-                                <Border Height="1" Background="#222228"/>
+                                <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
                                 <Grid ColumnDefinitions="*,Auto">
-                                    <TextBlock Grid.Column="0" Text="Zdroj" FontSize="12" Foreground="#666672"/>
+                                    <TextBlock Grid.Column="0" Text="Zdroj" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding SourceLabel}"
-                                               FontSize="12" Foreground="#EBEBF5" FontWeight="SemiBold"/>
+                                               FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
                                 </Grid>
                             </StackPanel>
                         </Border>

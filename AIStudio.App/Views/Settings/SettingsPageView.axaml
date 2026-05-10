@@ -10,12 +10,12 @@
 
         <!-- Header -->
         <Border DockPanel.Dock="Top" Padding="28,22,28,16"
-                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1">
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto">
                 <StackPanel Grid.Column="0" Spacing="3">
                     <TextBlock Text="Nastavení" Classes="pageTitle"/>
                     <TextBlock Text="Vzhled, jazyk, složka modelů a API klíče pro stahování"
-                               FontSize="12" Foreground="#666672"/>
+                               FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                 </StackPanel>
 
                 <!-- Uloženo badge -->
@@ -41,15 +41,15 @@
                     <Border Classes="card">
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="3">
-                                <TextBlock Text="Téma" FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
-                                <TextBlock Text="Světlý, tmavý nebo podle systému" FontSize="12" Foreground="#666672"/>
+                                <TextBlock Text="Téma" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Světlý, tmavý nebo podle systému" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                             </StackPanel>
                             <ComboBox Grid.Column="1"
                                       SelectedItem="{Binding SelectedTheme}"
                                       ItemsSource="{Binding Themes}"
                                       Width="170"
-                                      Background="#2A2A2E" Foreground="#EBEBF5"
-                                      BorderBrush="#2A2A2E" CornerRadius="8"
+                                      Background="{DynamicResource AppBorderBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                      BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                       VerticalAlignment="Center"/>
                         </Grid>
                     </Border>
@@ -61,15 +61,15 @@
                     <Border Classes="card">
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Grid.Column="0" Spacing="3">
-                                <TextBlock Text="Jazyk aplikace" FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
-                                <TextBlock Text="Čeština nebo angličtina" FontSize="12" Foreground="#666672"/>
+                                <TextBlock Text="Jazyk aplikace" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock Text="Čeština nebo angličtina" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                             </StackPanel>
                             <ComboBox Grid.Column="1"
                                       SelectedItem="{Binding SelectedLanguage}"
                                       ItemsSource="{Binding Languages}"
                                       Width="170"
-                                      Background="#2A2A2E" Foreground="#EBEBF5"
-                                      BorderBrush="#2A2A2E" CornerRadius="8"
+                                      Background="{DynamicResource AppBorderBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                      BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                       VerticalAlignment="Center"/>
                         </Grid>
                     </Border>
@@ -84,8 +84,8 @@
                             <!-- GPU akcelerace -->
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Grid.Column="0" Spacing="3">
-                                    <TextBlock Text="GPU akcelerace (CUDA)" FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
-                                    <TextBlock FontSize="12" Foreground="#666672" TextWrapping="Wrap"
+                                    <TextBlock Text="GPU akcelerace (CUDA)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock FontSize="12" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
                                                Text="Využívá NVIDIA GPU přes CUDA 12. Vypni pro CPU-only inferenci nebo při problémech se stabilitou."/>
                                 </StackPanel>
                                 <ToggleSwitch Grid.Column="1"
@@ -117,18 +117,18 @@
                         <StackPanel Spacing="14">
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Grid.Column="0" Spacing="3">
-                                    <TextBlock Text="Složka modelů" FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
+                                    <TextBlock Text="Složka modelů" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <TextBlock Text="Kam se stahují a odkud se načítají GGUF a safetensors soubory"
-                                               FontSize="12" Foreground="#666672"/>
+                                               FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                                 </StackPanel>
                             </Grid>
                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                 <TextBox Grid.Column="0"
                                          Text="{Binding ModelsDirectory}"
                                          PlaceholderText="{Binding DefaultModelsPath}"
-                                         Background="#141416" Foreground="#EBEBF5"
-                                         PlaceholderForeground="#444450"
-                                         BorderBrush="#2A2A2E" CornerRadius="8"
+                                         Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                         PlaceholderForeground="{DynamicResource TextDisabledBrush}"
+                                         BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                          Padding="12,10" FontSize="13"/>
                                 <Button Grid.Column="1"
                                         Classes="secondary"
@@ -156,10 +156,10 @@
                             <!-- Výchozí cesta hint -->
                             <StackPanel Orientation="Horizontal" Spacing="6"
                                         IsVisible="{Binding ModelsDirectory, Converter={x:Static StringConverters.IsNullOrEmpty}}">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.InformationOutline}" Width="14" Height="14" Foreground="#444450" VerticalAlignment="Center"/>
-                                <TextBlock Text="Výchozí: " FontSize="11" Foreground="#444450"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.InformationOutline}" Width="14" Height="14" Foreground="{DynamicResource TextDisabledBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Výchozí: " FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"/>
                                 <TextBlock Text="{Binding DefaultModelsPath}"
-                                           FontSize="11" Foreground="#444450"/>
+                                           FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"/>
                             </StackPanel>
 
                         </StackPanel>
@@ -175,9 +175,9 @@
                         <StackPanel Spacing="14">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                 <StackPanel Grid.Column="0" Spacing="3">
-                                    <TextBlock Text="HuggingFace Token" FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
+                                    <TextBlock Text="HuggingFace Token" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <TextBlock Text="Nepovinný. Potřebný pro privátní nebo &quot;gated&quot; modely (Llama 3, Gemma…)."
-                                               FontSize="12" Foreground="#666672" TextWrapping="Wrap"/>
+                                               FontSize="12" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <Button Grid.Column="1"
                                         Classes="secondary"
@@ -198,16 +198,16 @@
                                              PasswordChar="●"
                                              IsVisible="{Binding !ShowHfToken}"
                                              PlaceholderText="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                             PlaceholderForeground="#333340"
-                                             Background="#141416" Foreground="#EBEBF5"
-                                             BorderBrush="#2A2A2E" CornerRadius="8"
+                                             PlaceholderForeground="{DynamicResource ElevatedBgBrush}"
+                                             Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                             BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                              Padding="12,10" FontFamily="Consolas,monospace" FontSize="13"/>
                                     <TextBox Text="{Binding HuggingFaceToken}"
                                              IsVisible="{Binding ShowHfToken}"
                                              PlaceholderText="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                             PlaceholderForeground="#333340"
-                                             Background="#141416" Foreground="#A3E635"
-                                             BorderBrush="#2A2A2E" CornerRadius="8"
+                                             PlaceholderForeground="{DynamicResource ElevatedBgBrush}"
+                                             Background="{DynamicResource SubtlePanelBgBrush}" Foreground="#A3E635"
+                                             BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                              Padding="12,10" FontFamily="Consolas,monospace" FontSize="13"/>
                                 </Grid>
 
@@ -219,10 +219,10 @@
                                               Padding="0"
                                               HorizontalContentAlignment="Center"
                                               VerticalContentAlignment="Center"
-                                              Background="#1C1C1E" BorderBrush="#2A2A2E"
+                                              Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
                                               ToolTip.Tip="Zobrazit / skrýt token">
                                     <Panel>
-                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eye}" Width="18" Height="18" Foreground="#888896" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !ShowHfToken}"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eye}" Width="18" Height="18" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !ShowHfToken}"/>
                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="18" Height="18" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowHfToken}"/>
                                     </Panel>
                                 </ToggleButton>
@@ -243,12 +243,12 @@
                             </Grid>
 
                             <!-- Status badge pro HF -->
-                            <Border Background="#141416" CornerRadius="6" Padding="10,6"
+                            <Border Background="{DynamicResource SubtlePanelBgBrush}" CornerRadius="6" Padding="10,6"
                                     IsVisible="{Binding HuggingFaceToken, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
                                     <TextBlock Text="Token nastaven — privátní modely jsou dostupné"
-                                               FontSize="11" Foreground="#555560"/>
+                                               FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                 </StackPanel>
                             </Border>
 
@@ -260,9 +260,9 @@
                         <StackPanel Spacing="14">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                 <StackPanel Grid.Column="0" Spacing="3">
-                                    <TextBlock Text="Civitai API klíč" FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
+                                    <TextBlock Text="Civitai API klíč" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <TextBlock Text="Potřebný pro stahování modelů z Civitai. Nastavíš na stránce svého účtu."
-                                               FontSize="12" Foreground="#666672" TextWrapping="Wrap"/>
+                                               FontSize="12" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <Button Grid.Column="1"
                                         Classes="secondary"
@@ -282,16 +282,16 @@
                                              PasswordChar="●"
                                              IsVisible="{Binding !ShowCivitaiToken}"
                                              PlaceholderText="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                             PlaceholderForeground="#333340"
-                                             Background="#141416" Foreground="#EBEBF5"
-                                             BorderBrush="#2A2A2E" CornerRadius="8"
+                                             PlaceholderForeground="{DynamicResource ElevatedBgBrush}"
+                                             Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                             BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                              Padding="12,10" FontFamily="Consolas,monospace" FontSize="13"/>
                                     <TextBox Text="{Binding CivitaiApiKey}"
                                              IsVisible="{Binding ShowCivitaiToken}"
                                              PlaceholderText="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                                             PlaceholderForeground="#333340"
-                                             Background="#141416" Foreground="#A3E635"
-                                             BorderBrush="#2A2A2E" CornerRadius="8"
+                                             PlaceholderForeground="{DynamicResource ElevatedBgBrush}"
+                                             Background="{DynamicResource SubtlePanelBgBrush}" Foreground="#A3E635"
+                                             BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                              Padding="12,10" FontFamily="Consolas,monospace" FontSize="13"/>
                                 </Grid>
 
@@ -302,10 +302,10 @@
                                               Padding="0"
                                               HorizontalContentAlignment="Center"
                                               VerticalContentAlignment="Center"
-                                              Background="#1C1C1E" BorderBrush="#2A2A2E"
+                                              Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
                                               ToolTip.Tip="Zobrazit / skrýt klíč">
                                     <Panel>
-                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eye}" Width="18" Height="18" Foreground="#888896" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !ShowCivitaiToken}"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eye}" Width="18" Height="18" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !ShowCivitaiToken}"/>
                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="18" Height="18" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowCivitaiToken}"/>
                                     </Panel>
                                 </ToggleButton>
@@ -324,12 +324,12 @@
                                 </Button>
                             </Grid>
 
-                            <Border Background="#141416" CornerRadius="6" Padding="10,6"
+                            <Border Background="{DynamicResource SubtlePanelBgBrush}" CornerRadius="6" Padding="10,6"
                                     IsVisible="{Binding CivitaiApiKey, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
                                     <TextBlock Text="API klíč nastaven — Civitai modely jsou dostupné"
-                                               FontSize="11" Foreground="#555560"/>
+                                               FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                 </StackPanel>
                             </Border>
 
@@ -469,17 +469,17 @@
                     <Border Classes="card">
                         <StackPanel Spacing="14">
                             <StackPanel Spacing="3">
-                                <TextBlock Text="Složka ComfyUI" FontSize="14" FontWeight="SemiBold" Foreground="#EBEBF5"/>
+                                <TextBlock Text="Složka ComfyUI" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBlock Text="Cesta ke složce, kde se nachází main.py. Nechej prázdné pokud ComfyUI spouštíš sám."
-                                           FontSize="12" Foreground="#666672" TextWrapping="Wrap"/>
+                                           FontSize="12" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                 <TextBox Grid.Column="0"
                                          Text="{Binding ComfyUiDirectory}"
                                          PlaceholderText="C:\ComfyUI"
-                                         Background="#141416" Foreground="#EBEBF5"
-                                         PlaceholderForeground="#444450"
-                                         BorderBrush="#2A2A2E" CornerRadius="8"
+                                         Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                         PlaceholderForeground="{DynamicResource TextDisabledBrush}"
+                                         BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                          Padding="12,10" FontSize="13"/>
                                 <Button Grid.Column="1"
                                         Classes="secondary"
@@ -512,16 +512,16 @@
 
                             <!-- Python path -->
                             <StackPanel Spacing="6">
-                                <TextBlock Text="Python interpreter" FontSize="13" FontWeight="SemiBold" Foreground="#EBEBF5"/>
+                                <TextBlock Text="Python interpreter" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                 <TextBlock Text="Nechej prázdné pokud je python v PATH. Jinak zadej plnou cestu k python.exe."
-                                           FontSize="11" Foreground="#666672" TextWrapping="Wrap"/>
+                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"/>
                                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                     <TextBox Grid.Column="0"
                                              Text="{Binding PythonPath}"
                                              PlaceholderText="python  (nebo plná cesta)"
-                                             Background="#141416" Foreground="#EBEBF5"
-                                             PlaceholderForeground="#444450"
-                                             BorderBrush="#2A2A2E" CornerRadius="8"
+                                             Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                             PlaceholderForeground="{DynamicResource TextDisabledBrush}"
+                                             BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                              Padding="12,10" FontFamily="Consolas,monospace" FontSize="13"/>
                                     <Button Grid.Column="1"
                                             Classes="secondary"
@@ -547,34 +547,34 @@
                                 </Grid>
                             </StackPanel>
 
-                            <Border Height="1" Background="#222228"/>
+                            <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
 
                             <!-- Port -->
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Grid.Column="0" Spacing="3">
-                                    <TextBlock Text="Port" FontSize="13" FontWeight="SemiBold" Foreground="#EBEBF5"/>
-                                    <TextBlock Text="Výchozí: 8188" FontSize="11" Foreground="#666672"/>
+                                    <TextBlock Text="Port" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock Text="Výchozí: 8188" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
                                 </StackPanel>
                                 <NumericUpDown Grid.Column="1"
                                                Value="{Binding ComfyUiPort}"
                                                Minimum="1024" Maximum="65535"
                                                Width="130"
-                                               Background="#1C1C1E"
-                                               Foreground="#EBEBF5"
-                                               BorderBrush="#2A2A2E"
+                                               Background="{DynamicResource CardBgBrush}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               BorderBrush="{DynamicResource AppBorderBrush}"
                                                CornerRadius="8"
                                                FontSize="13"
                                                VerticalAlignment="Center"/>
                             </Grid>
 
-                            <Border Height="1" Background="#222228"/>
+                            <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
 
                             <!-- Auto-start toggle -->
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Grid.Column="0" Spacing="3">
-                                    <TextBlock Text="Automaticky spustit při startu" FontSize="13" FontWeight="SemiBold" Foreground="#EBEBF5"/>
+                                    <TextBlock Text="Automaticky spustit při startu" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                                     <TextBlock Text="ComfyUI se spustí na pozadí hned po spuštění AI Studia"
-                                               FontSize="11" Foreground="#666672"/>
+                                               FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
                                 </StackPanel>
                                 <ToggleSwitch Grid.Column="1"
                                               IsChecked="{Binding AutoStartComfyUi}"
@@ -593,35 +593,35 @@
                     <Border Classes="card">
                         <StackPanel Spacing="10">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0" Text="Verze" FontSize="13" Foreground="#9999AA"/>
-                                <TextBlock Grid.Column="1" Text="0.1.0 beta" FontSize="13" Foreground="#666672"/>
+                                <TextBlock Grid.Column="0" Text="Verze" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Grid.Column="1" Text="0.1.0 beta" FontSize="13" Foreground="{DynamicResource TextHintBrush}"/>
                             </Grid>
-                            <Border Height="1" Background="#222228"/>
+                            <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0" Text="Chat engine" FontSize="13" Foreground="#9999AA"/>
-                                <TextBlock Grid.Column="1" Text="LlamaSharp 0.22 + CUDA 12" FontSize="13" Foreground="#666672"/>
+                                <TextBlock Grid.Column="0" Text="Chat engine" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Grid.Column="1" Text="LlamaSharp 0.22 + CUDA 12" FontSize="13" Foreground="{DynamicResource TextHintBrush}"/>
                             </Grid>
-                            <Border Height="1" Background="#222228"/>
+                            <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0" Text="Image engine" FontSize="13" Foreground="#9999AA"/>
-                                <TextBlock Grid.Column="1" Text="ComfyUI (embedded)" FontSize="13" Foreground="#666672"/>
+                                <TextBlock Grid.Column="0" Text="Image engine" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Grid.Column="1" Text="ComfyUI (embedded)" FontSize="13" Foreground="{DynamicResource TextHintBrush}"/>
                             </Grid>
-                            <Border Height="1" Background="#222228"/>
+                            <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0" Text="Framework" FontSize="13" Foreground="#9999AA"/>
-                                <TextBlock Grid.Column="1" Text=".NET 10 · Avalonia 12" FontSize="13" Foreground="#666672"/>
+                                <TextBlock Grid.Column="0" Text="Framework" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Grid.Column="1" Text=".NET 10 · Avalonia 12" FontSize="13" Foreground="{DynamicResource TextHintBrush}"/>
                             </Grid>
-                            <Border Height="1" Background="#222228"/>
+                            <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0" Text="Nastavení uložena v" FontSize="13" Foreground="#9999AA"/>
+                                <TextBlock Grid.Column="0" Text="Nastavení uložena v" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <TextBlock Grid.Column="1" Text="%AppData%\AIStudio\settings.json"
-                                           FontSize="12" Foreground="#444450" FontFamily="Consolas,monospace"/>
+                                           FontSize="12" Foreground="{DynamicResource TextDisabledBrush}" FontFamily="Consolas,monospace"/>
                             </Grid>
-                            <Border Height="1" Background="#222228"/>
+                            <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
                             <Grid ColumnDefinitions="*,Auto">
                                 <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
-                                    <TextBlock Text="Logy aplikace" FontSize="13" Foreground="#9999AA"/>
-                                    <TextBlock Text="Diagnostika, chyby, události ComfyUI a LLM" FontSize="11" Foreground="#444450"/>
+                                    <TextBlock Text="Logy aplikace" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Diagnostika, chyby, události ComfyUI a LLM" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"/>
                                 </StackPanel>
                                 <Button Grid.Column="1"
                                         Classes="secondary"

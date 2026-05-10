@@ -17,8 +17,8 @@
 
         <!-- ═══════════════════ SIDEBAR — seznam konverzací ═══════════════════ -->
         <Border Grid.Column="0"
-                Background="#111113"
-                BorderBrush="#2A2A2E"
+                Background="{DynamicResource PanelBgBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}"
                 BorderThickness="0,0,1,0">
             <DockPanel>
 
@@ -35,9 +35,9 @@
                 <Border DockPanel.Dock="Top" Padding="8,0,8,6">
                     <TextBox Text="{Binding SidebarSearch}"
                              PlaceholderText="&#xE721; Hledat…"
-                             Background="#1C1C1E"
-                             BorderBrush="#2A2A2E" BorderThickness="1"
-                             Foreground="#CCCCDD" CaretBrush="#A78BFA"
+                             Background="{DynamicResource CardBgBrush}"
+                             BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                             Foreground="{DynamicResource TextLightBrush}" CaretBrush="#A78BFA"
                              CornerRadius="8" Padding="10,6"
                              FontSize="12"/>
                 </Border>
@@ -62,19 +62,19 @@
                                                        IsVisible="{Binding IsPinned}"/>
                                             <TextBlock Text="{Binding Title}"
                                                        FontSize="13" FontWeight="Medium"
-                                                       Foreground="#CCCCDD"
+                                                       Foreground="{DynamicResource TextLightBrush}"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTip.Tip="{Binding Title}"/>
                                         </StackPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="{Binding ShortDate}"
-                                                       FontSize="11" Foreground="#444450"/>
-                                            <TextBlock Text="·" FontSize="11" Foreground="#333338"/>
+                                                       FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"/>
+                                            <TextBlock Text="·" FontSize="11" Foreground="{DynamicResource ElevatedBgBrush}"/>
                                             <TextBlock Text="{Binding SelectedModelName}"
-                                                       FontSize="11" Foreground="#444450"
+                                                       FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
                                                        TextTrimming="CharacterEllipsis" MaxWidth="80"/>
                                             <!-- Počet zpráv — zobrazí se pouze pokud existují zprávy -->
-                                            <TextBlock Text="·" FontSize="11" Foreground="#333338"
+                                            <TextBlock Text="·" FontSize="11" Foreground="{DynamicResource ElevatedBgBrush}"
                                                        IsVisible="{Binding HasMessages}"/>
                                             <TextBlock Text="{Binding MessageCount}"
                                                        FontSize="11" Foreground="#333A48"
@@ -95,7 +95,7 @@
                                             ToolTip.Tip="Připnout / Odepnout">
                                         <Panel>
                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pin}" Width="12" Height="12" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsPinned}"/>
-                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.PinOutline}" Width="12" Height="12" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsPinned}"/>
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.PinOutline}" Width="12" Height="12" Foreground="{DynamicResource TextDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsPinned}"/>
                                         </Panel>
                                     </Button>
 
@@ -180,8 +180,8 @@
 
             <!-- ── Row 0: Header ── -->
             <Border Grid.Row="0" Padding="20,12,20,10"
-                    BorderBrush="#2A2A2E" BorderThickness="0,0,0,1"
-                    Background="#111113">
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1"
+                    Background="{DynamicResource PanelBgBrush}">
                 <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
 
                     <!-- Titulek + edit -->
@@ -204,7 +204,7 @@
                                     VerticalAlignment="Center"
                                     IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
                                     ToolTip.Tip="Přejmenovat (F2)">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="14" Height="14" Foreground="#444450"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="14" Height="14" Foreground="{DynamicResource TextDisabledBrush}"/>
                             </Button>
                             <!-- Kopírovat celou konverzaci do schránky (plain text, role: obsah) -->
                             <Button Grid.Column="2"
@@ -215,7 +215,7 @@
                                     IsVisible="{Binding SelectedConversation.HasMessages}"
                                     ToolTip.Tip="Zkopírovat celou konverzaci do schránky">
                                 <Panel>
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="14" Height="14" IsVisible="{Binding !IsConversationCopied}" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="14" Height="14" IsVisible="{Binding !IsConversationCopied}" Foreground="{DynamicResource TextDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" IsVisible="{Binding IsConversationCopied}" Foreground="#4ADE80" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Panel>
                             </Button>
@@ -227,7 +227,7 @@
                                     VerticalAlignment="Center"
                                     IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
                                     ToolTip.Tip="Exportovat konverzaci (MD / TXT)">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Export}" Width="14" Height="14" Foreground="#444450"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Export}" Width="14" Height="14" Foreground="{DynamicResource TextDisabledBrush}"/>
                             </Button>
                             <!-- Systémový prompt toggle -->
                             <Button Grid.Column="4"
@@ -238,7 +238,7 @@
                                     IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
                                     ToolTip.Tip="Systémový prompt">
                                 <Panel>
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" IsVisible="{Binding !IsSystemPromptVisible}" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" IsVisible="{Binding !IsSystemPromptVisible}" Foreground="{DynamicResource TextDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" IsVisible="{Binding IsSystemPromptVisible}" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Panel>
                             </Button>
@@ -250,7 +250,7 @@
                                     VerticalAlignment="Center"
                                     IsVisible="{Binding SelectedConversation.HasMessages}"
                                     ToolTip.Tip="Vymazat zprávy (zachová nastavení konverzace)">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eraser}" Width="14" Height="14" Foreground="#444450"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eraser}" Width="14" Height="14" Foreground="{DynamicResource TextDisabledBrush}"/>
                             </Button>
                         </Grid>
 
@@ -258,7 +258,7 @@
                         <TextBox Name="TitleEditBox"
                                  Text="{Binding EditingTitle}"
                                  IsVisible="{Binding IsEditingTitle}"
-                                 Background="#1C1C1E" Foreground="#FFFFFF"
+                                 Background="{DynamicResource CardBgBrush}" Foreground="#FFFFFF"
                                  SelectionBrush="#4C3A7A"
                                  BorderBrush="#7C3AED" BorderThickness="1"
                                  CornerRadius="7" Padding="8,5"
@@ -271,13 +271,13 @@
                     <StackPanel Grid.Column="1" Orientation="Horizontal"
                                 Spacing="6" VerticalAlignment="Center">
                         <TextBlock Text="Model:"
-                                   FontSize="11" Foreground="#555560"
+                                   FontSize="11" Foreground="{DynamicResource TextWeakBrush}"
                                    VerticalAlignment="Center"/>
                         <ComboBox ItemsSource="{Binding AvailableModels}"
                                   SelectedItem="{Binding SelectedConversation.SelectedModelName}"
-                                  Background="#1C1C1E"
-                                  Foreground="#CCCCDD"
-                                  BorderBrush="#2A2A2E"
+                                  Background="{DynamicResource CardBgBrush}"
+                                  Foreground="{DynamicResource TextLightBrush}"
+                                  BorderBrush="{DynamicResource AppBorderBrush}"
                                   CornerRadius="7"
                                   FontSize="12"
                                   MinWidth="190"
@@ -321,7 +321,7 @@
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <TextBlock Grid.Column="0"
                                        Text="Tokeny"
-                                       FontSize="10" Foreground="#444450"/>
+                                       FontSize="10" Foreground="{DynamicResource TextDisabledBrush}"/>
                             <TextBlock Grid.Column="2"
                                        Text="{Binding SelectedConversation.MaxTokensLabel}"
                                        FontSize="11" Foreground="#A78BFA"
@@ -355,7 +355,7 @@
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <TextBlock Grid.Column="0"
                                        Text="Teplota"
-                                       FontSize="10" Foreground="#444450"/>
+                                       FontSize="10" Foreground="{DynamicResource TextDisabledBrush}"/>
                             <TextBlock Grid.Column="2"
                                        Text="{Binding SelectedConversation.TemperatureLabel}"
                                        FontSize="11" Foreground="#A78BFA"
@@ -374,19 +374,19 @@
             <!-- ── Row 1: Systémový prompt panel (skrytý pokud není aktivní) ── -->
             <Border Grid.Row="1"
                     IsVisible="{Binding IsSystemPromptVisible}"
-                    Background="#0A0A0C"
-                    BorderBrush="#2A2A2E" BorderThickness="0,0,0,1"
+                    Background="{DynamicResource VeryDeepBgBrush}"
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1"
                     Padding="20,10,20,12">
                 <Grid RowDefinitions="Auto,8,Auto" >
                     <!-- Hlavička panelu -->
                     <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" Foreground="#555560" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" Foreground="{DynamicResource TextWeakBrush}" VerticalAlignment="Center"/>
                             <TextBlock Text="SYSTÉMOVÝ PROMPT"
                                        Classes="sectionHeader"
                                        VerticalAlignment="Center"/>
                             <TextBlock Text="· přepíše výchozí instrukce pro tento chat"
-                                       FontSize="10" Foreground="#3A3A44"
+                                       FontSize="10" Foreground="{DynamicResource CardHoverBgBrush}"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                         <Button Grid.Column="1"
@@ -394,16 +394,16 @@
                                 Padding="4" Width="22" Height="22" CornerRadius="5"
                                 Command="{Binding ToggleSystemPromptCommand}"
                                 ToolTip.Tip="Skrýt panel">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="#444450"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="{DynamicResource TextDisabledBrush}"/>
                         </Button>
                     </Grid>
                     <!-- TextBox -->
                     <TextBox Grid.Row="2"
                              Text="{Binding SelectedConversation.SystemPrompt}"
                              PlaceholderText="Instrukce pro model (např. 'Odpovídej vždy česky a stručně')…"
-                             Background="#161618"
-                             BorderBrush="#2A2A2E" BorderThickness="1"
-                             Foreground="#CCCCDD"
+                             Background="{DynamicResource SidebarBgBrush}"
+                             BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                             Foreground="{DynamicResource TextLightBrush}"
                              CaretBrush="#A78BFA"
                              Padding="12,8"
                              FontSize="12"
@@ -542,7 +542,7 @@
                                                                 CornerRadius="5"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <Panel>
-                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
+                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
                                                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="12" Height="12" Foreground="#4ADE80" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
                                                             </Panel>
                                                         </Button>
@@ -552,7 +552,7 @@
                                                                 Width="22" Height="22" Padding="0"
                                                                 CornerRadius="5"
                                                                 Background="Transparent" BorderThickness="0">
-                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
                                                         <!-- Větev konverzace od této zprávy -->
                                                         <Button Classes="msgAction"
@@ -562,7 +562,7 @@
                                                                 Width="22" Height="22" Padding="0"
                                                                 CornerRadius="5"
                                                                 Background="Transparent" BorderThickness="0">
-                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
                                                     </StackPanel>
                                                 </Grid>
@@ -615,7 +615,7 @@
                                     <Border Grid.Column="1"
                                             HorizontalAlignment="Left"
                                             MaxWidth="640"
-                                            Background="#1C1C1E"
+                                            Background="{DynamicResource CardBgBrush}"
                                             CornerRadius="14,14,14,2"
                                             Padding="14,10"
                                             IsVisible="{Binding Role, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:MessageRole.Assistant}}">
@@ -633,16 +633,16 @@
                                                             Orientation="Horizontal" Spacing="4"
                                                             Margin="0,2,0,4"
                                                             IsVisible="{Binding Content, Converter={x:Static StringConverters.IsNullOrEmpty}}">
-                                                    <TextBlock Text="●" FontSize="8" Foreground="#555560"
+                                                    <TextBlock Text="●" FontSize="8" Foreground="{DynamicResource TextWeakBrush}"
                                                                VerticalAlignment="Center"/>
-                                                    <TextBlock Text="●" FontSize="8" Foreground="#555560"
+                                                    <TextBlock Text="●" FontSize="8" Foreground="{DynamicResource TextWeakBrush}"
                                                                VerticalAlignment="Center"/>
-                                                    <TextBlock Text="●" FontSize="8" Foreground="#555560"
+                                                    <TextBlock Text="●" FontSize="8" Foreground="{DynamicResource TextWeakBrush}"
                                                                VerticalAlignment="Center"/>
                                                 </StackPanel>
                                                 <!-- Živě se aktualizující plain text -->
                                                 <SelectableTextBlock Text="{Binding Content}"
-                                                                     Foreground="#EBEBF5"
+                                                                     Foreground="{DynamicResource TextPrimaryBrush}"
                                                                      FontSize="14" LineHeight="22"
                                                                      TextWrapping="Wrap"
                                                                      IsVisible="{Binding Content, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
@@ -681,7 +681,7 @@
                                                             Width="22" Height="22" Padding="0"
                                                             CornerRadius="5"
                                                             Background="Transparent" BorderThickness="0">
-                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
                                                     <!-- Kopírovat -->
                                                     <Button Classes="msgAction"
@@ -691,7 +691,7 @@
                                                             CornerRadius="5"
                                                             Background="Transparent" BorderThickness="0">
                                                         <Panel>
-                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="#9090A8" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
                                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="12" Height="12" Foreground="#4ADE80" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
                                                         </Panel>
                                                     </Button>
@@ -797,13 +797,13 @@
                         Padding="20,8,20,8">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
                         <TextBlock Grid.Column="0" Text="Porovnat s modelem:"
-                                   FontSize="12" Foreground="#555560"
+                                   FontSize="12" Foreground="{DynamicResource TextWeakBrush}"
                                    VerticalAlignment="Center"/>
                         <ComboBox Grid.Column="1"
                                   ItemsSource="{Binding AvailableModels}"
                                   SelectedItem="{Binding CompareModelName}"
-                                  Background="#1C1C1E" Foreground="#CCCCDD"
-                                  BorderBrush="#2A2A2E" CornerRadius="7" FontSize="12"/>
+                                  Background="{DynamicResource CardBgBrush}" Foreground="{DynamicResource TextLightBrush}"
+                                  BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="7" FontSize="12"/>
                         <Button Grid.Column="2"
                                 Command="{Binding CompareWithModelCommand}"
                                 Background="#1A1A3A" BorderBrush="#3A3A6A" BorderThickness="1"
@@ -815,7 +815,7 @@
                                 Command="{Binding ToggleComparePickerCommand}"
                                 Background="Transparent" BorderThickness="0"
                                 Width="26" Height="26" Padding="0" CornerRadius="6">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="{DynamicResource TextDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
                     </Grid>
                 </Border>
@@ -825,13 +825,13 @@
             <!-- ── Row 4: Input area ── -->
             <Border Grid.Row="4"
                     Padding="20,10,20,18"
-                    BorderBrush="#2A2A2E" BorderThickness="0,1,0,0"
-                    Background="#0D0D0D">
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0"
+                    Background="{DynamicResource AppBgBrush}">
                 <StackPanel Spacing="8">
 
                     <!-- Přiložený obrázek — náhled -->
                     <Border IsVisible="{Binding HasAttachedImage}"
-                            Background="#1A1A20" BorderBrush="#2A2A30" BorderThickness="1"
+                            Background="{DynamicResource HoverBgBrush}" BorderBrush="#2A2A30" BorderThickness="1"
                             CornerRadius="8" Padding="8">
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                             <!-- Náhled obrázku -->
@@ -844,7 +844,7 @@
                             <!-- Název souboru -->
                             <TextBlock Grid.Column="1"
                                        Text="{Binding AttachedImagePath}"
-                                       FontSize="12" Foreground="#666672"
+                                       FontSize="12" Foreground="{DynamicResource TextHintBrush}"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"/>
                             <!-- Odebrat přílohu -->
@@ -865,16 +865,16 @@
                         <!-- Přiložit obrázek -->
                         <Button Grid.Column="0"
                                 Command="{Binding AttachImageCommand}"
-                                Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                                 Width="46" Height="46" Padding="0" CornerRadius="12"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="Přiložit obrázek">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Paperclip}" Width="18" Height="18" Foreground="#444450" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Paperclip}" Width="18" Height="18" Foreground="{DynamicResource TextDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
                         <Border Grid.Column="1"
-                                Background="#1C1C1E"
-                                BorderBrush="#2A2A2E"
+                                Background="{DynamicResource CardBgBrush}"
+                                BorderBrush="{DynamicResource AppBorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="12">
                             <TextBox Name="ChatInputBox"
@@ -882,7 +882,7 @@
                                      PlaceholderText="Napiš zprávu… (Enter = odeslat)"
                                      Background="Transparent"
                                      BorderThickness="0"
-                                     Foreground="#EBEBF5"
+                                     Foreground="{DynamicResource TextPrimaryBrush}"
                                      CaretBrush="#A78BFA"
                                      Padding="16,12"
                                      FontSize="14"
@@ -897,22 +897,22 @@
                         <Button Grid.Column="2"
                                 Command="{Binding RegenerateLastResponseCommand}"
                                 IsVisible="{Binding CanRegenerate}"
-                                Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                                 Width="46" Height="46" Padding="0" CornerRadius="12"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="Regenerovat poslední odpověď">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="16" Height="16" Foreground="#888896" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="16" Height="16" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
                         <!-- Porovnat s jiným modelem — kompaktní ikonové tlačítko -->
                         <Button Grid.Column="3"
                                 Command="{Binding ToggleComparePickerCommand}"
                                 IsVisible="{Binding CanRegenerate}"
-                                Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                                 Width="46" Height="46" Padding="0" CornerRadius="12"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="Porovnat odpověď s jiným modelem">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Compare}" Width="16" Height="16" Foreground="#888896" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Compare}" Width="16" Height="16" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
                         <Panel Grid.Column="4" Width="46" Height="46">

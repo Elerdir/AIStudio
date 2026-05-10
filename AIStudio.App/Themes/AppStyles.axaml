@@ -4,7 +4,7 @@
     <!-- Nav item button -->
     <Style Selector="Button.navItem">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="#9999AA"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Left"/>
         <Setter Property="Padding" Value="12,10"/>
@@ -19,12 +19,12 @@
     </Style>
 
     <Style Selector="Button.navItem:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#222228"/>
-        <Setter Property="TextElement.Foreground" Value="#CCCCDD"/>
+        <Setter Property="Background" Value="{DynamicResource HoverBgBrush}"/>
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource TextLightBrush}"/>
     </Style>
 
     <Style Selector="Button.navItem:pressed /template/ ContentPresenter">
-        <Setter Property="Background" Value="#1A1A22"/>
+        <Setter Property="Background" Value="{DynamicResource VeryDeepBgBrush}"/>
     </Style>
 
     <Style Selector="Button.navItem.active /template/ ContentPresenter">
@@ -57,8 +57,8 @@
 
     <!-- Secondary button -->
     <Style Selector="Button.secondary">
-        <Setter Property="Background" Value="#2A2A2E"/>
-        <Setter Property="Foreground" Value="#CCCCDD"/>
+        <Setter Property="Background" Value="{DynamicResource AppBorderBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextLightBrush}"/>
         <Setter Property="Padding" Value="12,8"/>
         <Setter Property="CornerRadius" Value="8"/>
         <Setter Property="FontSize" Value="13"/>
@@ -66,27 +66,27 @@
     </Style>
 
     <Style Selector="Button.secondary:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#333338"/>
+        <Setter Property="Background" Value="{DynamicResource ElevatedBgBrush}"/>
     </Style>
 
     <!-- Page title -->
     <Style Selector="TextBlock.pageTitle">
         <Setter Property="FontSize" Value="22"/>
         <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="#FFFFFF"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
     </Style>
 
     <!-- Section header -->
     <Style Selector="TextBlock.sectionHeader">
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="#555560"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextWeakBrush}"/>
         <Setter Property="LetterSpacing" Value="1.5"/>
     </Style>
 
     <!-- Card -->
     <Style Selector="Border.card">
-        <Setter Property="Background" Value="#1C1C1E"/>
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
         <Setter Property="CornerRadius" Value="12"/>
         <Setter Property="Padding" Value="16"/>
     </Style>
@@ -97,9 +97,9 @@
          (světlé). Bez následujících override selectorů se input v dark módu při
          kliku zbělá a text zmizí v šedi. -->
     <Style Selector="TextBox.chatInput">
-        <Setter Property="Background" Value="#1C1C1E"/>
-        <Setter Property="Foreground" Value="#EBEBF5"/>
-        <Setter Property="BorderBrush" Value="#2A2A2E"/>
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="10"/>
         <Setter Property="Padding" Value="14,12"/>
@@ -115,13 +115,13 @@
     <!-- Tyhle tři override drží PART_BorderElement (vnitřní fluent backplate)
          tmavý ve všech stavech. Bez nich :focus přepne na bílo. -->
     <Style Selector="TextBox.chatInput /template/ Border#PART_BorderElement">
-        <Setter Property="Background" Value="#1C1C1E"/>
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
     </Style>
     <Style Selector="TextBox.chatInput:pointerover /template/ Border#PART_BorderElement">
-        <Setter Property="Background" Value="#1C1C1E"/>
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
     </Style>
     <Style Selector="TextBox.chatInput:focus /template/ Border#PART_BorderElement">
-        <Setter Property="Background" Value="#1C1C1E"/>
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
     </Style>
 
     <!-- Stejný override pro „transparentní" variantu, kdy je TextBox uvnitř
@@ -146,15 +146,15 @@
     <!-- Tab button -->
     <Style Selector="Button.tabBtn">
         <Setter Property="Background" Value="Transparent"/>
-        <Setter Property="Foreground" Value="#666672"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextHintBrush}"/>
         <Setter Property="Padding" Value="12,6"/>
         <Setter Property="CornerRadius" Value="6"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Cursor" Value="Hand"/>
     </Style>
     <Style Selector="Button.tabBtn:pointerover /template/ ContentPresenter">
-        <Setter Property="Background" Value="#222228"/>
-        <Setter Property="TextElement.Foreground" Value="#CCCCDD"/>
+        <Setter Property="Background" Value="{DynamicResource HoverBgBrush}"/>
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource TextLightBrush}"/>
     </Style>
     <Style Selector="Button.tabBtn.activeTab /template/ ContentPresenter">
         <Setter Property="Background" Value="#26263A"/>

@@ -14,4 +14,65 @@
         <StyleInclude Source="avares://Material.Icons.Avalonia/MaterialIconStyles.axaml"/>
     </Application.Styles>
 
+    <!-- ══ Semantic color tokens — respond to Light/Dark theme switching ══
+         All structural colors (backgrounds, borders, text) are defined here
+         so views can use {DynamicResource Xxx} and get correct values in both
+         themes. Accent colors (#7C3AED, #4ADE80, …) are intentionally NOT here
+         — they look fine in both themes and do not need dynamic lookup.       -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+
+                <!-- ── Dark theme ──────────────────────────────────────── -->
+                <ResourceDictionary x:Key="Dark">
+                    <!-- Backgrounds — deepest to shallowest -->
+                    <SolidColorBrush x:Key="AppBgBrush"          Color="#0D0D0D"/>
+                    <SolidColorBrush x:Key="VeryDeepBgBrush"     Color="#0A0A0C"/>
+                    <SolidColorBrush x:Key="DeepPanelBgBrush"    Color="#0F0F11"/>
+                    <SolidColorBrush x:Key="PanelBgBrush"        Color="#111113"/>
+                    <SolidColorBrush x:Key="SubtlePanelBgBrush"  Color="#141416"/>
+                    <SolidColorBrush x:Key="SidebarBgBrush"      Color="#161618"/>
+                    <SolidColorBrush x:Key="CardBgBrush"         Color="#1C1C1E"/>
+                    <SolidColorBrush x:Key="HoverBgBrush"        Color="#222228"/>
+                    <SolidColorBrush x:Key="AppBorderBrush"      Color="#2A2A2E"/>
+                    <SolidColorBrush x:Key="ElevatedBgBrush"     Color="#333338"/>
+                    <SolidColorBrush x:Key="CardHoverBgBrush"    Color="#3A3A44"/>
+                    <!-- Text -->
+                    <SolidColorBrush x:Key="TextPrimaryBrush"    Color="#EBEBF5"/>
+                    <SolidColorBrush x:Key="TextLightBrush"      Color="#CCCCDD"/>
+                    <SolidColorBrush x:Key="TextSecondaryBrush"  Color="#9999AA"/>
+                    <SolidColorBrush x:Key="TextMutedBrush"      Color="#888896"/>
+                    <SolidColorBrush x:Key="TextHintBrush"       Color="#666672"/>
+                    <SolidColorBrush x:Key="TextWeakBrush"       Color="#555560"/>
+                    <SolidColorBrush x:Key="TextDisabledBrush"   Color="#444450"/>
+                </ResourceDictionary>
+
+                <!-- ── Light theme ─────────────────────────────────────── -->
+                <ResourceDictionary x:Key="Light">
+                    <!-- Backgrounds -->
+                    <SolidColorBrush x:Key="AppBgBrush"          Color="#F2F2F7"/>
+                    <SolidColorBrush x:Key="VeryDeepBgBrush"     Color="#E5E5EA"/>
+                    <SolidColorBrush x:Key="DeepPanelBgBrush"    Color="#E8E8ED"/>
+                    <SolidColorBrush x:Key="PanelBgBrush"        Color="#EBEBF0"/>
+                    <SolidColorBrush x:Key="SubtlePanelBgBrush"  Color="#E8E8ED"/>
+                    <SolidColorBrush x:Key="SidebarBgBrush"      Color="#E5E5EA"/>
+                    <SolidColorBrush x:Key="CardBgBrush"         Color="#FFFFFF"/>
+                    <SolidColorBrush x:Key="HoverBgBrush"        Color="#D8D8E0"/>
+                    <SolidColorBrush x:Key="AppBorderBrush"      Color="#D1D1D6"/>
+                    <SolidColorBrush x:Key="ElevatedBgBrush"     Color="#E0E0E8"/>
+                    <SolidColorBrush x:Key="CardHoverBgBrush"    Color="#F0F0F8"/>
+                    <!-- Text -->
+                    <SolidColorBrush x:Key="TextPrimaryBrush"    Color="#1C1C1E"/>
+                    <SolidColorBrush x:Key="TextLightBrush"      Color="#3C3C48"/>
+                    <SolidColorBrush x:Key="TextSecondaryBrush"  Color="#5A5A68"/>
+                    <SolidColorBrush x:Key="TextMutedBrush"      Color="#636370"/>
+                    <SolidColorBrush x:Key="TextHintBrush"       Color="#707078"/>
+                    <SolidColorBrush x:Key="TextWeakBrush"       Color="#8E8E98"/>
+                    <SolidColorBrush x:Key="TextDisabledBrush"   Color="#A0A0A8"/>
+                </ResourceDictionary>
+
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
 </Application>

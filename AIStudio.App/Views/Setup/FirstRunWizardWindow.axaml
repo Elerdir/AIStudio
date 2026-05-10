@@ -10,15 +10,15 @@
         MinWidth="640" MinHeight="540"
         CanResize="True"
         WindowStartupLocation="CenterScreen"
-        Background="#0D0D0D"
+        Background="{DynamicResource AppBgBrush}"
         FontFamily="Inter,Segoe UI,sans-serif">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
         <!-- ── Hlavička: krok-indikátor + název kroku ── -->
         <Border Grid.Row="0"
-                Background="#111113"
-                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1"
+                Background="{DynamicResource PanelBgBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1"
                 Padding="32,20,32,18">
             <Grid RowDefinitions="Auto,12,Auto">
 
@@ -35,7 +35,7 @@
                         <TextBlock Text="AI Studio" FontSize="15" FontWeight="Bold"
                                    Foreground="#FFFFFF"/>
                         <TextBlock Text="Průvodce nastavením" FontSize="11"
-                                   Foreground="#555560"/>
+                                   Foreground="{DynamicResource TextWeakBrush}"/>
                     </StackPanel>
                 </StackPanel>
 
@@ -47,7 +47,7 @@
                         <Border CornerRadius="4" Background="#7C3AED"
                                 IsVisible="{Binding IsStep0}"
                                 Width="24" Height="8"/>
-                        <Border CornerRadius="4" Background="#2A2A2E"
+                        <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
                                 IsVisible="{Binding !IsStep0}"
                                 Width="8" Height="8" HorizontalAlignment="Center"/>
                     </Panel>
@@ -57,7 +57,7 @@
                         <Border CornerRadius="4" Background="#7C3AED"
                                 IsVisible="{Binding IsStep1}"
                                 Width="24" Height="8"/>
-                        <Border CornerRadius="4" Background="#2A2A2E"
+                        <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
                                 IsVisible="{Binding !IsStep1}"
                                 Width="8" Height="8" HorizontalAlignment="Center"/>
                     </Panel>
@@ -67,7 +67,7 @@
                         <Border CornerRadius="4" Background="#7C3AED"
                                 IsVisible="{Binding IsStep2}"
                                 Width="24" Height="8"/>
-                        <Border CornerRadius="4" Background="#2A2A2E"
+                        <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
                                 IsVisible="{Binding !IsStep2}"
                                 Width="8" Height="8" HorizontalAlignment="Center"/>
                     </Panel>
@@ -77,7 +77,7 @@
                         <Border CornerRadius="4" Background="#7C3AED"
                                 IsVisible="{Binding IsStep3}"
                                 Width="24" Height="8"/>
-                        <Border CornerRadius="4" Background="#2A2A2E"
+                        <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
                                 IsVisible="{Binding !IsStep3}"
                                 Width="8" Height="8" HorizontalAlignment="Center"/>
                     </Panel>
@@ -87,7 +87,7 @@
                         <Border CornerRadius="4" Background="#7C3AED"
                                 IsVisible="{Binding IsStep4}"
                                 Width="24" Height="8"/>
-                        <Border CornerRadius="4" Background="#2A2A2E"
+                        <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
                                 IsVisible="{Binding !IsStep4}"
                                 Width="8" Height="8" HorizontalAlignment="Center"/>
                     </Panel>
@@ -108,12 +108,12 @@
                                FontSize="26" FontWeight="Bold"
                                Foreground="#FFFFFF"/>
                     <TextBlock Margin="0,10,0,0"
-                               FontSize="14" Foreground="#888896"
+                               FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                                LineHeight="22" TextWrapping="Wrap"
                                Text="Vše pro lokální AI v jedné aplikaci. Tento průvodce vás provede základním nastavením za pár kliknutí."/>
 
-                    <Border Margin="0,28,0,0" Background="#111113"
-                            BorderBrush="#2A2A2E" BorderThickness="1"
+                    <Border Margin="0,28,0,0" Background="{DynamicResource PanelBgBrush}"
+                            BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                             CornerRadius="12" Padding="20,16">
                         <StackPanel Spacing="14">
                             <StackPanel Orientation="Horizontal" Spacing="12">
@@ -123,9 +123,9 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Lokální LLM chat" FontSize="13"
-                                               FontWeight="SemiBold" Foreground="#CCCCDD"/>
+                                               FontWeight="SemiBold" Foreground="{DynamicResource TextLightBrush}"/>
                                     <TextBlock Text="LlamaSharp + GGUF modely — žádný cloud"
-                                               FontSize="11" Foreground="#555560"/>
+                                               FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                 </StackPanel>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="12">
@@ -135,9 +135,9 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Generování obrázků" FontSize="13"
-                                               FontWeight="SemiBold" Foreground="#CCCCDD"/>
+                                               FontWeight="SemiBold" Foreground="{DynamicResource TextLightBrush}"/>
                                     <TextBlock Text="ComfyUI frontend — FLUX, SDXL a další"
-                                               FontSize="11" Foreground="#555560"/>
+                                               FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                 </StackPanel>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="12">
@@ -147,16 +147,16 @@
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="Správa modelů" FontSize="13"
-                                               FontWeight="SemiBold" Foreground="#CCCCDD"/>
+                                               FontWeight="SemiBold" Foreground="{DynamicResource TextLightBrush}"/>
                                     <TextBlock Text="Stahování, katalog, správa VRAM"
-                                               FontSize="11" Foreground="#555560"/>
+                                               FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>
                     </Border>
 
                     <TextBlock Margin="0,20,0,0"
-                               FontSize="11" Foreground="#3A3A44"
+                               FontSize="11" Foreground="{DynamicResource CardHoverBgBrush}"
                                Text="🔒 Veškerá data zůstávají pouze na vašem počítači."/>
                 </StackPanel>
             </ScrollViewer>
@@ -167,21 +167,21 @@
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="Kde ukládat modely?" FontSize="22" FontWeight="Bold"
                            Foreground="#FFFFFF"/>
-                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="#888896"
+                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            TextWrapping="Wrap" LineHeight="22"
                            Text="Modely GGUF mohou mít 5–40 GB. Zvolte disk s dostatkem místa."/>
 
                 <TextBlock Margin="0,24,0,6" FontSize="12"
-                           Foreground="#888896" Text="Složka pro modely:"/>
+                           Foreground="{DynamicResource TextMutedBrush}" Text="Složka pro modely:"/>
 
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Border Grid.Column="0"
-                            Background="#1C1C1E" BorderBrush="#2A2A2E"
+                            Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
                             BorderThickness="1" CornerRadius="9">
                         <TextBox Text="{Binding ModelsDirectory}"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 Foreground="#EBEBF5"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
                                  CaretBrush="#A78BFA"
                                  Padding="12,10"
                                  FontSize="13"
@@ -190,35 +190,35 @@
                     <Button Grid.Column="1"
                             Name="BrowseBtn"
                             Click="BrowseBtn_Click"
-                            Background="#1C1C1E"
-                            BorderBrush="#2A2A2E" BorderThickness="1"
+                            Background="{DynamicResource CardBgBrush}"
+                            BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                             CornerRadius="9" Padding="14,10"
-                            FontSize="13" Foreground="#CCCCDD">
+                            FontSize="13" Foreground="{DynamicResource TextLightBrush}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderSearch}" Width="16" Height="16" Foreground="#888896"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderSearch}" Width="16" Height="16" Foreground="{DynamicResource TextMutedBrush}"
                                        VerticalAlignment="Center"/>
                             <TextBlock Text="Procházet" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
                 </Grid>
 
-                <Border Margin="0,16,0,0" Background="#111113"
-                        BorderBrush="#2A2A2E" BorderThickness="1"
+                <Border Margin="0,16,0,0" Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="8" Padding="14,10">
                     <StackPanel Spacing="4">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="14" Height="14" Foreground="#A78BFA"
                                        VerticalAlignment="Center"/>
                             <TextBlock Text="Výchozí umístění:" FontSize="11"
-                                       Foreground="#555560"/>
+                                       Foreground="{DynamicResource TextWeakBrush}"/>
                         </StackPanel>
                         <TextBlock Text="{Binding DefaultModelsDir}"
-                                   FontSize="11" Foreground="#3A3A44"
+                                   FontSize="11" Foreground="{DynamicResource CardHoverBgBrush}"
                                    TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
 
-                <TextBlock Margin="0,16,0,0" FontSize="12" Foreground="#555560"
+                <TextBlock Margin="0,16,0,0" FontSize="12" Foreground="{DynamicResource TextWeakBrush}"
                            TextWrapping="Wrap"
                            Text="Složku lze kdykoliv změnit v Nastavení → Cesty."/>
             </StackPanel>
@@ -230,22 +230,22 @@
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="Hardware a výkon" FontSize="22" FontWeight="Bold"
                            Foreground="#FFFFFF"/>
-                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="#888896"
+                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            Text="AI Studio detekuje GPU a nastaví optimální výkon."/>
 
                 <!-- Detekce probíhá -->
                 <Border IsVisible="{Binding IsDetectingGpu}"
-                        Margin="0,24,0,0" Background="#111113"
-                        BorderBrush="#2A2A2E" BorderThickness="1"
+                        Margin="0,24,0,0" Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="12" Padding="20,16">
                     <StackPanel Orientation="Horizontal" Spacing="14">
                         <ProgressBar IsIndeterminate="True"
                                      Width="80" Height="2"
                                      Foreground="#7C3AED"
-                                     Background="#2A2A2E"
+                                     Background="{DynamicResource AppBorderBrush}"
                                      VerticalAlignment="Center"/>
                         <TextBlock Text="Detekuji GPU…" FontSize="13"
-                                   Foreground="#555560" VerticalAlignment="Center"/>
+                                   Foreground="{DynamicResource TextWeakBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
 
@@ -287,12 +287,12 @@
                 </Border>
 
                 <!-- Toggle GPU / CPU -->
-                <Border Margin="0,16,0,0" Background="#111113"
-                        BorderBrush="#2A2A2E" BorderThickness="1"
+                <Border Margin="0,16,0,0" Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="12" Padding="16,12">
                     <StackPanel Spacing="10">
                         <TextBlock Text="Preferovaný výpočetní prostředek:"
-                                   FontSize="12" Foreground="#555560"/>
+                                   FontSize="12" Foreground="{DynamicResource TextWeakBrush}"/>
                         <StackPanel Spacing="8">
                             <!-- GPU option -->
                             <Border CornerRadius="8" Padding="12,10"
@@ -313,9 +313,9 @@
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="GPU (doporučeno)"
                                                    FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="#CCCCDD"/>
+                                                   Foreground="{DynamicResource TextLightBrush}"/>
                                         <TextBlock Text="Rychlé — využívá CUDA jádra"
-                                                   FontSize="11" Foreground="#555560"/>
+                                                   FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                     </StackPanel>
                                     <mi:MaterialIcon Grid.Column="2"
                                                Kind="{x:Static miKind:MaterialIconKind.Harddisk}" Width="16" Height="16" Foreground="#A78BFA"
@@ -329,12 +329,12 @@
                             </Border>
                             <!-- CPU option -->
                             <Border CornerRadius="8" Padding="12,10"
-                                    Background="#111113" Cursor="Hand"
+                                    Background="{DynamicResource PanelBgBrush}" Cursor="Hand"
                                     PointerPressed="CpuOption_Pressed">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                                     <Border Grid.Column="0" Width="18" Height="18"
                                             CornerRadius="9"
-                                            BorderBrush="#3A3A44" BorderThickness="2"
+                                            BorderBrush="{DynamicResource CardHoverBgBrush}" BorderThickness="2"
                                             Background="Transparent">
                                         <Border Width="6" Height="6" CornerRadius="3"
                                                 Background="#7C3AED"
@@ -345,12 +345,12 @@
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="Jen CPU"
                                                    FontSize="13" FontWeight="SemiBold"
-                                                   Foreground="#CCCCDD"/>
+                                                   Foreground="{DynamicResource TextLightBrush}"/>
                                         <TextBlock Text="Pomalejší — funguje bez GPU"
-                                                   FontSize="11" Foreground="#555560"/>
+                                                   FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                     </StackPanel>
                                     <mi:MaterialIcon Grid.Column="2"
-                                               Kind="{x:Static miKind:MaterialIconKind.Monitor}" Width="16" Height="16" Foreground="#555560"
+                                               Kind="{x:Static miKind:MaterialIconKind.Monitor}" Width="16" Height="16" Foreground="{DynamicResource TextWeakBrush}"
                                                VerticalAlignment="Center"/>
                                 </Grid>
                             </Border>
@@ -366,16 +366,16 @@
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="API tokeny (volitelné)" FontSize="22" FontWeight="Bold"
                            Foreground="#FFFFFF"/>
-                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="#888896"
+                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            TextWrapping="Wrap" LineHeight="22"
                            Text="Pro stahování veřejných modelů z HuggingFace token nepotřebujete. Tokeny jsou uloženy pouze lokálně."/>
 
                 <!-- HuggingFace -->
-                <TextBlock Margin="0,24,0,6" FontSize="12" Foreground="#888896">
+                <TextBlock Margin="0,24,0,6" FontSize="12" Foreground="{DynamicResource TextMutedBrush}">
                     <Run Text="HuggingFace token "/>
-                    <Run Text="— hf_..." Foreground="#3A3A44"/>
+                    <Run Text="— hf_..." Foreground="{DynamicResource CardHoverBgBrush}"/>
                 </TextBlock>
-                <Border Background="#1C1C1E" BorderBrush="#2A2A2E"
+                <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
                         BorderThickness="1" CornerRadius="9">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBox Grid.Column="0"
@@ -384,7 +384,7 @@
                                  PasswordChar="•"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 Foreground="#EBEBF5"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
                                  CaretBrush="#A78BFA"
                                  Padding="12,10"
                                  FontSize="13"
@@ -395,20 +395,20 @@
                                 Background="Transparent" BorderThickness="0"
                                 Width="36" Padding="0" CornerRadius="0,9,9,0"
                                 ToolTip.Tip="Zobrazit/skrýt token">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="16" Height="16" Foreground="#444450"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="16" Height="16" Foreground="{DynamicResource TextDisabledBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
                     </Grid>
                 </Border>
-                <TextBlock Margin="0,5,0,0" FontSize="11" Foreground="#3A3A44"
+                <TextBlock Margin="0,5,0,0" FontSize="11" Foreground="{DynamicResource CardHoverBgBrush}"
                            Text="Potřebujete pro gated modely (Llama 3, Gemma…)"/>
 
                 <!-- Civitai -->
-                <TextBlock Margin="0,20,0,6" FontSize="12" Foreground="#888896">
+                <TextBlock Margin="0,20,0,6" FontSize="12" Foreground="{DynamicResource TextMutedBrush}">
                     <Run Text="Civitai API klíč "/>
-                    <Run Text="— pro SDXL modely" Foreground="#3A3A44"/>
+                    <Run Text="— pro SDXL modely" Foreground="{DynamicResource CardHoverBgBrush}"/>
                 </TextBlock>
-                <Border Background="#1C1C1E" BorderBrush="#2A2A2E"
+                <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
                         BorderThickness="1" CornerRadius="9">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBox Grid.Column="0"
@@ -417,7 +417,7 @@
                                  PasswordChar="•"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 Foreground="#EBEBF5"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
                                  CaretBrush="#A78BFA"
                                  Padding="12,10"
                                  FontSize="13"
@@ -428,15 +428,15 @@
                                 Background="Transparent" BorderThickness="0"
                                 Width="36" Padding="0" CornerRadius="0,9,9,0"
                                 ToolTip.Tip="Zobrazit/skrýt klíč">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="16" Height="16" Foreground="#444450"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="16" Height="16" Foreground="{DynamicResource TextDisabledBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
                     </Grid>
                 </Border>
-                <TextBlock Margin="0,5,0,0" FontSize="11" Foreground="#3A3A44"
+                <TextBlock Margin="0,5,0,0" FontSize="11" Foreground="{DynamicResource CardHoverBgBrush}"
                            Text="Dostupný na civitai.com v Profil → API Keys"/>
 
-                <TextBlock Margin="0,20,0,0" FontSize="12" Foreground="#444450"
+                <TextBlock Margin="0,20,0,0" FontSize="12" Foreground="{DynamicResource TextDisabledBrush}"
                            Text="Tokeny lze kdykoliv přidat nebo změnit v Nastavení → API."/>
             </StackPanel>
             </ScrollViewer>
@@ -447,11 +447,11 @@
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="Vše je připraveno! 🎉" FontSize="22" FontWeight="Bold"
                            Foreground="#FFFFFF"/>
-                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="#888896"
+                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            Text="Nastavení bylo uloženo. Tady je přehled:"/>
 
-                <Border Margin="0,24,0,0" Background="#111113"
-                        BorderBrush="#2A2A2E" BorderThickness="1"
+                <Border Margin="0,24,0,0" Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="12" Padding="20,16">
                     <StackPanel Spacing="12">
 
@@ -461,14 +461,14 @@
                                        VerticalAlignment="Center"/>
                             <StackPanel>
                                 <TextBlock Text="Složka modelů"
-                                           FontSize="12" Foreground="#888896"/>
+                                           FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBlock Text="{Binding SummaryModelsDir}"
-                                           FontSize="11" Foreground="#CCCCDD"
+                                           FontSize="11" Foreground="{DynamicResource TextLightBrush}"
                                            TextWrapping="Wrap"/>
                             </StackPanel>
                         </StackPanel>
 
-                        <Border Height="1" Background="#2A2A2E"/>
+                        <Border Height="1" Background="{DynamicResource AppBorderBrush}"/>
 
                         <!-- GPU -->
                         <StackPanel Orientation="Horizontal" Spacing="10">
@@ -476,13 +476,13 @@
                                        VerticalAlignment="Center"/>
                             <StackPanel>
                                 <TextBlock Text="Výpočetní prostředek"
-                                           FontSize="12" Foreground="#888896"/>
+                                           FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBlock Text="{Binding GpuSummaryLine}"
-                                           FontSize="11" Foreground="#CCCCDD"/>
+                                           FontSize="11" Foreground="{DynamicResource TextLightBrush}"/>
                             </StackPanel>
                         </StackPanel>
 
-                        <Border Height="1" Background="#2A2A2E"/>
+                        <Border Height="1" Background="{DynamicResource AppBorderBrush}"/>
 
                         <!-- API tokeny -->
                         <StackPanel Orientation="Horizontal" Spacing="10">
@@ -490,18 +490,18 @@
                                        VerticalAlignment="Center"/>
                             <StackPanel>
                                 <TextBlock Text="API tokeny"
-                                           FontSize="12" Foreground="#888896"/>
+                                           FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="HuggingFace:" FontSize="11" Foreground="#888896"/>
+                                    <TextBlock Text="HuggingFace:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                                     <TextBlock Text="nastaven ✓"  FontSize="11" Foreground="#4ADE80"
                                                IsVisible="{Binding HasHfToken}"/>
-                                    <TextBlock Text="(nevyplněn)" FontSize="11" Foreground="#444450"
+                                    <TextBlock Text="(nevyplněn)" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
                                                IsVisible="{Binding !HasHfToken}"/>
-                                    <TextBlock Text="·" FontSize="11" Foreground="#3A3A44" Margin="4,0"/>
-                                    <TextBlock Text="Civitai:" FontSize="11" Foreground="#888896"/>
+                                    <TextBlock Text="·" FontSize="11" Foreground="{DynamicResource CardHoverBgBrush}" Margin="4,0"/>
+                                    <TextBlock Text="Civitai:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
                                     <TextBlock Text="nastaven ✓"  FontSize="11" Foreground="#4ADE80"
                                                IsVisible="{Binding HasCivitaiKey}"/>
-                                    <TextBlock Text="(nevyplněn)" FontSize="11" Foreground="#444450"
+                                    <TextBlock Text="(nevyplněn)" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
                                                IsVisible="{Binding !HasCivitaiKey}"/>
                                 </StackPanel>
                             </StackPanel>
@@ -529,8 +529,8 @@
 
         <!-- ── Tlačítka navigace ── -->
         <Border Grid.Row="2"
-                Background="#111113"
-                BorderBrush="#2A2A2E" BorderThickness="0,1,0,0"
+                Background="{DynamicResource PanelBgBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0"
                 Padding="32,16">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
 
@@ -538,10 +538,10 @@
                 <Button Grid.Column="0"
                         Command="{Binding BackCommand}"
                         IsVisible="{Binding CanGoBack}"
-                        Background="#1C1C1E"
-                        BorderBrush="#2A2A2E" BorderThickness="1"
+                        Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="9" Padding="18,10"
-                        FontSize="13" Foreground="#888896">
+                        FontSize="13" Foreground="{DynamicResource TextMutedBrush}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ChevronLeft}" Width="14" Height="14" VerticalAlignment="Center"/>
                         <TextBlock Text="Zpět" VerticalAlignment="Center"/>
@@ -554,7 +554,7 @@
                         Command="{Binding NextCommand}"
                         IsVisible="{Binding !IsLastStep}"
                         Background="Transparent" BorderThickness="0"
-                        Padding="6,10" FontSize="12" Foreground="#3A3A44"
+                        Padding="6,10" FontSize="12" Foreground="{DynamicResource CardHoverBgBrush}"
                         ToolTip.Tip="Tento krok přeskočit">
                     <TextBlock IsVisible="{Binding !IsStep0}" Text="Přeskočit"/>
                 </Button>

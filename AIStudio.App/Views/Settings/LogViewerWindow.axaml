@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:AIStudio.App.ViewModels.Settings"
         x:Class="AIStudio.App.Views.Settings.LogViewerWindow"
@@ -6,24 +6,24 @@
         Title="AI Studio — Log Viewer"
         Width="1100" Height="720"
         MinWidth="640" MinHeight="400"
-        Background="#0D0D0D"
+        Background="{DynamicResource AppBgBrush}"
         WindowStartupLocation="CenterOwner">
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- Header s title -->
         <Border Grid.Row="0" Padding="20,16,20,12"
-                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1">
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
             <StackPanel Spacing="3">
-                <TextBlock Text="Log Viewer" FontSize="18" FontWeight="Bold" Foreground="#EBEBF5"/>
+                <TextBlock Text="Log Viewer" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Text="Diagnostické logy aplikace — pro hledání chyb a posílání podpoře."
-                           FontSize="11" Foreground="#666672"/>
+                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
             </StackPanel>
         </Border>
 
         <!-- Toolbar: výběr souboru, filtr, hledání, akce -->
-        <Border Grid.Row="1" Padding="20,12" Background="#0F0F11"
-                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1">
+        <Border Grid.Row="1" Padding="20,12" Background="{DynamicResource DeepPanelBgBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="280,140,*,Auto,Auto,Auto" ColumnSpacing="10">
 
                 <!-- Výběr souboru -->
@@ -31,8 +31,8 @@
                           ItemsSource="{Binding AvailableFiles}"
                           SelectedItem="{Binding SelectedFile}"
                           HorizontalAlignment="Stretch"
-                          Background="#1C1C1E" Foreground="#EBEBF5"
-                          BorderBrush="#2A2A2E" CornerRadius="8"
+                          Background="{DynamicResource CardBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                          BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                           FontSize="12">
                     <ComboBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:LogFileItem">
@@ -46,23 +46,23 @@
                           ItemsSource="{Binding Levels}"
                           SelectedItem="{Binding SelectedLevel}"
                           HorizontalAlignment="Stretch"
-                          Background="#1C1C1E" Foreground="#EBEBF5"
-                          BorderBrush="#2A2A2E" CornerRadius="8"
+                          Background="{DynamicResource CardBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                          BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                           FontSize="12"/>
 
                 <!-- Search -->
                 <Border Grid.Column="2"
-                        Background="#1C1C1E" BorderBrush="#2A2A2E" BorderThickness="1"
+                        Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="8">
                     <Grid ColumnDefinitions="Auto,*">
                         <TextBlock Grid.Column="0" Text="&#xE721;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="13" Foreground="#555560"
+                                   FontSize="13" Foreground="{DynamicResource TextWeakBrush}"
                                    VerticalAlignment="Center" Margin="10,0,0,0"/>
                         <TextBox Grid.Column="1"
                                  Text="{Binding SearchText}"
                                  PlaceholderText="Hledat v logu..."
                                  Background="Transparent" BorderThickness="0"
-                                 Foreground="#EBEBF5" CaretBrush="#A78BFA"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" CaretBrush="#A78BFA"
                                  Padding="8,8" FontSize="12"/>
                     </Grid>
                 </Border>
@@ -117,15 +117,15 @@
         </Border>
 
         <!-- Obsah logu -->
-        <Border Grid.Row="2" Padding="0" Background="#0A0A0C">
+        <Border Grid.Row="2" Padding="0" Background="{DynamicResource VeryDeepBgBrush}">
             <Panel>
                 <!-- Loading overlay -->
                 <Border IsVisible="{Binding IsLoading}"
                         Background="#88000000" ZIndex="2">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
                         <ProgressBar IsIndeterminate="True" Width="200" Height="3"
-                                     Foreground="#7C3AED" Background="#222228"/>
-                        <TextBlock Text="Načítám…" FontSize="12" Foreground="#888896"
+                                     Foreground="#7C3AED" Background="{DynamicResource HoverBgBrush}"/>
+                        <TextBlock Text="Načítám…" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
                                    HorizontalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -140,7 +140,7 @@
                              FontSize="12"
                              Background="Transparent"
                              BorderThickness="0"
-                             Foreground="#CCCCDD"
+                             Foreground="{DynamicResource TextLightBrush}"
                              SelectionBrush="#3A2A6A"
                              Padding="20,12"/>
                 </ScrollViewer>
@@ -171,16 +171,16 @@
         </Border>
 
         <!-- Footer s počítadlem řádků -->
-        <Border Grid.Row="3" Padding="20,8" Background="#0F0F11"
-                BorderBrush="#2A2A2E" BorderThickness="0,1,0,0">
+        <Border Grid.Row="3" Padding="20,8" Background="{DynamicResource DeepPanelBgBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0">
             <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Grid.Column="0"
                            Text="{Binding LineCount}"
-                           FontSize="11" Foreground="#666672"
+                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"
                            VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1"
                            Text="Tip: pošli obsah podpoře přes Kopírovat — zachytí filtr i hledání."
-                           FontSize="11" Foreground="#444450"
+                           FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
                            VerticalAlignment="Center"/>
             </Grid>
         </Border>

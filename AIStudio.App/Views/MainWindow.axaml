@@ -13,7 +13,7 @@
         Width="1280" Height="800"
         MinWidth="1180" MinHeight="720"
         WindowStartupLocation="CenterScreen"
-        Background="#0D0D0D"
+        Background="{DynamicResource AppBgBrush}"
         Icon="/Assets/app-icon.png">
 
     <Design.DataContext>
@@ -24,8 +24,8 @@
 
         <!-- Sidebar -->
         <Border Grid.Column="0"
-                Background="#161618"
-                BorderBrush="#2A2A2E"
+                Background="{DynamicResource SidebarBgBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}"
                 BorderThickness="0,0,1,0">
             <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
 
@@ -46,7 +46,7 @@
                 </Border>
 
                 <!-- Divider -->
-                <Border Grid.Row="1" Height="1" Background="#2A2A2E" Margin="16,0,16,8"/>
+                <Border Grid.Row="1" Height="1" Background="{DynamicResource AppBorderBrush}" Margin="16,0,16,8"/>
 
                 <!-- Navigation (top items) -->
                 <Border Grid.Row="2" Padding="8,0" VerticalAlignment="Top">
@@ -111,14 +111,14 @@
                 <!-- Status bar (bottom of sidebar) s GPU / VRAM přehledem -->
                 <Border Grid.Row="4"
                         Padding="14,8,14,10"
-                        BorderBrush="#2A2A2E"
+                        BorderBrush="{DynamicResource AppBorderBrush}"
                         BorderThickness="0,1,0,0"
                         Cursor="Hand">
                     <StackPanel Spacing="4">
                         <!-- Název GPU (jen pokud je dostupná) -->
                         <TextBlock Text="{Binding GpuNameShort}"
                                    FontSize="10"
-                                   Foreground="#555560"
+                                   Foreground="{DynamicResource TextWeakBrush}"
                                    TextTrimming="CharacterEllipsis"
                                    IsVisible="{Binding GpuAvailable}"/>
                         <!-- VRAM řádek: label + hodnota -->
@@ -126,11 +126,11 @@
                             <TextBlock Grid.Column="0"
                                        Text="VRAM"
                                        FontSize="10"
-                                       Foreground="#444450"/>
+                                       Foreground="{DynamicResource TextDisabledBrush}"/>
                             <TextBlock Grid.Column="1"
                                        Text="{Binding VramCompact}"
                                        FontSize="10"
-                                       Foreground="#666672"/>
+                                       Foreground="{DynamicResource TextHintBrush}"/>
                         </Grid>
                         <!-- VRAM progress bar -->
                         <ProgressBar Value="{Binding VramPercent}"
@@ -138,15 +138,15 @@
                                      Height="3"
                                      CornerRadius="2"
                                      Foreground="#F59E0B"
-                                     Background="#222228"/>
+                                     Background="{DynamicResource HoverBgBrush}"/>
                         <!-- Model / stav -->
                         <TextBlock Text="{Binding StatusText}"
                                    FontSize="11"
-                                   Foreground="#444450"
+                                   Foreground="{DynamicResource TextDisabledBrush}"
                                    TextTrimming="CharacterEllipsis"/>
                         <TextBlock Text="v0.1.0-beta"
                                    FontSize="10"
-                                   Foreground="#333338"/>
+                                   Foreground="{DynamicResource ElevatedBgBrush}"/>
 
                         <!-- Badge: dostupná aktualizace -->
                         <Button Classes="secondary"
@@ -165,7 +165,7 @@
         </Border>
 
         <!-- Main content -->
-        <Border Grid.Column="1" Background="#0D0D0D">
+        <Border Grid.Column="1" Background="{DynamicResource AppBgBrush}">
             <ContentControl Content="{Binding CurrentPage}"/>
         </Border>
 
