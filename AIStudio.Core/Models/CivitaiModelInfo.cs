@@ -41,4 +41,5 @@ public record CivitaiModelFile(
     long    SizeKb,                   // velikost v KB (Civitai vrací KB, ne bytes)
     string  Format,                   // "SafeTensor", "PickleTensor", "Other"
     string  DownloadUrl,              // přímý download (Civitai vyžaduje token v Authorization header)
-    bool    Primary);                 // true = hlavní soubor verze (typicky checkpoint .safetensors)
+    bool    Primary,                  // true = hlavní soubor verze (typicky checkpoint .safetensors)
+    string? Sha256 = null);           // SHA-256 hash z `hashes.SHA256` — null pokud API nevrátí

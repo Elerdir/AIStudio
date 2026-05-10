@@ -276,7 +276,16 @@ public sealed class CivitaiClient : ICivitaiClient
             // Soubory bez download URL nemají smysl posílat dál.
             if (string.IsNullOrEmpty(downloadUrl)) return null;
 
-            return new CivitaiModelFile(id, name, type, sizeKb, format, downloadUrl, primary);
+            // SHA-256 hash pro ověření integrity po stažení.
+            // Civitai vrací: "hashes": { "SHA256": "abc123…", "CRC32": "…", "BLAKE3": "…" }
+            string? sha256 = null;
+            if (f.TryGetProperty("hashes", out var hashes) && hashes.ValueKind == JsonValueKind.Object
+                && hashes.TryGetProperty("SHA256", out var h256) && h256.ValueKind == JsonValueKind.String)
+            {
+                sha256 = h256.GetString();
+            }
+
+            return new CivitaiModelFile(id, name, type, sizeKb, format, downloadUrl, primary, sha256);
         }
         catch
         {

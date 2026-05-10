@@ -22,5 +22,6 @@ public sealed record DiscoveredModel(
     bool          Nsfw,
     string?       ThumbnailUrl,
     string?       BaseModel,        // pro UI ("SDXL 1.0", "FLUX.1 Schnell" …)
-    string?       FileFormat        // "GGUF", "SafeTensor", …
+    string?       FileFormat,       // "GGUF", "SafeTensor", …
+    string?       Sha256 = null     // SHA-256 hash pro ověření po stažení (z Civitai API)
 );

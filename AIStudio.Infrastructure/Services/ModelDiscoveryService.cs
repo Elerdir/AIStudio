@@ -279,7 +279,8 @@ public sealed class ModelDiscoveryService : IModelDiscoveryService
                 Nsfw:        info.Nsfw,
                 ThumbnailUrl: info.ThumbnailUrl,
                 BaseModel:   firstVersion.BaseModel,
-                FileFormat:  primaryFile.Format));
+                FileFormat:  primaryFile.Format,
+                Sha256:      primaryFile.Sha256));
         }
         return list;
     }
@@ -351,7 +352,8 @@ public sealed class ModelDiscoveryService : IModelDiscoveryService
                     _civ.BuildModelPageUrl(info.Id),
                     primaryFile.SizeKb * 1024L,
                     info.DownloadCount, info.Rating, info.Nsfw, info.ThumbnailUrl,
-                    firstVersion.BaseModel, primaryFile.Format));
+                    firstVersion.BaseModel, primaryFile.Format,
+                    Sha256: primaryFile.Sha256));
             }
             return list;
         }

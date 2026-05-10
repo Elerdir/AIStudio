@@ -162,6 +162,14 @@ public partial class ModelItemViewModel : ViewModelBase
     /// <summary>Skutečná velikost souboru na disku — nastaví se při skenování složky.</summary>
     [ObservableProperty] private string _sizeOnDisk = string.Empty;
 
+    /// <summary>SHA-256 hash pro ověření integrity po stažení — jen pro Civitai, null pro HF/lokální.</summary>
+    public string? Sha256 { get; init; }
+
+    /// <summary>True po dokončení downloadu, dokud probíhá SHA-256 checksum verifikace.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDownloading), nameof(DownloadProgressLabel))]
+    private bool _isVerifyingChecksum;
+
     /// <summary>
     /// True pokud uživatel klikl na „Odebrat model" a teď čekáme na potvrzení.
     /// Při true XAML zobrazuje místo tlačítka „Odebrat" inline panel
@@ -178,7 +186,7 @@ public partial class ModelItemViewModel : ViewModelBase
     private void CancelDeleteConfirmation() => IsConfirmingDelete = false;
 
     // ── Computed: viditelnost stavů ───────────────────────────────────────────
-    public bool ShowDownloading    => IsDownloading;
+    public bool ShowDownloading    => IsDownloading || IsVerifyingChecksum;
     public bool ShowDownloadError  => !IsDownloading && HasError;
     public bool ShowDownloaded     => IsDownloaded && !IsDownloading && !HasError;
     public bool ShowDownloadButton => !IsDownloaded && !IsDownloading && !HasError;
@@ -187,6 +195,7 @@ public partial class ModelItemViewModel : ViewModelBase
 
     // ── Computed: formátovaný stav stahování ─────────────────────────────────
     public string DownloadProgressLabel =>
+        IsVerifyingChecksum ? "Ověřuji…" :
         TotalBytes > 0 ? $"{DownloadProgress:F0} %" : "…";
 
     public string DownloadedLabel =>

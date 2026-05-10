@@ -485,10 +485,41 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         try
         {
             Directory.CreateDirectory(ModelsDir);
-            await _downloader.DownloadFileAsync(model.DownloadUrl, destPath, progress, token, cts.Token);
+
+            // Pokud Civitai poskytl SHA-256 hash, předáme ho DownloadService.
+            // Ten po stažení vypočítá hash souboru a v případě neshody smaže .tmp
+            // a vyhodí ChecksumMismatchException — zachytáme ji níže s jasnou chybou.
+            var sha256 = !string.IsNullOrWhiteSpace(model.Sha256) ? model.Sha256 : null;
+
+            // Progress wrapper: jakmile download dosáhne 100 %, přepneme na
+            // "Ověřuji checksum" stav (platí jen pokud máme sha256).
+            IProgress<DownloadProgressInfo> wrappedProgress = sha256 is null
+                ? progress
+                : new Progress<DownloadProgressInfo>(info =>
+                {
+                    if (info.Percent >= 100.0)
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            model.IsVerifyingChecksum      = true;
+                            model.DownloadProgress         = 100;
+                            model.DownloadSpeedBytesPerSec = 0;
+                        });
+                    }
+                    else
+                    {
+                        // Delegate to original progress for in-progress updates
+                        ((IProgress<DownloadProgressInfo>)progress).Report(info);
+                    }
+                });
+
+            await _downloader.DownloadFileAsync(
+                model.DownloadUrl, destPath, wrappedProgress, token, cts.Token,
+                expectedSha256: sha256);
 
             Dispatcher.UIThread.Post(() =>
             {
+                model.IsVerifyingChecksum      = false;
                 model.IsDownloaded             = true;
                 model.IsDownloading            = false;
                 model.DownloadProgress         = 100;
@@ -500,10 +531,26 @@ public partial class ModelManagerPageViewModel : ViewModelBase
                 RefreshDownloadedTab();
             });
         }
+        catch (AIStudio.Core.Models.ChecksumMismatchException ex)
+        {
+            // Soubor .tmp už byl smazán v DownloadService — jen ukážeme hezkou zprávu.
+            Dispatcher.UIThread.Post(() =>
+            {
+                model.IsVerifyingChecksum      = false;
+                model.IsDownloading            = false;
+                model.DownloadProgress         = 0;
+                model.DownloadSpeedBytesPerSec = 0;
+                model.DownloadError            =
+                    $"Checksum neshoda — soubor je poškozený. " +
+                    $"Očekáváno: {ex.Expected[..8]}…, obdrženo: {ex.Actual[..8]}….";
+                _activeDownloads.Remove(model);
+            });
+        }
         catch (OperationCanceledException)
         {
             Dispatcher.UIThread.Post(() =>
             {
+                model.IsVerifyingChecksum      = false;
                 model.IsDownloading            = false;
                 model.DownloadProgress         = 0;
                 model.DownloadedBytes          = 0;
@@ -519,6 +566,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         {
             Dispatcher.UIThread.Post(() =>
             {
+                model.IsVerifyingChecksum      = false;
                 model.IsDownloading            = false;
                 model.DownloadProgress         = 0;
                 model.DownloadSpeedBytesPerSec = 0;
@@ -933,6 +981,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             IsNsfw         = d.Nsfw,
             DownloadCount  = d.Downloads,
             Rating         = d.Rating,
+            Sha256         = d.Sha256,
         };
     }
 
