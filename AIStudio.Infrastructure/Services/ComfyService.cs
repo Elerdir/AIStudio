@@ -389,18 +389,25 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
     {
         progress?.Report(0);
 
-        // WebSocket real-time progress — při selhání přepneme na polling
+        // WebSocket real-time progress — při selhání přepneme na polling.
+        // POZOR: ComfyExecutionException (execution_error z ComfyUI) se NESMÍ
+        // zachytit tady — propagujeme ji rovnou volajícímu, protože generování
+        // selhal na straně ComfyUI a polling nepomůže.
         try
         {
             return await WaitViaWebSocketAsync(promptId, progress, ct);
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException)    { throw; }
+        catch (ComfyExecutionException)       { throw; }   // ← ComfyUI execution error, nepollingovat
         catch (Exception ex)
         {
-            Log.Warning(ex, "ComfyService: WebSocket progress selhal, přepínám na polling");
+            Log.Warning(ex, "ComfyService: WebSocket connection selhal, přepínám na polling");
             return await WaitViaPollingAsync(promptId, progress, ct);
         }
     }
+
+    /// <summary>Vyvolána pokud ComfyUI samo ohlásí chybu (execution_error event).</summary>
+    private sealed class ComfyExecutionException(string message) : Exception(message);
 
     /// <summary>
     /// Sleduje průběh generování přes ComfyUI WebSocket.
@@ -460,7 +467,16 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                         {
                             var msg = data.TryGetProperty("exception_message", out var em)
                                 ? em.GetString() : "neznámá chyba";
-                            throw new InvalidOperationException($"ComfyUI chyba: {msg}");
+                            // Typ uzlu + název souboru — usnadní debugging
+                            var nodeType = data.TryGetProperty("exception_type", out var et)
+                                ? et.GetString() : null;
+                            var nodeId = data.TryGetProperty("node_id", out var ni)
+                                ? ni.GetString() : null;
+                            var detail = nodeType is not null
+                                ? $"{msg} (uzel {nodeId} [{nodeType}])"
+                                : msg;
+                            Log.Warning("ComfyUI execution_error: {Detail}", detail);
+                            throw new ComfyExecutionException($"ComfyUI chyba: {detail}");
                         }
                         break;
                 }
@@ -471,7 +487,12 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         return null;
     }
 
-    /// <summary>Načte výsledky z /history/{promptId} — volá se po execution_success.</summary>
+    /// <summary>
+    /// Načte výsledky z /history/{promptId}.
+    /// Detekuje selhání jobu (status.status_str == "error") a vyhodí
+    /// <see cref="ComfyExecutionException"/> — polling pak skončí s chybou místo
+    /// točení do nekonečna.
+    /// </summary>
     private async Task<ComfyGenerationResult?> FetchHistoryResultAsync(
         string promptId, CancellationToken ct)
     {
@@ -481,6 +502,35 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         var json = await resp.Content.ReadAsStringAsync(ct);
         using var doc = JsonDocument.Parse(json);
         if (!doc.RootElement.TryGetProperty(promptId, out var entry)) return null;
+
+        // Pokud history říká, že job selhal, vyhodíme chybu — polling nemá smysl čekat dál.
+        if (entry.TryGetProperty("status", out var status))
+        {
+            var statusStr = status.TryGetProperty("status_str", out var ss) ? ss.GetString() : null;
+            var completed = status.TryGetProperty("completed", out var comp) && comp.ValueKind == JsonValueKind.True;
+            if (completed && statusStr == "error")
+            {
+                // Zkusíme vytáhnout chybovou zprávu z messages[].
+                var errMsg = "ComfyUI job selhal (bez detailu)";
+                if (status.TryGetProperty("messages", out var msgs) && msgs.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var m in msgs.EnumerateArray())
+                    {
+                        if (m.ValueKind == JsonValueKind.Array && m.GetArrayLength() >= 2)
+                        {
+                            var mType = m[0].GetString();
+                            if (mType == "execution_error" && m[1].ValueKind == JsonValueKind.Object
+                                && m[1].TryGetProperty("exception_message", out var em))
+                            {
+                                errMsg = $"ComfyUI chyba: {em.GetString()}";
+                                break;
+                            }
+                        }
+                    }
+                }
+                throw new ComfyExecutionException(errMsg);
+            }
+        }
 
         var images = new List<ComfyImageRef>();
         if (entry.TryGetProperty("outputs", out var outputs))
@@ -501,15 +551,23 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         return images.Count > 0 ? new ComfyGenerationResult(promptId, images, DateTime.Now) : null;
     }
 
-    /// <summary>Polling fallback pro případ, že WebSocket selže.</summary>
+    /// <summary>Polling fallback pro případ, že WebSocket connection selže.</summary>
     private async Task<ComfyGenerationResult?> WaitViaPollingAsync(
         string promptId, IProgress<int>? progress, CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        // Timeout 5 minut — bez něj by polling chodil donekonečna pokud ComfyUI selže
+        // a history nikdy nehlásí completed (např. crash ComfyUI procesu).
+        using var timeoutCts  = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        using var linkedCts   = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+        var linkedCt = linkedCts.Token;
+
+        while (!linkedCt.IsCancellationRequested)
         {
             try
             {
-                var result = await FetchHistoryResultAsync(promptId, ct);
+                // FetchHistoryResultAsync vyhodí ComfyExecutionException pokud job selhal —
+                // nechceme ji zachytit, propagujeme ji volajícímu (GenerateAsync → UI chybová hláška)
+                var result = await FetchHistoryResultAsync(promptId, linkedCt);
                 if (result is not null)
                 {
                     progress?.Report(100);
@@ -517,14 +575,15 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                 }
             }
             catch (OperationCanceledException) { throw; }
-            catch { /* přejdeme */ }
+            catch (ComfyExecutionException)    { throw; }
+            catch { /* přejdeme — přechodná HTTP chyba */ }
 
             try
             {
-                var queueResp = await _http.GetAsync($"{BaseUrl}/queue", ct);
+                var queueResp = await _http.GetAsync($"{BaseUrl}/queue", linkedCt);
                 if (queueResp.IsSuccessStatusCode)
                 {
-                    var queueJson = await queueResp.Content.ReadAsStringAsync(ct);
+                    var queueJson = await queueResp.Content.ReadAsStringAsync(linkedCt);
                     using var queueDoc = JsonDocument.Parse(queueJson);
                     var isRunning = queueDoc.RootElement
                         .GetProperty("queue_running")
@@ -535,8 +594,12 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             }
             catch { /* přejdeme */ }
 
-            await Task.Delay(600, ct);
+            try { await Task.Delay(600, linkedCt); }
+            catch (OperationCanceledException) { break; }
         }
+
+        if (timeoutCts.IsCancellationRequested)
+            throw new ComfyExecutionException("Timeout: ComfyUI neodpověděl za 5 minut.");
 
         return null;
     }

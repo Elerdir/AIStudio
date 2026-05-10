@@ -843,9 +843,12 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             foreach (var ext in new[] { "*.safetensors", "*.pt", "*.ckpt" })
             foreach (var path in Directory.EnumerateFiles(dir, ext, SearchOption.AllDirectories))
             {
-                var name = Path.GetFileName(path);
-                if (seen.Add(name))
-                    found.Add(name);
+                // ComfyUI LoraLoader očekává relativní cestu od kořene loras adresáře,
+                // např. "anime/lora.safetensors" — ne jen "lora.safetensors".
+                // Lomítka musí být dopředná (ComfyUI/Python konvence).
+                var relativeName = Path.GetRelativePath(dir, path).Replace('\\', '/');
+                if (seen.Add(relativeName))
+                    found.Add(relativeName);
             }
         }
         catch (Exception ex) { Log.Warning(ex, "ScanLocalLoras failed"); }
