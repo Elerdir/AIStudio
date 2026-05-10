@@ -289,9 +289,46 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     }
 
     /// <summary>
+    // Podadresáře ComfyUI, které NEJSOU checkpointy — jejich soubory se
+    // nesmí zobrazovat v pickeru modelů pro generování.
+    private static readonly HashSet<string> ExcludedModelSubdirs =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "controlnet", "control_net", "control-net",
+            "vae", "vae-approx", "vae_approx",
+            "lora", "loras",
+            "clip", "clip_vision", "clip-vision",
+            "embeddings", "embedding",
+            "upscale_models", "upscale", "esrgan",
+            "hypernetworks", "hypernetwork",
+            "photomaker",
+            "ipadapter", "ip_adapter", "ip-adapter",
+            "style_models",
+            "gligen",
+            "animatediff_models",
+        };
+
+    /// <summary>
+    /// Vrátí true pokud soubor leží v podadresáři, který ComfyUI vyhrazuje
+    /// pro jiný typ modelu než checkpoint (ControlNet, VAE, LoRA, …).
+    /// </summary>
+    private static bool IsInExcludedSubdir(string filePath, string baseDir)
+    {
+        var relative = Path.GetRelativePath(baseDir, filePath);
+        // Rozlož na části a projdi všechny adresáře (vše kromě posledního prvku = souboru)
+        var parts = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        for (var i = 0; i < parts.Length - 1; i++)
+        {
+            if (ExcludedModelSubdirs.Contains(parts[i]))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// Najde v Models/ složce všechny soubory, které vypadají jako image checkpointy.
-    /// .safetensors je přímo SDXL/SD; .gguf jen pokud je to FLUX (chat GGUFy
-    /// odfiltrujeme heuristikou na název souboru).
+    /// .safetensors je přímo SDXL/SD/FLUX; .gguf jen pokud je to FLUX nebo SD.
+    /// Vynechává soubory z podsložek vyhrazených pro jiné typy (controlnet, vae, lora…).
     /// </summary>
     private List<string> ScanLocalImageModels()
     {
@@ -309,14 +346,23 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             foreach (var path in Directory.EnumerateFiles(dir, "*.safetensors", SearchOption.AllDirectories))
             {
                 var fn = Path.GetFileName(path);
-                // Vynecháme FLUX pomocné soubory (clip_l, t5xxl, ae) — nejsou checkpointy
-                if (!FluxDependencyService.IsFluxDep(fn))
-                    found.Add(fn);
+
+                // Přeskoč FLUX pomocné soubory (clip_l, t5xxl, ae)
+                if (FluxDependencyService.IsFluxDep(fn))
+                    continue;
+
+                // Přeskoč soubory v podadresářích pro jiné typy (controlnet, vae, lora…)
+                if (IsInExcludedSubdir(path, dir))
+                    continue;
+
+                found.Add(fn);
             }
 
-            // Image GGUF jsou typicky pojmenované flux1-* nebo sd-*
+            // Image GGUF — FLUX nebo SD difúzní modely
             foreach (var path in Directory.EnumerateFiles(dir, "*.gguf", SearchOption.AllDirectories))
             {
+                if (IsInExcludedSubdir(path, dir)) continue;
+
                 var fn = Path.GetFileName(path);
                 if (fn.StartsWith("flux", StringComparison.OrdinalIgnoreCase) ||
                     fn.StartsWith("sd",   StringComparison.OrdinalIgnoreCase))
