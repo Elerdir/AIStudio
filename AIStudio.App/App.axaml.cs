@@ -241,6 +241,8 @@ public partial class App : Application
                         _ = monitor.StartAsync();
                         _ = Task.Run(() => Services.GetRequiredService<IComfyService>().InitializeAsync());
                         _ = Task.Run(() => TriggerFluxDepsAsync(Services));
+                        // Doporučené modely vybrané ve wizardu — stáhne na pozadí
+                        _ = Task.Run(() => TriggerPendingDownloadsAsync(Services));
                     }
                     catch (Exception ex)
                     {
@@ -260,6 +262,8 @@ public partial class App : Application
                 _ = Task.Run(() => Services.GetRequiredService<IComfyService>().InitializeAsync());
                 // FLUX deps — stahujeme na pozadí pokud models dir obsahuje GGUF modely
                 _ = Task.Run(() => TriggerFluxDepsAsync(Services));
+                // Pending modely z wizardu nebo z předchozí přerušené session
+                _ = Task.Run(() => TriggerPendingDownloadsAsync(Services));
             }
         }
     }
@@ -355,6 +359,97 @@ public partial class App : Application
         catch (Exception ex)
         {
             Log.Warning(ex, "TriggerFluxDeps: chyba při stahování FLUX závislostí");
+        }
+    }
+
+    /// <summary>
+    /// Stáhne modely, které uživatel označil ve wizardu (krok 5) — perzistované
+    /// jako IDs v <see cref="AppSettings.PendingModelDownloads"/>. Voláno po
+    /// otevření hlavního okna jako fire-and-forget task na threadpoolu.
+    ///
+    /// Robustnost: pokud uživatel zavře aplikaci uprostřed stahování, zbylé
+    /// IDs zůstávají v seznamu a pokus se zopakuje při příštím spuštění
+    /// (volá se i v else větvi standardního startu).
+    /// </summary>
+    private static async Task TriggerPendingDownloadsAsync(IServiceProvider sp)
+    {
+        try
+        {
+            var settingsSvc = sp.GetRequiredService<ISettingsService>();
+            var pending     = settingsSvc.Settings.PendingModelDownloads.ToList();
+            if (pending.Count == 0)
+            {
+                Log.Debug("TriggerPendingDownloads: žádné pending modely");
+                return;
+            }
+
+            var downloader = sp.GetRequiredService<IDownloadService>();
+            var modelsDir  = string.IsNullOrWhiteSpace(settingsSvc.Settings.ModelsDirectory)
+                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                               "AIStudio", "Models")
+                : settingsSvc.Settings.ModelsDirectory;
+            Directory.CreateDirectory(modelsDir);
+
+            Log.Information("TriggerPendingDownloads: zahajuji stahování {N} modelů do {Dir}",
+                            pending.Count, modelsDir);
+
+            foreach (var id in pending)
+            {
+                var model = AIStudio.Infrastructure.Services.RecommendedModels.FindById(id);
+                if (model is null)
+                {
+                    Log.Warning("TriggerPendingDownloads: neznámé ID {Id} — odstraňuji", id);
+                    settingsSvc.Settings.PendingModelDownloads.Remove(id);
+                    continue;
+                }
+
+                var destPath = Path.Combine(modelsDir, model.FileName);
+                if (File.Exists(destPath))
+                {
+                    Log.Information("TriggerPendingDownloads: {File} už existuje, přeskakuji", model.FileName);
+                    settingsSvc.Settings.PendingModelDownloads.Remove(id);
+                    await settingsSvc.SaveAsync();
+                    continue;
+                }
+
+                var apiToken = model.RequiresHuggingFaceToken
+                    ? settingsSvc.Settings.HuggingFaceToken
+                    : null;
+
+                Log.Information("TriggerPendingDownloads: stahuji {Name} → {File} ({MB} MB)",
+                                model.Name, model.FileName, model.SizeBytes / 1_048_576);
+
+                try
+                {
+                    await downloader.DownloadFileAsync(
+                        url:            model.DownloadUrl,
+                        destPath:       destPath,
+                        progress:       null,
+                        apiToken:       apiToken,
+                        expectedSha256: model.Sha256);
+
+                    Log.Information("TriggerPendingDownloads: {Name} hotovo", model.Name);
+
+                    // Po úspěchu odstraň z pending a ulož
+                    settingsSvc.Settings.PendingModelDownloads.Remove(id);
+                    await settingsSvc.SaveAsync();
+
+                    // Refresh Model Manageru, ať to uživatel hned vidí
+                    settingsSvc.NotifyModelLibraryChanged();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "TriggerPendingDownloads: stažení {Name} selhalo, zkusí se znovu při příštím startu", model.Name);
+                    // Nesmažeme z pending — retry next time
+                }
+            }
+
+            // Po zpracování zkus i FLUX deps znovu — možná jsme právě stáhli první GGUF
+            await TriggerFluxDepsAsync(sp);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "TriggerPendingDownloads: neočekávaná chyba");
         }
     }
 
