@@ -587,6 +587,63 @@
                     </Border>
                 </StackPanel>
 
+                <!-- ══════════════════ AKTUALIZACE ══════════════════ -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="AKTUALIZACE" Classes="sectionHeader"/>
+                    <Border Classes="card">
+                        <StackPanel Spacing="14">
+                            <!-- Hlavní vypínač -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                                    <TextBlock Text="Kontrolovat aktualizace"
+                                               FontSize="13" Foreground="{DynamicResource TextLightBrush}"/>
+                                    <TextBlock Text="Při startu se zeptá UpdateHub serveru, zda existuje novější verze. Stažení vyžaduje SHA-256 ověření."
+                                               FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1"
+                                              IsChecked="{Binding CheckForUpdates}"
+                                              VerticalAlignment="Center"
+                                              OffContent=""
+                                              OnContent=""/>
+                            </Grid>
+
+                            <!-- Kanál — viditelný jen pokud je kontrola zapnutá -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"
+                                  IsVisible="{Binding CheckForUpdates}">
+                                <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                                    <TextBlock Text="Kanál"
+                                               FontSize="13" Foreground="{DynamicResource TextLightBrush}"/>
+                                    <TextBlock Text="Stable je doporučený. Beta a alpha dostávají preview buildy dřív, ale jsou méně stabilní."
+                                               FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ComboBox Grid.Column="1"
+                                          ItemsSource="{Binding UpdateChannels}"
+                                          SelectedItem="{Binding UpdateChannel}"
+                                          MinWidth="120"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+
+                            <!-- Informační boxík o cíli -->
+                            <Border Background="{DynamicResource HoverBgBrush}"
+                                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                    CornerRadius="6" Padding="10,8"
+                                    IsVisible="{Binding CheckForUpdates}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.InformationOutline}"
+                                                     Width="14" Height="14" VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Server: updatehub.niderle.cz · slug: ai-studio"
+                                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               FontFamily="Consolas,monospace"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
                 <!-- ══════════════════ O APLIKACI ══════════════════ -->
                 <StackPanel Spacing="12">
                     <TextBlock Text="O APLIKACI" Classes="sectionHeader"/>

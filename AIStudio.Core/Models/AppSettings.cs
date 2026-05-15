@@ -44,4 +44,19 @@ public class AppSettings
 
     /// <summary>Cesta k Python interpreteru. Prázdná = hledat v PATH.</summary>
     public string PythonPath { get; set; } = string.Empty;
+
+    // ── Aktualizace ───────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Povolit automatickou kontrolu aktualizací proti UpdateHub serveru
+    /// (https://updatehub.niderle.cz). Default = false dokud nepotvrdíme, že
+    /// server běží a vrací správný manifest pro aplikaci „ai-studio".
+    /// </summary>
+    public bool CheckForUpdates { get; set; } = false;
+
+    /// <summary>
+    /// Update channel — "stable" (výchozí), "beta", "alpha". UpdateHub vrací
+    /// nejnovější release v daném kanálu, takže beta-testeři dostávají preview.
+    /// </summary>
+    public string UpdateChannel { get; set; } = "stable";
 }

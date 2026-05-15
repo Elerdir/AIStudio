@@ -1,25 +1,35 @@
 using System.Diagnostics;
 using System.Reflection;
-using System.Text.Json;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
 using Serilog;
+using UpdateHub.Client;
 
 namespace AIStudio.Infrastructure.Services;
 
 /// <summary>
-/// Kontroluje GitHub Releases API pro novější verzi AI Studia a
-/// spustí stažený installer (Inno Setup self-extractor).
-/// GitHub repo se nastavuje přes konstanty níže.
+/// Kontroluje aktualizace přes UpdateHub server (https://updatehub.niderle.cz).
+/// Před stažením/spuštěním ověří SHA-256 podpisu — žádný blind exec.
+///
+/// Server musí vracet manifest pro aplikaci se slugem <c>ai-studio</c>
+/// s odpovídající platformou a architekturou. Pokud server neběží nebo
+/// klient nemá <see cref="AppSettings.CheckForUpdates"/> = true, vrací null
+/// (silent fail — neblokujeme start aplikace).
 /// </summary>
 public sealed class UpdateService : IUpdateService
 {
-    private const string GitHubOwner = "oksystem";
-    private const string GitHubRepo  = "aistudio";
-    private const string ApiUrl      = $"https://api.github.com/repos/{GitHubOwner}/{GitHubRepo}/releases/latest";
+    /// <summary>
+    /// Slug aplikace v UpdateHub administraci — musí přesně odpovídat tomu,
+    /// co je registrováno v admin UI updatehub.niderle.cz.
+    /// </summary>
+    private const string AppSlug = "ai-studio";
+
+    /// <summary>Base URL UpdateHub serveru (production).</summary>
+    private const string DefaultServerUrl = "https://updatehub.niderle.cz";
 
     private readonly HttpClient        _http;
     private readonly IDownloadService  _downloader;
+    private readonly ISettingsService  _settings;
 
     public Version CurrentVersion { get; } =
         Assembly.GetEntryAssembly()
@@ -30,73 +40,71 @@ public sealed class UpdateService : IUpdateService
             ? parsed
             : new Version(0, 1, 0);
 
-    public UpdateService(IHttpClientFactory httpFactory, IDownloadService downloader)
+    public UpdateService(IHttpClientFactory httpFactory,
+                         IDownloadService    downloader,
+                         ISettingsService    settings)
     {
         _http       = httpFactory.CreateClient("update");
         _downloader = downloader;
+        _settings   = settings;
     }
 
     public async Task<UpdateInfo?> CheckForUpdateAsync(CancellationToken ct = default)
     {
+        // Respektuj uživatelské nastavení — pokud má vypnuté kontroly, nic neděláme.
+        // Defaultně OFF dokud nepotvrdíme, že server běží.
+        if (!_settings.Settings.CheckForUpdates)
+        {
+            Log.Debug("UpdateService: kontrola aktualizací je vypnuta (Settings.CheckForUpdates=false)");
+            return null;
+        }
+
+        var channel = string.IsNullOrWhiteSpace(_settings.Settings.UpdateChannel)
+            ? "stable"
+            : _settings.Settings.UpdateChannel;
+
         try
         {
-            Log.Information("UpdateService: kontrola GitHub releases {Url}", ApiUrl);
-            var json = await _http.GetStringAsync(ApiUrl, ct);
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
+            Log.Information("UpdateService: kontrola {Server} (slug={Slug}, current={Version}, channel={Channel}, platform={Platform}/{Arch})",
+                DefaultServerUrl, AppSlug, CurrentVersion, channel,
+                UpdateHubClient.CurrentPlatform, UpdateHubClient.CurrentArch);
 
-            var tagName = root.GetProperty("tag_name").GetString() ?? "";
-            var versionStr = tagName.TrimStart('v');
+            using var client = new UpdateHubClient(_http, DefaultServerUrl, AppSlug);
+            var result = await client.CheckForUpdateAsync(
+                currentVersion: CurrentVersion.ToString(3),
+                channel:        channel,
+                ct:             ct);
 
-            if (!System.Version.TryParse(versionStr, out var remoteVersion))
+            if (!result.HasUpdate || string.IsNullOrEmpty(result.DownloadUrl))
             {
-                Log.Warning("UpdateService: nepodařilo se parsovat verzi '{Tag}'", tagName);
+                Log.Information("UpdateService: verze {Current} je aktuální (latest={Latest})",
+                    CurrentVersion, result.LatestVersion);
                 return null;
             }
 
-            if (remoteVersion <= CurrentVersion)
-            {
-                Log.Information("UpdateService: verze {Current} je aktuální (remote={Remote})",
-                    CurrentVersion, remoteVersion);
-                return null;
-            }
+            Log.Information("UpdateService: dostupná verze {Version} ({Url}, sha256={Sha})",
+                result.LatestVersion,
+                result.DownloadUrl,
+                string.IsNullOrEmpty(result.Sha256) ? "?" : result.Sha256[..8] + "…");
 
-            // Najdi Windows installer asset (.exe)
-            var downloadUrl = string.Empty;
-            if (root.TryGetProperty("assets", out var assets))
-            {
-                foreach (var asset in assets.EnumerateArray())
-                {
-                    var name = asset.GetProperty("name").GetString() ?? "";
-                    if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    {
-                        downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
-                        break;
-                    }
-                }
-            }
-
-            if (string.IsNullOrEmpty(downloadUrl))
-            {
-                Log.Warning("UpdateService: nenalezen .exe asset v release {Tag}", tagName);
-                return null;
-            }
-
-            var notes = root.TryGetProperty("body", out var body)
-                ? body.GetString() ?? string.Empty
-                : string.Empty;
-
-            DateTimeOffset publishedAt = default;
-            if (root.TryGetProperty("published_at", out var pub) &&
-                DateTimeOffset.TryParse(pub.GetString(), out var dt))
-                publishedAt = dt;
-
-            Log.Information("UpdateService: dostupná verze {Version} ({Url})", versionStr, downloadUrl);
-            return new UpdateInfo(versionStr, downloadUrl, notes, publishedAt);
+            return new UpdateInfo(
+                Version:      result.LatestVersion,
+                DownloadUrl:  result.DownloadUrl,
+                ReleaseNotes: result.ReleaseNotes ?? string.Empty,
+                PublishedAt:  default,
+                Sha256:       result.Sha256,
+                IsMandatory:  result.IsMandatory);
+        }
+        catch (UpdateHubException ex)
+        {
+            // Server nedosažitelný / nevrátil platnou odpověď — silent fail.
+            // Neblokujeme aplikaci, jen logujeme.
+            Log.Warning("UpdateService: UpdateHub nedostupný: {Msg}", ex.Message);
+            return null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Log.Warning(ex, "UpdateService: chyba při kontrole aktualizací");
+            Log.Warning(ex, "UpdateService: neočekávaná chyba při kontrole aktualizací");
             return null;
         }
     }
@@ -106,14 +114,43 @@ public sealed class UpdateService : IUpdateService
         IProgress<DownloadProgressInfo>? progress = null,
         CancellationToken ct = default)
     {
-        var tempDir     = Path.Combine(Path.GetTempPath(), "AIStudio_Update");
+        var tempDir = Path.Combine(Path.GetTempPath(), "AIStudio_Update");
         Directory.CreateDirectory(tempDir);
 
-        var fileName    = Path.GetFileName(new Uri(update.DownloadUrl).LocalPath);
+        var fileName      = Path.GetFileName(new Uri(update.DownloadUrl).LocalPath);
         var installerPath = Path.Combine(tempDir, fileName);
 
         Log.Information("UpdateService: stahuji {Url} → {Path}", update.DownloadUrl, installerPath);
-        await _downloader.DownloadFileAsync(update.DownloadUrl, installerPath, progress, ct: ct);
+
+        // Předáme SHA-256 do DownloadService — pokud nesedí, DownloadService
+        // vyhodí ChecksumMismatchException a my installer nespouštíme.
+        await _downloader.DownloadFileAsync(
+            url:            update.DownloadUrl,
+            destPath:       installerPath,
+            progress:       progress,
+            expectedSha256: update.Sha256,
+            ct:             ct);
+
+        // Druhá kontrola — paranoidní obrana, kdyby DownloadService chybu nevyhodil
+        if (!string.IsNullOrEmpty(update.Sha256))
+        {
+            if (!UpdateHubClient.VerifySha256(installerPath, update.Sha256))
+            {
+                Log.Error("UpdateService: SHA-256 nesouhlasí pro {Path} — instalátor BYL SMAZÁN", installerPath);
+                try { File.Delete(installerPath); } catch { /* best effort */ }
+                throw new InvalidOperationException(
+                    "Stažený instalátor neprošel SHA-256 ověřením. " +
+                    "Stahování bylo přerušeno z bezpečnostních důvodů.");
+            }
+            Log.Information("UpdateService: SHA-256 ověřeno OK");
+        }
+        else
+        {
+            // Manifest nedodal hash — zalogujeme jako varování, ale neblokujeme
+            // (server může být ve stavu kdy hashe ještě nepodává).
+            Log.Warning("UpdateService: manifest pro {Version} neobsahuje SHA-256 — instalátor BUDE SPUŠTĚN BEZ OVĚŘENÍ",
+                        update.Version);
+        }
 
         Log.Information("UpdateService: spouštím installer {Path}", installerPath);
 

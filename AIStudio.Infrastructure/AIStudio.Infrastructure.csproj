@@ -2,6 +2,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AIStudio.Core\AIStudio.Core.csproj" />
+    <!-- UpdateHub.Client SDK — kontrola aktualizací přes updatehub.niderle.cz.
+         Než SDK půjde jako NuGet, používáme přímou project referenci.
+         Repo: E:\Projects\updatehub (sibling solution). -->
+    <ProjectReference Include="..\..\updatehub\sdk\UpdateHub.Client\UpdateHub.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

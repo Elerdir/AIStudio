@@ -42,6 +42,13 @@ public partial class SettingsPageViewModel : ViewModelBase
     [ObservableProperty] private bool   _autoStartComfyUi;
     [ObservableProperty] private string _pythonPath       = string.Empty;
 
+    // ── Aktualizace ───────────────────────────────────────────────────────────
+    [ObservableProperty] private bool   _checkForUpdates;
+    [ObservableProperty] private string _updateChannel = "stable";
+
+    /// <summary>Seznam dostupných update kanálů pro ComboBox v UI.</summary>
+    public IReadOnlyList<string> UpdateChannels { get; } = new[] { "stable", "beta", "alpha" };
+
     /// <summary>
     /// True pokud je v <see cref="ComfyUiDirectory"/> reálně rozbalený ComfyUI
     /// (cesta existuje a obsahuje main.py). Řídí UI v ComfyUI sekci — když true,
@@ -103,6 +110,8 @@ public partial class SettingsPageViewModel : ViewModelBase
         _comfyUiPort       = s.ComfyUiPort;
         _autoStartComfyUi  = s.AutoStartComfyUi;
         _pythonPath        = s.PythonPath;
+        _checkForUpdates   = s.CheckForUpdates;
+        _updateChannel     = string.IsNullOrWhiteSpace(s.UpdateChannel) ? "stable" : s.UpdateChannel;
     }
 
     // ── Auto-save při každé změně ─────────────────────────────────────────────
@@ -166,6 +175,20 @@ public partial class SettingsPageViewModel : ViewModelBase
     partial void OnPythonPathChanged(string value)
     {
         _settings.Settings.PythonPath = value;
+        ScheduleSave();
+    }
+
+    partial void OnCheckForUpdatesChanged(bool value)
+    {
+        _settings.Settings.CheckForUpdates = value;
+        Log.Information("Settings: CheckForUpdates → {Value}", value);
+        ScheduleSave();
+    }
+
+    partial void OnUpdateChannelChanged(string value)
+    {
+        _settings.Settings.UpdateChannel = string.IsNullOrWhiteSpace(value) ? "stable" : value;
+        Log.Information("Settings: UpdateChannel → {Channel}", _settings.Settings.UpdateChannel);
         ScheduleSave();
     }
 
