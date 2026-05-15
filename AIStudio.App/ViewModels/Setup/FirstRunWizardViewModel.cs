@@ -185,11 +185,41 @@ public partial class FirstRunWizardViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Seznam doporučených modelů pro UI binding (krok 5).</summary>
-    public List<RecommendedModelChoice> RecommendedModelChoices { get; } =
-        RecommendedModels.All
-            .Select(m => new RecommendedModelChoice(m, defaultSelected: true))
-            .ToList();
+    /// <summary>
+    /// Seznam doporučených modelů pro UI binding (krok 5). Inicializován
+    /// konzervativně na LowTier (3B + SD 1.5) — vejde se i do 4 GB VRAM.
+    /// Po detekci GPU (<see cref="OnGpuDetailChanged"/>) se přepne na
+    /// tier vhodný pro hardware (DefaultTier pro NVIDIA 8+ GB / Apple Silicon).
+    /// </summary>
+    public System.Collections.ObjectModel.ObservableCollection<RecommendedModelChoice> RecommendedModelChoices { get; }
+        = new(RecommendedModels.LowTier
+            .Select(m => new RecommendedModelChoice(m, defaultSelected: true)));
+
+    /// <summary>
+    /// Když dorazí výsledek GPU detekce, přepočítáme doporučené modely.
+    /// Zachováme stav (IsSelected) — pokud uživatel mezi tím něco odznačil,
+    /// jeho volba má přednost. Pro nově přidané položky default = true.
+    /// </summary>
+    partial void OnGpuDetailChanged(Gpu? value)
+    {
+        var picked = RecommendedModels.PickForGpu(value);
+
+        // Zachováme předchozí volby uživatele — pokud už něco vědomě odznačil,
+        // nepřeházíme mu to zpátky na "zaškrtnuté" jen kvůli detekci GPU.
+        var previousSelections = RecommendedModelChoices
+            .ToDictionary(c => c.Model.Id, c => c.IsSelected);
+
+        RecommendedModelChoices.Clear();
+        foreach (var m in picked)
+        {
+            var wasSelected = previousSelections.TryGetValue(m.Id, out var sel) ? sel : true;
+            RecommendedModelChoices.Add(new RecommendedModelChoice(m, defaultSelected: wasSelected));
+        }
+
+        OnPropertyChanged(nameof(HasSelectedRecommendedModels));
+        OnPropertyChanged(nameof(SelectedRecommendedCount));
+        OnPropertyChanged(nameof(RecommendedSummaryLine));
+    }
 
     /// <summary>True pokud uživatel vybral aspoň jeden model k stažení.</summary>
     public bool HasSelectedRecommendedModels =>

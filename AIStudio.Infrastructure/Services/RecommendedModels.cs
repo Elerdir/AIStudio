@@ -4,22 +4,28 @@ namespace AIStudio.Infrastructure.Services;
 
 /// <summary>
 /// Statická knihovna doporučených modelů — hardcoded seznam, který wizard nabízí
-/// uživateli. Cílíme na 1 LLM + 1 image generator, ať uživatel po wizardu
-/// **nemusí ručně hledat**, co stáhnout.
+/// uživateli. Cíl: po wizardu má uživatel stažený 1 chat + 1 image model
+/// vhodný pro jeho hardware, **bez nutnosti ručního výběru**.
+///
+/// Tiery podle VRAM:
+///   • Low tier (&lt; 8 GB) — Llama 3.2 3B + SD 1.5 (DreamShaper). Vejde se
+///     do 4 GB VRAM, run-able i na CPU.
+///   • Default tier (8 GB+) — Llama 3.1 8B + FLUX Schnell GGUF Q4. Vyšší
+///     kvalita, vyžaduje slušnou kartu.
 ///
 /// Kritéria výběru:
-///   • Chat: kompaktní, kvalitní v češtině, ~5 GB (vejde se do 8GB VRAM),
-///     OK licence pro distribuci.
-///   • Image: malý a rychlý (Schnell varianta FLUXu) — uživatel uvidí
-///     výsledek za sekundy, ne minuty.
-///   • Bez gated repo flagu pokud možno — wizard ještě nemusí mít HF token.
+///   • Chat: kvalitní v češtině, GGUF Q4_K_M (rovnováha kvalita/velikost),
+///     bez gated repa (žádný HF token nutný).
+///   • Image: rychlé (Schnell / Turbo), Apache nebo CreativeML Open licence.
 ///
-/// **Pozor:** SHA-256 hashe je nutné aktualizovat při změně URL nebo když
-/// HuggingFace přerazí soubor. Bez správného hashe DownloadService zruší
-/// stažení a smaže polovinu staženého souboru.
+/// **Pozor:** Pokud HuggingFace přerazí soubor (nezveřejněná verze), URL
+/// musí být ručně aktualizována. SHA-256 je null protože bartowski / city96
+/// nezveřejňují hashes — DownloadService bez hashe pouze stáhne bez verifikace.
 /// </summary>
 public static class RecommendedModels
 {
+    // ── Default tier (8 GB+ VRAM) ────────────────────────────────────────────
+
     /// <summary>
     /// Llama 3.1 8B Instruct v GGUF Q4_K_M kvantizaci.
     /// Velikost ~4.9 GB, vejde se do RTX 3060/3070 s 8 GB VRAM.
@@ -33,9 +39,6 @@ public static class RecommendedModels
         SizeBytes:                4_920_000_000L,
         DownloadUrl:              "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
         FileName:                 "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
-        // SHA-256 záměrně null — bartowski hashes nedodává v repo metadatech.
-        // DownloadService bez hashe pouze stáhne; uživatel uvidí progress.
-        // TODO: zařadit SHA-256 do RecommendedModel až bude perzistované checksum repo.
         Sha256:                   null,
         RequiresHuggingFaceToken: false);
 
@@ -55,12 +58,97 @@ public static class RecommendedModels
         Sha256:                   null,
         RequiresHuggingFaceToken: false);
 
-    /// <summary>Kompletní seznam doporučených modelů — pro UI iteraci.</summary>
+    // ── Low tier (&lt; 8 GB VRAM, integrovaná GPU, CPU-only) ─────────────────
+
+    /// <summary>
+    /// Llama 3.2 3B Instruct GGUF Q4_K_M — kompaktní model pro slabší železo.
+    /// Velikost ~2 GB, vejde se do 4 GB VRAM nebo poběží na CPU za pár tokenů/s.
+    /// Stejná rodina jako 8B verze, jen menší capacita.
+    /// </summary>
+    public static readonly RecommendedModel Llama32_3B_Instruct = new(
+        Id:                       "llama-3.2-3b-instruct-q4km",
+        Name:                     "Llama 3.2 3B Instruct (Q4_K_M)",
+        Description:              "Kompaktní chat model pro slabší železo (4 GB VRAM / CPU). Méně kvalitní než 8B, ale funguje rychle všude.",
+        Kind:                     RecommendedModelKind.Chat,
+        SizeBytes:                2_020_000_000L,
+        DownloadUrl:              "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        FileName:                 "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        Sha256:                   null,
+        RequiresHuggingFaceToken: false);
+
+    /// <summary>
+    /// DreamShaper 8 — Stable Diffusion 1.5 fine-tune, vyvážený realismus/styl.
+    /// Velikost ~2.1 GB safetensors (žádné samostatné CLIP/VAE potřeba — SD 1.5
+    /// má vše bundled). CreativeML Open RAIL-M licence, free pro non-commercial.
+    /// Vejde se do 4 GB VRAM, 512×512 obrázek za pár vteřin.
+    /// </summary>
+    public static readonly RecommendedModel DreamShaper8_Sd15 = new(
+        Id:                       "dreamshaper-8-sd15",
+        Name:                     "DreamShaper 8 (SD 1.5)",
+        Description:              "Lehký obrázkový model pro slabší železo — 512×512 za pár vteřin i na 4 GB VRAM.",
+        Kind:                     RecommendedModelKind.Image,
+        SizeBytes:                2_130_000_000L,
+        DownloadUrl:              "https://huggingface.co/Lykon/DreamShaper/resolve/main/DreamShaper_8_pruned.safetensors",
+        FileName:                 "DreamShaper_8_pruned.safetensors",
+        Sha256:                   null,
+        RequiresHuggingFaceToken: false);
+
+    // ── Veřejné kolekce + výběr podle hardwaru ───────────────────────────────
+
+    /// <summary>Kompletní seznam VŠECH modelů (default + low tier) — pro debug / unit tests.</summary>
     public static readonly IReadOnlyList<RecommendedModel> All = new[]
     {
         Llama31_8B_Instruct,
         FluxSchnell_Q4,
+        Llama32_3B_Instruct,
+        DreamShaper8_Sd15,
     };
+
+    /// <summary>Default tier — pro 8 GB+ VRAM nebo NVIDIA karty.</summary>
+    public static readonly IReadOnlyList<RecommendedModel> DefaultTier = new[]
+    {
+        Llama31_8B_Instruct,
+        FluxSchnell_Q4,
+    };
+
+    /// <summary>Low tier — pro &lt; 8 GB VRAM, integrované GPU nebo CPU-only stroje.</summary>
+    public static readonly IReadOnlyList<RecommendedModel> LowTier = new[]
+    {
+        Llama32_3B_Instruct,
+        DreamShaper8_Sd15,
+    };
+
+    /// <summary>
+    /// Vrátí 1 chat + 1 image model vhodný pro detekovanou GPU.
+    /// Pravidla:
+    ///   • NVIDIA s 8+ GB VRAM → default tier (vysoká kvalita)
+    ///   • NVIDIA s &lt; 8 GB VRAM → low tier (rychlost)
+    ///   • AMD/Intel/Vulkan → low tier (DirectML je pomalejší, větší modely by uživatele frustrovaly)
+    ///   • Apple Silicon → default tier (Metal je velmi efektivní i pro 8B+)
+    ///   • Unknown / null → low tier (konzervativní, "to musí jet všude")
+    /// </summary>
+    public static IReadOnlyList<RecommendedModel> PickForGpu(Gpu? gpu)
+    {
+        if (gpu is null) return LowTier;
+
+        return gpu.Vendor switch
+        {
+            // Apple Silicon — Metal je velmi efektivní, default tier i s 8 GB unified memory
+            GpuVendor.Apple                                    => DefaultTier,
+
+            // NVIDIA — rozhodneme podle VRAM
+            GpuVendor.Nvidia when gpu.VramBytes >= 8L * 1024 * 1024 * 1024 => DefaultTier,
+            GpuVendor.Nvidia                                   => LowTier,
+
+            // AMD/Intel přes DirectML — pomalejší pipeline, raději menší modely.
+            // Při 12 GB+ VRAM by uživatel mohl chtít default tier, ale generování
+            // FLUX přes DirectML trvá 1+ minutu, což není dobré first-impression.
+            GpuVendor.Amd or GpuVendor.Intel                   => LowTier,
+
+            // Unknown — bezpečnostní default
+            _                                                  => LowTier,
+        };
+    }
 
     /// <summary>Najde model podle <see cref="RecommendedModel.Id"/>. Vrací null pokud neexistuje.</summary>
     public static RecommendedModel? FindById(string id) =>

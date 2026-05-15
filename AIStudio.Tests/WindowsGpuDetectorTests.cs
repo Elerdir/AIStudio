@@ -10,6 +10,7 @@ namespace AIStudio.Tests;
 /// kandidáty na regresi pokud někdy přepneme PCI vendor IDs nebo přidáme
 /// nový adapter blacklist.
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 public class WindowsGpuDetectorTests
 {
     // ── ExtractVendor — PCI vendor ID ────────────────────────────────────────
