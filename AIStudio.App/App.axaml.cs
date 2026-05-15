@@ -126,6 +126,7 @@ public partial class App : Application
         services.AddSingleton<IComfyHttpClient, ComfyHttpClient>();
         services.AddSingleton<IComfyService, ComfyService>();
         services.AddSingleton<IComfyInstaller, ComfyInstaller>();
+        services.AddSingleton<ILoraLibraryService, LoraLibraryService>();
         services.AddSingleton<IImageRepository, SqliteImageRepository>();
         services.AddSingleton<IHuggingFaceClient, HuggingFaceClient>();
         services.AddSingleton<ICivitaiClient,     CivitaiClient>();

@@ -13,6 +13,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     private readonly IComfyService            _comfy;
     private readonly ISettingsService         _settings;
     private readonly IImageRepository         _imageRepo;
+    private readonly ILoraLibraryService      _loraLibrary;
     private readonly IImageIntentParser       _intentParser;
     private readonly IImageModelMatcher       _modelMatcher;
     private readonly ILlamaService            _llama;
@@ -58,6 +59,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         IComfyService            comfy,
         ISettingsService         settings,
         IImageRepository         imageRepo,
+        ILoraLibraryService      loraLibrary,
         IImageIntentParser       intentParser,
         IImageModelMatcher       modelMatcher,
         ILlamaService            llama,
@@ -67,6 +69,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         _comfy        = comfy;
         _settings     = settings;
         _imageRepo    = imageRepo;
+        _loraLibrary  = loraLibrary;
         _intentParser = intentParser;
         _modelMatcher = modelMatcher;
         _llama        = llama;
@@ -231,7 +234,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
 
     private ImageGeneratorViewModel CreateGenerator()
     {
-        var gen = new ImageGeneratorViewModel(_comfy, _settings, _imageRepo,
+        var gen = new ImageGeneratorViewModel(_comfy, _settings, _imageRepo, _loraLibrary,
                                                _intentParser, _modelMatcher, _llama,
                                                fluxDeps: _fluxDeps);
         // LoadCheckpointsAsync sloučí ComfyUI i lokální sken — voláme ho vždy,

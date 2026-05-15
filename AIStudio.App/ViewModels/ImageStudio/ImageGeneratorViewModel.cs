@@ -18,6 +18,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     private readonly IComfyService           _comfy;
     private readonly ISettingsService        _settings;
     private readonly IImageRepository        _imageRepo;
+    private readonly ILoraLibraryService     _loraLibrary;
     private readonly IImageIntentParser?     _intentParser;
     private readonly IImageModelMatcher?     _modelMatcher;
     private readonly ILlamaService?          _llama;
@@ -184,6 +185,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         IComfyService            comfy,
         ISettingsService         settings,
         IImageRepository         imageRepo,
+        ILoraLibraryService      loraLibrary,
         IImageIntentParser?      intentParser = null,
         IImageModelMatcher?      modelMatcher = null,
         ILlamaService?           llama        = null,
@@ -192,6 +194,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         _comfy        = comfy;
         _settings     = settings;
         _imageRepo    = imageRepo;
+        _loraLibrary  = loraLibrary;
         _intentParser = intentParser;
         _modelMatcher = modelMatcher;
         _llama        = llama;
@@ -874,22 +877,14 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     [RelayCommand]
     public async Task LoadLorasAsync()
     {
-        var combined = new List<string>();
-
-        if (_comfy.IsRunning)
-        {
-            try { combined.AddRange(await _comfy.GetLorasAsync()); }
-            catch (Exception ex) { Log.Warning(ex, "GetLorasAsync failed, using local scan"); }
-        }
-
-        foreach (var name in ScanLocalLoras())
-            if (!combined.Contains(name, StringComparer.OrdinalIgnoreCase))
-                combined.Add(name);
+        // Delegace na ILoraLibraryService — kombinuje ComfyUI seznam + lokální sken,
+        // vrací deduplikovaný a seřazený list (forward-slash format pro ComfyUI).
+        var combined = await _loraLibrary.ListAllAsync();
 
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             AvailableLoras.Clear();
-            foreach (var l in combined.OrderBy(n => n))
+            foreach (var l in combined)
                 AvailableLoras.Add(l);
         });
     }
@@ -907,45 +902,6 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
     [RelayCommand]
     private void ClearLoras() => SelectedLoras.Clear();
-
-    private List<string> ScanLocalLoras()
-    {
-        var modelsRoot = string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                           "AIStudio", "Models")
-            : _settings.Settings.ModelsDirectory;
-
-        // ComfyUI může mít podsložku "lora" nebo "loras" (obě jsou běžné).
-        // Skenujeme obě plus rootový adresář (někteří uživatelé dávají LoRA přímo sem).
-        var dirsToScan = new[]
-        {
-            Path.Combine(modelsRoot, "lora"),
-            Path.Combine(modelsRoot, "loras"),
-        }.Where(Directory.Exists).ToArray();
-
-        if (dirsToScan.Length == 0) return new List<string>();
-
-        var seen  = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var found = new List<string>();
-
-        try
-        {
-            foreach (var dir in dirsToScan)
-            foreach (var ext in new[] { "*.safetensors", "*.pt", "*.ckpt" })
-            foreach (var path in Directory.EnumerateFiles(dir, ext, SearchOption.AllDirectories))
-            {
-                // ComfyUI LoraLoader očekává relativní cestu od kořene loras adresáře,
-                // např. "anime/lora.safetensors" — ne jen "lora.safetensors".
-                // Lomítka musí být dopředná (ComfyUI/Python konvence).
-                var relativeName = Path.GetRelativePath(dir, path).Replace('\\', '/');
-                if (seen.Add(relativeName))
-                    found.Add(relativeName);
-            }
-        }
-        catch (Exception ex) { Log.Warning(ex, "ScanLocalLoras failed"); }
-
-        return found;
-    }
 
     /// <summary>Hromadné přidání cest z drag &amp; drop nebo jiného externího zdroje.</summary>
     public void AddReferenceImages(IEnumerable<string> paths)
