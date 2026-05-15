@@ -12,7 +12,8 @@ namespace AIStudio.Infrastructure.Services;
 
 public sealed class LlamaService : ILlamaService
 {
-    private readonly IGpuDetector? _gpuDetector;
+    private readonly IGpuDetector?          _gpuDetector;
+    private readonly ISystemMonitorService? _monitor;
 
     /// <summary>
     /// True jakmile jsme zavolali <see cref="NativeLibraryConfig"/>.With* metodu.
@@ -40,10 +41,15 @@ public sealed class LlamaService : ILlamaService
     /// DI registruje s <see cref="IGpuDetector"/> pokud je dostupný (Windows).
     /// Bez detektoru padáme zpět na původní hard-coded CUDA inicializaci —
     /// kompatibilní s aktuálním NVIDIA-only buildem.
+    ///
+    /// <see cref="ISystemMonitorService"/> je optional — slouží pro diagnostiku
+    /// při načítání modelu (VRAM/RAM delta před a po loadu). Bez něj loader
+    /// funguje, jen je v logu méně detailů.
     /// </summary>
-    public LlamaService(IGpuDetector? gpuDetector = null)
+    public LlamaService(IGpuDetector? gpuDetector = null, ISystemMonitorService? monitor = null)
     {
         _gpuDetector = gpuDetector;
+        _monitor     = monitor;
     }
 
     /// <summary>
@@ -139,11 +145,22 @@ public sealed class LlamaService : ILlamaService
 
             await DisposeModelAsync();
 
-            // Lazy backend init — musí proběhnout PŘED prvním LoadFromFileAsync.
-            // Jakmile LLamaSharp jednou inicializuje native lib, další With* volání
-            // už nepřepnou (process-global config).
+            // ── 1) Backend init ───────────────────────────────────────────────
             await EnsureBackendInitializedAsync(ct);
 
+            // ── 2) Diagnostika: file size + VRAM snapshot před loadem ─────────
+            long modelSizeBytes = 0;
+            try { modelSizeBytes = new FileInfo(modelPath).Length; } catch { /* nelze získat — diag bude méně přesný */ }
+
+            var vramBeforeGb = _monitor?.Current?.VramUsedGb ?? 0;
+            var ramBeforeGb  = _monitor?.Current?.RamUsedGb  ?? 0;
+
+            Log.Information("LlamaService.LoadModel: {Name} | path={Path} | velikost={SizeMB} MB | " +
+                            "GPU={UseGpu} | gpuLayers={Layers} | VRAM před={VramGb:F1} GB | RAM před={RamGb:F1} GB",
+                            modelName, modelPath, modelSizeBytes / 1_048_576,
+                            UseGpu, gpuLayers, vramBeforeGb, ramBeforeGb);
+
+            // ── 3) Vlastní load ───────────────────────────────────────────────
             var parameters = new ModelParams(modelPath)
             {
                 ContextSize    = 4096,
@@ -155,20 +172,87 @@ public sealed class LlamaService : ILlamaService
             _modelParams   = parameters;
             LoadedModelName = modelName;
 
-            // Zjistíme, jestli načtený backend skutečně podporuje GPU offload.
+            // ── 4) Diagnostika: zjisti, jestli skutečně skončil na GPU ────────
             // llama_supports_gpu_offload() vrací true pokud native DLL byl
-            // zkompilován s CUDA/ROCm — tedy jestli GpuLayerCount > 0 má efekt.
+            // zkompilován s CUDA/Vulkan/Metal — ale neříká, jestli ten konkrétní
+            // model skončil v GPU. Pro to měříme VRAM delta vs očekávaná velikost.
             var gpuSupported = false;
             try { gpuSupported = NativeApi.llama_supports_gpu_offload(); }
             catch { /* starší verze LLamaSharp nebo jiný název API */ }
 
-            BackendInfo = UseGpu && gpuSupported ? "GPU" : "CPU";
+            // VRAM ticker v SystemMonitorService aktualizuje každé 2,5 s; po LoadFromFileAsync
+            // dáme mu max 3,5 s na refresh, jinak diagnostika bude vrácet "nezměřeno".
+            double vramAfterGb = vramBeforeGb;
+            double ramAfterGb  = ramBeforeGb;
+            if (_monitor is not null)
+            {
+                try { await Task.Delay(3500, ct); } catch (OperationCanceledException) { }
+                vramAfterGb = _monitor.Current?.VramUsedGb ?? vramBeforeGb;
+                ramAfterGb  = _monitor.Current?.RamUsedGb  ?? ramBeforeGb;
+            }
+            var vramDeltaGb = vramAfterGb - vramBeforeGb;
+            var ramDeltaGb  = ramAfterGb  - ramBeforeGb;
 
-            var statusMsg = UseGpu && gpuSupported
-                ? $"Model: {modelName} [GPU ✓]"
-                : UseGpu
-                    ? $"Model: {modelName} [CPU — CUDA 12 runtime nenalezen, nainstaluj z nvidia.com]"
-                    : $"Model: {modelName} [CPU]";
+            // Heuristika: model měl skončit na GPU pokud:
+            //   1) UseGpu = true, gpuSupported = true
+            //   2) VRAM stoupla aspoň o 50 % velikosti modelu (zbytek je v RAM kvůli
+            //      mmap / kv cache / sdíleným weights — to je normální).
+            // Pokud UseGpu=true, gpuSupported=true, ale VRAM stoupla < 10 % velikosti =
+            // GPU offload selhal (např. nedostatek VRAM → llama.cpp tiše propadl na CPU).
+            var expectedVramGb     = modelSizeBytes / 1_073_741_824.0;
+            var vramOffloadSuccess = vramDeltaGb >= expectedVramGb * 0.5;
+            var probablyFellToCpu  = UseGpu && gpuSupported && _monitor is not null
+                                     && expectedVramGb > 0
+                                     && vramDeltaGb < expectedVramGb * 0.1;
+
+            // BackendInfo zachovává stávající smluvu pro UI badge:
+            //   - "GPU" = uživatel chce GPU, support exists, VRAM delta vypadá rozumně
+            //   - "CPU" = jakákoliv jiná kombinace
+            BackendInfo = UseGpu && gpuSupported && !probablyFellToCpu ? "GPU" : "CPU";
+
+            Log.Information("LlamaService.LoadModel: hotovo {Name} | backend={Backend} | gpu_offload={GpuOff} | " +
+                            "VRAM Δ={VramDelta:F2} GB | RAM Δ={RamDelta:F2} GB | offload_success={Success} | " +
+                            "fell_to_cpu={FellToCpu}",
+                            modelName, BackendInfo, gpuSupported, vramDeltaGb, ramDeltaGb,
+                            vramOffloadSuccess, probablyFellToCpu);
+
+            // ── 5) Status message s diagnostikou ─────────────────────────────
+            string statusMsg;
+            if (!UseGpu)
+            {
+                statusMsg = $"Model: {modelName} [CPU — uživatel zvolil v Nastavení]";
+            }
+            else if (!gpuSupported)
+            {
+                // CUDA/Vulkan native lib se nenahraje — runtime chybí
+                statusMsg = DetectedGpu?.Vendor switch
+                {
+                    AIStudio.Core.Models.GpuVendor.Nvidia
+                        => $"Model: {modelName} [CPU — CUDA 12 runtime nenalezen, nainstaluj z nvidia.com]",
+                    AIStudio.Core.Models.GpuVendor.Amd or AIStudio.Core.Models.GpuVendor.Intel
+                        => $"Model: {modelName} [CPU — Vulkan runtime nenalezen, aktualizuj GPU ovladač]",
+                    _   => $"Model: {modelName} [CPU — GPU backend nenalezen]"
+                };
+            }
+            else if (probablyFellToCpu)
+            {
+                // Worst case — backend lib OK, ale VRAM nestouplo. Nejčastější příčina:
+                // model je větší než dostupná VRAM, llama.cpp tiše propadl na CPU.
+                statusMsg = $"Model: {modelName} [CPU fallback — model se nevešel do VRAM " +
+                            $"(potřebuje ~{expectedVramGb:F1} GB)]";
+                Log.Warning("LlamaService: GPU offload tiše selhal pro {Name} (model {Size:F1} GB, " +
+                            "VRAM Δ jen {Delta:F2} GB). Zkus menší kvantizaci nebo modelu, " +
+                            "nebo ulož ostatní GPU procesy.",
+                            modelName, expectedVramGb, vramDeltaGb);
+            }
+            else
+            {
+                // Vše OK — model je na GPU
+                var deltaInfo = _monitor is not null && vramDeltaGb >= 0.1
+                    ? $" — VRAM +{vramDeltaGb:F1} GB"
+                    : string.Empty;
+                statusMsg = $"Model: {modelName} [GPU ✓]{deltaInfo}";
+            }
 
             StatusChanged?.Invoke(statusMsg);
         }
