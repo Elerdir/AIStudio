@@ -9,12 +9,9 @@ namespace AIStudio.Infrastructure.Services;
 
 public sealed class ComfyService : IComfyService, IAsyncDisposable
 {
-    private readonly ISettingsService _settings;
-    private readonly IComfyInstaller  _installer;
-    private static readonly HttpClient _http = new()
-    {
-        Timeout = TimeSpan.FromSeconds(30)
-    };
+    private readonly ISettingsService  _settings;
+    private readonly IComfyInstaller   _installer;
+    private readonly IComfyHttpClient  _httpClient;
 
     private Process? _process;
     private readonly string _clientId = Guid.NewGuid().ToString("N")[..12];
@@ -37,10 +34,11 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "AIStudio", "comfy.pid");
 
-    public ComfyService(ISettingsService settings, IComfyInstaller installer)
+    public ComfyService(ISettingsService settings, IComfyInstaller installer, IComfyHttpClient httpClient)
     {
-        _settings  = settings;
-        _installer = installer;
+        _settings   = settings;
+        _installer  = installer;
+        _httpClient = httpClient;
     }
 
     // ── Init ──────────────────────────────────────────────────────────────────
@@ -378,147 +376,23 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
     }
 
     // ── ComfyUI API ───────────────────────────────────────────────────────────
+    //
+    // Všechna HTTP volání delegována na IComfyHttpClient — stateless mapper,
+    // testovatelný s HttpMessageHandler mockem. ComfyService řídí jen process
+    // lifecycle (start/stop/PID file/kill orphan) a WebSocket monitoring.
 
-    public async Task<IReadOnlyList<string>> GetCheckpointsAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            var json = await _http.GetStringAsync($"{BaseUrl}/object_info/CheckpointLoaderSimple", ct);
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement
-                    .GetProperty("CheckpointLoaderSimple")
-                    .GetProperty("input")
-                    .GetProperty("required")
-                    .GetProperty("ckpt_name")[0] is { ValueKind: JsonValueKind.Array } arr)
-            {
-                return arr.EnumerateArray()
-                          .Select(e => e.GetString() ?? "")
-                          .Where(s => !string.IsNullOrEmpty(s))
-                          .OrderBy(s => s)
-                          .ToList();
-            }
-        }
-        catch { /* ComfyUI nedostupné nebo jiný formát */ }
-        return Array.Empty<string>();
-    }
+    public Task<IReadOnlyList<string>> GetCheckpointsAsync(CancellationToken ct = default) =>
+        _httpClient.GetCheckpointsAsync(Port, ct);
 
-    public async Task<IReadOnlyList<string>> GetLorasAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            var json = await _http.GetStringAsync($"{BaseUrl}/object_info/LoraLoader", ct);
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement
-                    .GetProperty("LoraLoader")
-                    .GetProperty("input")
-                    .GetProperty("required")
-                    .GetProperty("lora_name")[0] is { ValueKind: JsonValueKind.Array } arr)
-            {
-                return arr.EnumerateArray()
-                          .Select(e => e.GetString() ?? "")
-                          .Where(s => !string.IsNullOrEmpty(s))
-                          .OrderBy(s => s)
-                          .ToList();
-            }
-        }
-        catch { /* ComfyUI nedostupné nebo jiný formát */ }
-        return Array.Empty<string>();
-    }
+    public Task<IReadOnlyList<string>> GetLorasAsync(CancellationToken ct = default) =>
+        _httpClient.GetLorasAsync(Port, ct);
 
-    public async Task<string> QueuePromptAsync(Dictionary<string, object> workflow,
-                                                CancellationToken ct = default)
-    {
-        var body = JsonSerializer.Serialize(new
-        {
-            prompt    = workflow,
-            client_id = _clientId,
-        });
+    public Task<string> QueuePromptAsync(Dictionary<string, object> workflow,
+                                          CancellationToken ct = default) =>
+        _httpClient.QueuePromptAsync(Port, workflow, _clientId, ct);
 
-        using var content  = new StringContent(body, Encoding.UTF8, "application/json");
-        using var response = await _http.PostAsync($"{BaseUrl}/prompt", content, ct);
-
-        // ComfyUI při validation erroru vrací 400 + JSON s detailem v node_errors
-        // (např. „CheckpointLoaderSimple: ckpt_name not in []"). Bez parsování by
-        // uživatel viděl jen generický 400 Bad Request.
-        var json = await response.Content.ReadAsStringAsync(ct);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException(BuildValidationErrorMessage(json));
-        }
-
-        using var doc = JsonDocument.Parse(json);
-        return doc.RootElement.GetProperty("prompt_id").GetString()
-               ?? throw new InvalidOperationException("ComfyUI nevratilo prompt_id");
-    }
-
-    /// <summary>
-    /// Z 400 odpovědi ComfyUI poskládá lidsky čitelnou hlášku.
-    /// Typický payload obsahuje <c>node_errors</c> mapu node_id → list chyb,
-    /// kde každá chyba má <c>message</c> a <c>details</c> (např.
-    /// "Value not in list: ckpt_name: 'flux1-dev.gguf' not in []").
-    /// </summary>
-    private static string BuildValidationErrorMessage(string json)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-
-            // Hlavní zpráva
-            var message = root.TryGetProperty("error", out var err) &&
-                          err.ValueKind == JsonValueKind.Object &&
-                          err.TryGetProperty("message", out var m)
-                ? m.GetString() ?? "Workflow validace selhala"
-                : "Workflow validace selhala";
-
-            // Sesbíráme node-level errory, pokud existují
-            var details = new List<string>();
-            if (root.TryGetProperty("node_errors", out var nodeErrors) &&
-                nodeErrors.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var node in nodeErrors.EnumerateObject())
-                {
-                    if (!node.Value.TryGetProperty("errors", out var errs)) continue;
-                    foreach (var e in errs.EnumerateArray())
-                    {
-                        var nodeMsg = e.TryGetProperty("message", out var em) ? em.GetString() : null;
-                        var det     = e.TryGetProperty("details", out var ed) ? ed.GetString() : null;
-                        if (!string.IsNullOrEmpty(nodeMsg))
-                            details.Add(string.IsNullOrEmpty(det) ? nodeMsg : $"{nodeMsg} — {det}");
-                    }
-                }
-            }
-
-            return details.Count == 0
-                ? message
-                : $"{message}: {string.Join("; ", details)}";
-        }
-        catch
-        {
-            // Pokud není parsovatelný JSON, vrátíme aspoň surovou odpověď
-            return string.IsNullOrWhiteSpace(json)
-                ? "ComfyUI vrátilo prázdnou chybovou odpověď"
-                : $"ComfyUI: {json[..Math.Min(json.Length, 300)]}";
-        }
-    }
-
-    public async Task<string> UploadImageAsync(string localFilePath, CancellationToken ct = default)
-    {
-        await using var stream = File.OpenRead(localFilePath);
-        using var form    = new MultipartFormDataContent();
-        using var imgBody = new StreamContent(stream);
-        form.Add(imgBody,                               "image", Path.GetFileName(localFilePath));
-        form.Add(new StringContent("input"),            "type");
-        form.Add(new StringContent("true"),             "overwrite");
-
-        using var resp = await _http.PostAsync($"{BaseUrl}/upload/image", form, ct);
-        var json = await resp.Content.ReadAsStringAsync(ct);
-
-        using var doc = JsonDocument.Parse(json);
-        return doc.RootElement.GetProperty("name").GetString()
-               ?? throw new InvalidOperationException("ComfyUI upload nevrátilo název souboru");
-    }
+    public Task<string> UploadImageAsync(string localFilePath, CancellationToken ct = default) =>
+        _httpClient.UploadImageAsync(Port, localFilePath, ct);
 
     public async Task<ComfyGenerationResult?> WaitForResultAsync(
         string promptId, IProgress<int>? progress, CancellationToken ct)
@@ -542,9 +416,6 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         }
     }
 
-    /// <summary>Vyvolána pokud ComfyUI samo ohlásí chybu (execution_error event).</summary>
-    private sealed class ComfyExecutionException(string message) : Exception(message);
-
     /// <summary>
     /// Sleduje průběh generování přes ComfyUI WebSocket.
     /// Hlásí reálný krok/maximum (např. „8 / 20"), takže progress bar ukazuje přesnou hodnotu.
@@ -553,7 +424,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         string promptId, IProgress<int>? progress, CancellationToken ct)
     {
         using var ws = new System.Net.WebSockets.ClientWebSocket();
-        var wsUri    = new Uri($"ws://localhost:{_settings.Settings.ComfyUiPort}/ws?clientId={_clientId}");
+        var wsUri    = new Uri($"ws://localhost:{Port}/ws?clientId={_clientId}");
         await ws.ConnectAsync(wsUri, ct);
 
         var buffer = new byte[16_384];
@@ -592,7 +463,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                         if (pid == promptId)
                         {
                             progress?.Report(100);
-                            return await FetchHistoryResultAsync(promptId, ct);
+                            return await _httpClient.FetchHistoryResultAsync(Port, promptId, ct);
                         }
                         break;
 
@@ -623,70 +494,6 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         return null;
     }
 
-    /// <summary>
-    /// Načte výsledky z /history/{promptId}.
-    /// Detekuje selhání jobu (status.status_str == "error") a vyhodí
-    /// <see cref="ComfyExecutionException"/> — polling pak skončí s chybou místo
-    /// točení do nekonečna.
-    /// </summary>
-    private async Task<ComfyGenerationResult?> FetchHistoryResultAsync(
-        string promptId, CancellationToken ct)
-    {
-        var resp = await _http.GetAsync($"{BaseUrl}/history/{promptId}", ct);
-        if (!resp.IsSuccessStatusCode) return null;
-
-        var json = await resp.Content.ReadAsStringAsync(ct);
-        using var doc = JsonDocument.Parse(json);
-        if (!doc.RootElement.TryGetProperty(promptId, out var entry)) return null;
-
-        // Pokud history říká, že job selhal, vyhodíme chybu — polling nemá smysl čekat dál.
-        if (entry.TryGetProperty("status", out var status))
-        {
-            var statusStr = status.TryGetProperty("status_str", out var ss) ? ss.GetString() : null;
-            var completed = status.TryGetProperty("completed", out var comp) && comp.ValueKind == JsonValueKind.True;
-            if (completed && statusStr == "error")
-            {
-                // Zkusíme vytáhnout chybovou zprávu z messages[].
-                var errMsg = "ComfyUI job selhal (bez detailu)";
-                if (status.TryGetProperty("messages", out var msgs) && msgs.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var m in msgs.EnumerateArray())
-                    {
-                        if (m.ValueKind == JsonValueKind.Array && m.GetArrayLength() >= 2)
-                        {
-                            var mType = m[0].GetString();
-                            if (mType == "execution_error" && m[1].ValueKind == JsonValueKind.Object
-                                && m[1].TryGetProperty("exception_message", out var em))
-                            {
-                                errMsg = $"ComfyUI chyba: {em.GetString()}";
-                                break;
-                            }
-                        }
-                    }
-                }
-                throw new ComfyExecutionException(errMsg);
-            }
-        }
-
-        var images = new List<ComfyImageRef>();
-        if (entry.TryGetProperty("outputs", out var outputs))
-        {
-            foreach (var node in outputs.EnumerateObject())
-            {
-                if (!node.Value.TryGetProperty("images", out var imgs)) continue;
-                foreach (var img in imgs.EnumerateArray())
-                {
-                    images.Add(new ComfyImageRef(
-                        img.GetProperty("filename").GetString() ?? "",
-                        img.TryGetProperty("subfolder", out var sf) ? sf.GetString() ?? "" : "",
-                        img.TryGetProperty("type", out var t2) ? t2.GetString() ?? "output" : "output"));
-                }
-            }
-        }
-
-        return images.Count > 0 ? new ComfyGenerationResult(promptId, images, DateTime.Now) : null;
-    }
-
     /// <summary>Polling fallback pro případ, že WebSocket connection selže.</summary>
     private async Task<ComfyGenerationResult?> WaitViaPollingAsync(
         string promptId, IProgress<int>? progress, CancellationToken ct)
@@ -703,7 +510,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             {
                 // FetchHistoryResultAsync vyhodí ComfyExecutionException pokud job selhal —
                 // nechceme ji zachytit, propagujeme ji volajícímu (GenerateAsync → UI chybová hláška)
-                var result = await FetchHistoryResultAsync(promptId, linkedCt);
+                var result = await _httpClient.FetchHistoryResultAsync(Port, promptId, linkedCt);
                 if (result is not null)
                 {
                     progress?.Report(100);
@@ -714,19 +521,11 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             catch (ComfyExecutionException)    { throw; }
             catch { /* přejdeme — přechodná HTTP chyba */ }
 
+            // Heuristický progress podle obsazenosti fronty (10 = pending, 50 = running, jinak nezasaháme)
             try
             {
-                var queueResp = await _http.GetAsync($"{BaseUrl}/queue", linkedCt);
-                if (queueResp.IsSuccessStatusCode)
-                {
-                    var queueJson = await queueResp.Content.ReadAsStringAsync(linkedCt);
-                    using var queueDoc = JsonDocument.Parse(queueJson);
-                    var isRunning = queueDoc.RootElement
-                        .GetProperty("queue_running")
-                        .EnumerateArray()
-                        .Any(item => item.GetArrayLength() > 1 && item[1].GetString() == promptId);
-                    progress?.Report(isRunning ? 50 : 10);
-                }
+                var depth = await _httpClient.GetQueueDepthAsync(Port, linkedCt);
+                if (depth > 0) progress?.Report(50);
             }
             catch { /* přejdeme */ }
 
@@ -740,33 +539,16 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         return null;
     }
 
-    public async Task<byte[]> DownloadImageAsync(string filename, string subfolder = "",
-                                                  string type = "output",
-                                                  CancellationToken ct = default)
-    {
-        var url = $"{BaseUrl}/view?" +
-                  $"filename={Uri.EscapeDataString(filename)}" +
-                  $"&subfolder={Uri.EscapeDataString(subfolder)}" +
-                  $"&type={Uri.EscapeDataString(type)}";
-
-        return await _http.GetByteArrayAsync(url, ct);
-    }
+    public Task<byte[]> DownloadImageAsync(string filename, string subfolder = "",
+                                            string type = "output",
+                                            CancellationToken ct = default) =>
+        _httpClient.DownloadImageAsync(Port, filename, subfolder, type, ct);
 
     // ── Internals ─────────────────────────────────────────────────────────────
 
-    private string BaseUrl =>
-        $"http://localhost:{_settings.Settings.ComfyUiPort}";
+    private int Port => _settings.Settings.ComfyUiPort;
 
-    private async Task<bool> IsHealthyAsync()
-    {
-        try
-        {
-            using var cts  = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-            var       resp = await _http.GetAsync($"{BaseUrl}/system_stats", cts.Token);
-            return resp.IsSuccessStatusCode;
-        }
-        catch { return false; }
-    }
+    private Task<bool> IsHealthyAsync() => _httpClient.IsHealthyAsync(Port);
 
     /// <summary>
     /// Vytvoří v ComfyUI rootu soubor <c>extra_model_paths.yaml</c>, který ComfyUI

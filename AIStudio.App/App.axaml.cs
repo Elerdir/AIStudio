@@ -123,6 +123,7 @@ public partial class App : Application
         services.AddSingleton<ILlamaService, LlamaService>();
         services.AddSingleton<IDownloadService, DownloadService>();
         services.AddSingleton<IChatRepository, SqliteChatRepository>();
+        services.AddSingleton<IComfyHttpClient, ComfyHttpClient>();
         services.AddSingleton<IComfyService, ComfyService>();
         services.AddSingleton<IComfyInstaller, ComfyInstaller>();
         services.AddSingleton<IImageRepository, SqliteImageRepository>();
