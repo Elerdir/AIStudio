@@ -92,8 +92,8 @@ public partial class FirstRunWizardViewModel : ViewModelBase
     public string GpuDetailLine => GpuDetail?.Vendor switch
     {
         GpuVendor.Nvidia => "Plná CUDA podpora — LLM a obrázky poběží na GPU.",
-        GpuVendor.Amd    => "AMD karta — LLM zatím poběží na CPU, plná Vulkan podpora přijde v další verzi. Generování obrázků bude přes DirectML (pomalejší než NVIDIA, ale funguje).",
-        GpuVendor.Intel  => "Intel GPU — LLM zatím poběží na CPU, plná Vulkan podpora přijde v další verzi. Generování obrázků přes DirectML.",
+        GpuVendor.Amd    => "AMD karta — LLM poběží přes Vulkan (cca 70–80 % CUDA rychlosti). Generování obrázků bude přes DirectML (pomalejší než NVIDIA, ale funguje).",
+        GpuVendor.Intel  => "Intel GPU — LLM poběží přes Vulkan. Generování obrázků přes DirectML (pomalejší než NVIDIA, ale funguje).",
         GpuVendor.Apple  => "Apple Silicon — Metal backend přijde s macOS verzí AI Studia.",
         GpuVendor.Unknown => "Žádná GPU nebyla detekována — vše poběží na CPU. Můžete zkusit menší modely (Llama 3.2 3B).",
         _                 => string.Empty,

@@ -30,6 +30,11 @@
        LLamaSharp.Backend.Metal (Apple Silicon). -->
   <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
     <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.22.0" />
+    <!-- Vulkan backend — cross-vendor (NVIDIA / AMD / Intel). Pro AMD a Intel
+         karty je to jediná akcelerace, kterou LLamaSharp na Windows nabízí.
+         NVIDIA karty stále preferují CUDA (vyšší propustnost), ale Vulkan
+         tady jako fallback / pro karty bez CUDA runtime. -->
+    <PackageReference Include="LLamaSharp.Backend.Vulkan" Version="0.22.0" />
     <!-- Bundluje 7z.dll (x64+x86) — nativní 7-Zip engine bez nutnosti instalace 7-Zipu uživatelem -->
     <PackageReference Include="SevenZipExtractor" Version="1.0.17" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.7" />

@@ -82,10 +82,10 @@ public sealed class LlamaService : ILlamaService
                 break;
 
             case GpuBackend.Vulkan:
-                // TODO Phase B: až bude LLamaSharp.Backend.Vulkan v csproj,
-                // změň na: NativeLibraryConfig.All.WithVulkan();
-                Log.Warning("LlamaService: Vulkan backend není v této verzi zapojen (AMD/Intel " +
-                            "uživatelé poběží přes CPU). Vulkan přijde v Phase B.");
+                // Phase B.1 zapojeno — LLamaSharp.Backend.Vulkan v csproj.
+                // Funguje na NVIDIA / AMD / Intel kartách. Pro AMD/Intel je to
+                // jediná dostupná akcelerace pro LLM inference na Windows.
+                TrySetBackend(() => NativeLibraryConfig.All.WithVulkan(), "Vulkan");
                 break;
 
             case GpuBackend.Metal:
