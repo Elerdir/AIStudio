@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cíl: každý PR i push do main projde buildem a testy na Windows.
+# macOS job je dnes "ostře hraný placeholder" — buildí, ale runtime test nemá
+# Apple Silicon (placeholder = Intel runner). Phase C přepne na macos-14 (M1 runner)
+# až bude existovat macOS impl (GpuDetector, SystemMonitorService, ComfyInstaller).
+jobs:
+  test-windows:
+    name: Tests (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build AIStudio.App/AIStudio.App.csproj -c Release --no-restore
+
+      - name: Run tests
+        run: dotnet test AIStudio.Tests/AIStudio.Tests.csproj -c Release --no-build --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-windows
+          path: '**/test-results.trx'
+          if-no-files-found: warn
+
+  # macOS build job — Phase C placeholder.
+  # Dnes ověřuje POUZE že csproj má rozumné platform conditions a build na
+  # macOS runneru nepadá na chybějící Windows-only packages. Žádné integration
+  # testy zatím — Apple Silicon (macos-14) runner přijde, až bude existovat
+  # MacOsGpuDetector + LLamaSharp.Backend.Metal.
+  #
+  # continue-on-error: true znamená že selhání NEBLOKUJE merge — máme tu jen
+  # signál pro vývojáře, ne tvrdý gate, dokud Phase C neproběhne.
+  build-macos:
+    name: Build (macOS, Phase C placeholder)
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore (osx-arm64)
+        run: dotnet restore -r osx-arm64
+
+      - name: Build (osx-arm64)
+        run: |
+          dotnet build AIStudio.App/AIStudio.App.csproj \
+            -c Release \
+            -r osx-arm64 \
+            --no-restore \
+            -p:PublishReadyToRun=false
