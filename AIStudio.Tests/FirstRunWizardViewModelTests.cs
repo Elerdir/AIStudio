@@ -25,7 +25,12 @@ public class FirstRunWizardViewModelTests
         var monitor = Substitute.For<ISystemMonitorService>();
         monitor.StartAsync().Returns(Task.CompletedTask);
 
-        var vm = new FirstRunWizardViewModel(settings, monitor);
+        var comfyInstaller = Substitute.For<IComfyInstaller>();
+        // Default: žádná existující instalace → DetectExisting vrací null
+        comfyInstaller.DefaultInstallDirectory.Returns(@"C:\Test\AIStudio\ComfyUI");
+        comfyInstaller.DetectExisting(Arg.Any<string>()).Returns(((string, string)?)null);
+
+        var vm = new FirstRunWizardViewModel(settings, monitor, comfyInstaller);
         return (vm, settings, monitor);
     }
 
@@ -73,15 +78,15 @@ public class FirstRunWizardViewModelTests
     }
 
     [Fact]
-    public void IsLastStep_TrueOnlyAtStep4()
+    public void IsLastStep_TrueOnlyAtStep5()
     {
         var (vm, _, _) = MakeVm();
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 5; i++)
         {
             vm.IsLastStep.Should().BeFalse($"krok {i} není poslední");
             vm.NextCommand.Execute(null);
         }
-        vm.IsLastStep.Should().BeTrue("krok 4 je poslední");
+        vm.IsLastStep.Should().BeTrue("krok 5 je poslední");
     }
 
     [Fact]
@@ -90,7 +95,7 @@ public class FirstRunWizardViewModelTests
         var (vm, _, _) = MakeVm();
         vm.NextButtonText.Should().Be("Pokračovat →");
 
-        for (int i = 0; i < 4; i++) vm.NextCommand.Execute(null);
+        for (int i = 0; i < 5; i++) vm.NextCommand.Execute(null);
         vm.NextButtonText.Should().Be("Spustit AI Studio →");
     }
 
@@ -102,16 +107,17 @@ public class FirstRunWizardViewModelTests
     [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
+    [InlineData(5)]
     public void IsStepN_TrueOnlyForCurrentStep(int targetStep)
     {
         var (vm, _, _) = MakeVm();
         for (int i = 0; i < targetStep; i++) vm.NextCommand.Execute(null);
 
         bool[] expected = [
-            vm.IsStep0, vm.IsStep1, vm.IsStep2, vm.IsStep3, vm.IsStep4
+            vm.IsStep0, vm.IsStep1, vm.IsStep2, vm.IsStep3, vm.IsStep4, vm.IsStep5
         ];
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 6; i++)
             expected[i].Should().Be(i == targetStep, $"IsStep{i} při targetStep={targetStep}");
     }
 
@@ -179,8 +185,8 @@ public class FirstRunWizardViewModelTests
         bool completed = false;
         vm.WizardCompleted += (_, _) => completed = true;
 
-        // Přejdeme na krok 4 a klikneme Next → Finish
-        for (int i = 0; i < 4; i++) vm.NextCommand.Execute(null);
+        // Přejdeme na krok 5 (poslední) a klikneme Next → Finish
+        for (int i = 0; i < 5; i++) vm.NextCommand.Execute(null);
         vm.NextCommand.Execute(null);   // poslední Next = Finish
 
         seed.ModelsDirectory.Should().Be(@"D:\Models");
@@ -200,7 +206,7 @@ public class FirstRunWizardViewModelTests
         var (vm, _, _) = MakeVm(seed);
 
         vm.ModelsDirectory = FirstRunWizardViewModel.DefaultModelsDir;
-        for (int i = 0; i < 5; i++) vm.NextCommand.Execute(null);
+        for (int i = 0; i < 6; i++) vm.NextCommand.Execute(null);
 
         // Výchozí cesta se ukládá jako prázdný string (kompaktní uložení)
         seed.ModelsDirectory.Should().BeEmpty();
@@ -262,5 +268,67 @@ public class FirstRunWizardViewModelTests
     {
         var (vm, _, _) = MakeVm();
         vm.UseGpu.Should().BeTrue();
+    }
+
+    // ── ComfyUI install krok 4 ───────────────────────────────────────────────
+
+    [Fact]
+    public void Initialize_NoExistingComfyUi_IsComfyInstalledFalse()
+    {
+        var (vm, _, _) = MakeVm();
+        vm.Initialize();
+        vm.IsComfyInstalled.Should().BeFalse();
+        vm.ShowComfyInstallButton.Should().BeTrue();
+        vm.ShowComfyInstalledBadge.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Initialize_ExistingComfyUiInSettings_IsComfyInstalledTrue()
+    {
+        // Připravíme vlastní temp složku s main.py — to vypadá jako instalovaný ComfyUI
+        var tmp = Path.Combine(Path.GetTempPath(), "AIStudioTest_ComfyUI_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tmp);
+        File.WriteAllText(Path.Combine(tmp, "main.py"), "# stub");
+
+        try
+        {
+            var seed = new AppSettings { ComfyUiDirectory = tmp };
+            var (vm, _, _) = MakeVm(seed);
+            vm.Initialize();
+
+            vm.IsComfyInstalled.Should().BeTrue();
+            vm.ShowComfyInstalledBadge.Should().BeTrue();
+            vm.ShowComfyInstallButton.Should().BeFalse();
+        }
+        finally
+        {
+            try { Directory.Delete(tmp, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void Finish_WithComfyInstalled_EnablesAutoStart()
+    {
+        // Připravíme stub ComfyUI instalaci
+        var tmp = Path.Combine(Path.GetTempPath(), "AIStudioTest_ComfyUI_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tmp);
+        File.WriteAllText(Path.Combine(tmp, "main.py"), "# stub");
+
+        try
+        {
+            var seed = new AppSettings { ComfyUiDirectory = tmp, AutoStartComfyUi = false };
+            var (vm, _, _) = MakeVm(seed);
+            vm.Initialize();
+
+            // Projdi všech 6 kroků (0→1→2→3→4→5→Finish)
+            for (int i = 0; i < 6; i++) vm.NextCommand.Execute(null);
+
+            seed.AutoStartComfyUi.Should().BeTrue("ComfyUI je instalovaný, autostart se zapne automaticky");
+            seed.SetupCompleted.Should().BeTrue();
+        }
+        finally
+        {
+            try { Directory.Delete(tmp, true); } catch { }
+        }
     }
 }
