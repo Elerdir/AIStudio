@@ -18,52 +18,48 @@ namespace AIStudio.App.ViewModels.Chat;
 
 public partial class ChatPageViewModel : ViewModelBase
 {
-    private readonly ILlamaService       _llama;
-    private readonly IChatRepository     _repo;
-    private readonly ISettingsService    _settings;
-    private readonly INavigationService  _nav;
+    private readonly ILlamaService              _llama;
+    private readonly IChatRepository            _repo;
+    private readonly ISettingsService           _settings;
+    private readonly INavigationService         _nav;
+    private readonly ISystemPromptPresetService _presetService;
 
     [ObservableProperty] private string                 _inputText            = string.Empty;
     [ObservableProperty] private ConversationViewModel? _selectedConversation;
 
     /// <summary>
     /// Předdefinované role/persony — uživatel je vidí jako tlačítka nad systémovým
-    /// promptem. Klik naplní SystemPrompt aktuální konverzace. V první iteraci
-    /// hardcoded; navazující task přidá editor a persistenci.
+    /// promptem. Klik naplní SystemPrompt aktuální konverzace.
+    ///
+    /// Zdroj: <see cref="ISystemPromptPresetService"/> — kombinuje builtin
+    /// (Asistent/Editor/Kreativní psaní/Programátor/Brainstorm/Bez instrukcí)
+    /// s uživatelskými, které se ukládají do JSON souboru. Builtin presety
+    /// jsou available okamžitě po konstruktoru, custom přibydou až po
+    /// <see cref="LoadPresetsAsync"/>.
     /// </summary>
-    public IReadOnlyList<SystemPromptPreset> SystemPromptPresets { get; } = new[]
+    public ObservableCollection<SystemPromptPreset> SystemPromptPresets { get; }
+
+    /// <summary>
+    /// Načte custom presety ze souboru a doplní je do <see cref="SystemPromptPresets"/>.
+    /// Builtin presety už jsou v kolekci z konstruktoru. Volá se na pozadí
+    /// (fire-and-forget) z konstruktoru a kdykoliv po SaveCustom/DeleteCustom.
+    /// </summary>
+    private async Task LoadPresetsAsync()
     {
-        new SystemPromptPreset(
-            "Asistent",
-            "Jsi přátelský český asistent. Odpovídej jasně, stručně a konkrétně. " +
-            "Pokud něco nevíš nebo si nejsi jistý, otevřeně to řekni místo vymýšlení."),
-
-        new SystemPromptPreset(
-            "Editor",
-            "Jsi profesionální editor češtiny. Když ti uživatel pošle text, " +
-            "oprav gramatiku, interpunkci, stylistiku a čtivost. Změny stručně " +
-            "okomentuj v krátkém shrnutí na konci. Pokud je text dobrý, řekni to."),
-
-        new SystemPromptPreset(
-            "Kreativní psaní",
-            "Jsi tvůrčí spisovatel s citem pro detail, atmosféru a dialog. " +
-            "Piš barvitě, rozvíjej charaktery, používej smyslové detaily. " +
-            "Drž se českého jazyka, pokud uživatel neřekne jinak."),
-
-        new SystemPromptPreset(
-            "Programátor",
-            "Jsi senior programátor. Vysvětluj kód jasně, navrhuj nejlepší " +
-            "praktiky, varuj před antipatterny. Buď struční, ale úplní — " +
-            "uveď nejen JAK, ale i PROČ. Když si nejsi jistý, řekni to.") ,
-
-        new SystemPromptPreset(
-            "Brainstorm",
-            "Jsi kreativní partner v brainstormingu. Generuj nápady volně, bez " +
-            "filtrů. Když je třeba, kategorizuj. Neptej se na vyjasnění předčasně — " +
-            "nejdřív hoď několik směrů, pak ladíme."),
-
-        new SystemPromptPreset("Bez instrukcí", string.Empty),
-    };
+        try
+        {
+            var all = await _presetService.LoadAllAsync();
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                SystemPromptPresets.Clear();
+                foreach (var p in all) SystemPromptPresets.Add(p);
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ChatPageViewModel: načítání custom presetů selhalo, používám builtin");
+        }
+    }
 
     /// <summary>
     /// Naplní SystemPrompt vybrané konverzace zvoleným presetem. Volá UI
@@ -198,12 +194,18 @@ public partial class ChatPageViewModel : ViewModelBase
     private ConversationViewModel? _subscribedConv;
 
     public ChatPageViewModel(ILlamaService llama, IChatRepository repo, ISettingsService settings,
-                             INavigationService nav)
+                             INavigationService nav, ISystemPromptPresetService presetService)
     {
-        _llama    = llama;
-        _repo     = repo;
-        _settings = settings;
-        _nav      = nav;
+        _llama         = llama;
+        _repo          = repo;
+        _settings      = settings;
+        _nav           = nav;
+        _presetService = presetService;
+
+        // Builtin presety jsou immediate-available bez I/O; uživatelské se
+        // doplní asynchronně přes LoadPresetsAsync (volá se např. po Load()).
+        SystemPromptPresets = new ObservableCollection<SystemPromptPreset>(_presetService.BuiltInPresets);
+        _ = LoadPresetsAsync();
 
         _llama.StatusChanged += status =>
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
