@@ -34,4 +34,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Test projekt vidí internal helpers (mappery v GpuDetector, atd.).
+         Eliminuje potřebu vytahovat čistě pomocnou logiku do public API. -->
+    <InternalsVisibleTo Include="AIStudio.Tests" />
+  </ItemGroup>
+
 </Project>

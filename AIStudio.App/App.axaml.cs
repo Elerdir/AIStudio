@@ -119,6 +119,11 @@ public partial class App : Application
         // Infrastructure
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<ISystemPromptPresetService, SystemPromptPresetService>();
+        // GPU detekce — per-platform impl. Windows je dnešní default; macOS přijde
+        // s Apple Silicon portem (Fáze C). Pokud poběží na neznámé platformě,
+        // DI selže s jasným chybovým hláškou.
+        if (OperatingSystem.IsWindows())
+            services.AddSingleton<IGpuDetector, WindowsGpuDetector>();
         services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
         services.AddSingleton<ILlamaService, LlamaService>();
         services.AddSingleton<IDownloadService, DownloadService>();
