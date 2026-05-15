@@ -28,6 +28,15 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
 
     public event Action<ComfyStatus>? StatusChanged;
 
+    /// <summary>
+    /// Cesta k PID souboru — zapisujeme PID spuštěného ComfyUI procesu,
+    /// aby ho při startu i pádu šlo spolehlivě dohledat a ukončit.
+    /// </summary>
+    private static string PidFilePath =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "AIStudio", "comfy.pid");
+
     public ComfyService(ISettingsService settings, IComfyInstaller installer)
     {
         _settings  = settings;
@@ -38,13 +47,88 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
 
     public async Task InitializeAsync()
     {
-        if (await IsHealthyAsync())
-            SetStatus(ComfyStatus.Running, "Spuštěno (extern)");
-        else
-            SetStatus(ComfyStatus.Stopped, "Zastaveno");
+        Log.Information("ComfyService: InitializeAsync — kontrola zbylých procesů před startem");
 
-        if (_settings.Settings.AutoStartComfyUi && !IsRunning)
+        // Vždy zabij případný zbylý ComfyUI z předchozí session (crash, kill apod.)
+        await KillOrphanAsync();
+
+        if (_settings.Settings.AutoStartComfyUi)
+        {
+            Log.Information("ComfyService: AutoStart je zapnut — spouštím ComfyUI");
             await StartAsync();
+        }
+        else
+        {
+            // AutoStart vypnut — zkusíme se připojit na případné ručně spuštěné ComfyUI
+            if (await IsHealthyAsync())
+            {
+                SetStatus(ComfyStatus.Running, "Spuštěno (extern — AutoStart vypnut)");
+                Log.Information("ComfyService: AutoStart vypnut, nalezeno běžící ComfyUI na portu {Port} — připojeno",
+                                _settings.Settings.ComfyUiPort);
+            }
+            else
+            {
+                SetStatus(ComfyStatus.Stopped, "Zastaveno");
+                Log.Information("ComfyService: AutoStart vypnut, ComfyUI neběží — čekám na ruční start");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Najde a ukončí ComfyUI proces z předchozí session pomocí PID souboru.
+    /// Bezpečné i pokud PID soubor neexistuje nebo proces už neběží.
+    /// </summary>
+    private async Task KillOrphanAsync()
+    {
+        // 1) Zkus zabit přes PID soubor (nejspolehlivější — funguje i po crashu)
+        if (File.Exists(PidFilePath))
+        {
+            try
+            {
+                var pidText = await File.ReadAllTextAsync(PidFilePath);
+                if (int.TryParse(pidText.Trim(), out var pid))
+                {
+                    try
+                    {
+                        var orphan = Process.GetProcessById(pid);
+                        Log.Information("ComfyService: nalezen zbylý ComfyUI proces (PID={Pid}, Name={Name}) — ukončuji",
+                                        pid, orphan.ProcessName);
+                        orphan.Kill(entireProcessTree: true);
+                        await orphan.WaitForExitAsync(CancellationToken.None)
+                                    .WaitAsync(TimeSpan.FromSeconds(5));
+                        Log.Information("ComfyService: zbylý proces PID={Pid} úspěšně ukončen", pid);
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Proces s tímto PID už neexistuje — v pořádku
+                        Log.Debug("ComfyService: PID={Pid} z pid souboru již neběží", pid);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "ComfyService: nepodařilo se ukončit zbylý proces PID={Pid}", pid);
+                    }
+                }
+                File.Delete(PidFilePath);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "ComfyService: chyba při čtení/mazání PID souboru {Path}", PidFilePath);
+            }
+        }
+
+        // 2) Záloha: pokud ComfyUI stále odpovídá na HTTP (port), zkus zabít vlastní _process
+        if (_process is { HasExited: false })
+        {
+            Log.Information("ComfyService: ukončuji vlastní _process (PID={Pid}) z minulé session",
+                            _process.Id);
+            try
+            {
+                _process.Kill(entireProcessTree: true);
+                _process.Dispose();
+            }
+            catch (Exception ex) { Log.Warning(ex, "ComfyService: kill vlastního _process selhal"); }
+            _process = null;
+        }
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -147,8 +231,10 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             CreateNoWindow         = true,
         };
 
-        Log.Information("ComfyService: spouštím {Python} {Args} (cwd={Cwd}, portable={Portable})",
-                        python, arguments, workingDir, isPortable);
+        Log.Information("ComfyService: spouštím {Python} {Args} (cwd={Cwd}, portable={Portable}, port={Port})",
+                        python, arguments, workingDir, isPortable, port);
+
+        var startedAt = DateTime.Now;
 
         try
         {
@@ -156,8 +242,46 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             if (_process is null)
             {
                 SetStatus(ComfyStatus.Error, "Chyba: nelze spustit proces");
+                Log.Error("ComfyService: Process.Start vrátil null — Python nenalezen nebo odmítl start");
                 return false;
             }
+
+            // EnableRaisingEvents musí být nastaveno na Process (ne ProcessStartInfo)
+            _process.EnableRaisingEvents = true;
+
+            // Zapiš PID soubor co nejdříve — pro případ pádu aplikace
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(PidFilePath)!);
+                await File.WriteAllTextAsync(PidFilePath, _process.Id.ToString());
+                Log.Information("ComfyService: ComfyUI spuštěno (PID={Pid}), PID uložen do {Path}",
+                                _process.Id, PidFilePath);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "ComfyService: zápis PID souboru selhal — cleanup při crashu nemusí fungovat");
+            }
+
+            // Handler na neočekávané ukončení procesu (crash, kill z venku apod.)
+            _process.Exited += (_, _) =>
+            {
+                var code    = _process?.ExitCode ?? -1;
+                var runtime = DateTime.Now - startedAt;
+                if (code == 0)
+                    Log.Information("ComfyService: ComfyUI (PID={Pid}) ukončeno čistě po {Runtime}",
+                                    _process?.Id, runtime.ToString(@"hh\:mm\:ss"));
+                else
+                    Log.Warning("ComfyService: ComfyUI (PID={Pid}) skončilo s kódem {Code} po {Runtime} — možný crash",
+                                _process?.Id, code, runtime.ToString(@"hh\:mm\:ss"));
+
+                // Odstraň PID soubor — proces už neběží
+                try { File.Delete(PidFilePath); } catch { /* best effort */ }
+
+                // Pokud jsme neinicializovali stop (např. pád), aktualizuj status
+                if (_status == ComfyStatus.Running)
+                    SetStatus(ComfyStatus.Error,
+                        $"ComfyUI nečekaně skončilo (exit {code}) — restartuj nebo zkontroluj log");
+            };
 
             // Stdout/stderr proudy aktivně čteme, jinak by se interní pipe buffer
             // zaplnil a Python by se zablokoval na write. Logujeme INF pro stdout
@@ -226,16 +350,28 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
 
     public Task StopAsync()
     {
-        try
+        if (_process is { HasExited: false })
         {
-            if (_process is { HasExited: false })
+            Log.Information("ComfyService: zastavuji ComfyUI (PID={Pid})", _process.Id);
+            try
             {
                 _process.Kill(entireProcessTree: true);
                 _process.Dispose();
-                _process = null;
+                Log.Information("ComfyService: ComfyUI (PID={Pid}) ukončeno", _process?.Id);
             }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "ComfyService: kill ComfyUI procesu selhal");
+            }
+            _process = null;
         }
-        catch { /* best effort */ }
+        else
+        {
+            Log.Information("ComfyService: StopAsync — proces již neběží nebo nebyl spuštěn námi");
+        }
+
+        // Odstraň PID soubor pokud existuje
+        try { if (File.Exists(PidFilePath)) File.Delete(PidFilePath); } catch { /* best effort */ }
 
         SetStatus(ComfyStatus.Stopped, "Zastaveno");
         return Task.CompletedTask;

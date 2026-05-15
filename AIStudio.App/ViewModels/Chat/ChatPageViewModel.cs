@@ -82,8 +82,23 @@ public partial class ChatPageViewModel : ViewModelBase
     [ObservableProperty] private string                 _modelStatusText      = string.Empty;
     [ObservableProperty] private bool                   _canRegenerate;
     [ObservableProperty] private bool                   _isSystemPromptVisible;
-    [ObservableProperty] private bool                   _isModelLoaded;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCpuBackend))]
+    private bool _isModelLoaded;
     [ObservableProperty] private string                 _loadedModelName = string.Empty;
+
+    /// <summary>True pokud je načtený model offloadován na GPU (CUDA/Metal).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BackendTooltip), nameof(IsCpuBackend))]
+    private bool _isGpuBackend;
+
+    /// <summary>True pokud je model načtený, ale jede přes CPU (ne GPU).</summary>
+    public bool IsCpuBackend => IsModelLoaded && !IsGpuBackend;
+
+    /// <summary>Tooltip s detailem backendu.</summary>
+    public string BackendTooltip => IsGpuBackend
+        ? "Model běží na GPU (CUDA) — rychlá inference"
+        : "Model běží na CPU / RAM — inference může být pomalejší";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EstimatedTokensLabel), nameof(EstimatedTokensPercent), nameof(TokenBarBrush))]
@@ -196,6 +211,7 @@ public partial class ChatPageViewModel : ViewModelBase
                 IsLoadingModel  = _llama.IsLoadingModel;
                 IsModelLoaded   = _llama.IsLoaded;
                 LoadedModelName = _llama.LoadedModelName ?? string.Empty;
+                IsGpuBackend    = _llama.BackendInfo == "GPU";
             });
 
         // Při změně Conversations přepočítej filtrovaný seznam
@@ -443,6 +459,7 @@ public partial class ChatPageViewModel : ViewModelBase
             {
                 IsModelLoaded   = false;
                 LoadedModelName = string.Empty;
+                IsGpuBackend    = false;
             });
         }
         catch (Exception ex)
@@ -488,6 +505,7 @@ public partial class ChatPageViewModel : ViewModelBase
             {
                 IsModelLoaded   = false;
                 LoadedModelName = string.Empty;
+                IsGpuBackend    = false;
             });
             Log.Information("Model manually unloaded from VRAM");
         }

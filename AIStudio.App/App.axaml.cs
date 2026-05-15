@@ -47,6 +47,14 @@ public partial class App : Application
             e.SetObserved();
         };
 
+        // Zachytit unhandled exception z UI threadu (Avalonia)
+        // Nezastaví pád aplikace, ale zapíše do logu dříve než CLR terminuje.
+        Avalonia.Threading.Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            Log.Fatal(e.Exception, "UIThread.UnhandledException — neošetřená výjimka na UI vlákně");
+            // Nezavíráme, app se zavře sama nebo uživatel může pokračovat
+        };
+
         AvaloniaXamlLoader.Load(this);
     }
 
@@ -165,40 +173,51 @@ public partial class App : Application
             var settingsSvc = Services.GetRequiredService<ISettingsService>();
             var monitor  = (SystemMonitorService)Services.GetRequiredService<ISystemMonitorService>();
 
-            // Při zavření AIStudio:
-            //   1) Zabij ComfyUI (pokud jsme ho my spustili) — jinak by zůstal zombie
-            //      proces na portu 8188 a další pokus o start by skončil [Errno 10048].
-            //   2) Force-flushni SQLite connection pool — Microsoft.Data.Sqlite drží
-            //      physical connections v poolu i po `using` bloku a WAL checkpoint
-            //      se provede až při jejich fyzickém uzavření. Bez tohoto by mohly
-            //      poslední transakce uvíznout v db-wal a nebýt commitnuté.
-            //   3) Flushni Serilog buffery, ať máme kompletní log i při kill.
-            desktop.Exit += (_, _) =>
+            // ── Cleanup handler ───────────────────────────────────────────────
+            // Sdílená akce volaná jak při čistém zavření (desktop.Exit), tak
+            // při pádu (AppDomain.ProcessExit). Voláme ji idempotentně — díky
+            // StopAsync() uvnitř ComfyService je bezpečné volat vícekrát.
+            static void DoCleanup(string source)
             {
+                Log.Information("App.Cleanup [{Source}]: zahajuji cleanup", source);
+
+                // 1) Zabij ComfyUI — jinak by zůstal zombie na portu
                 try
                 {
-                    Services.GetRequiredService<IComfyService>()
-                            .StopAsync()
-                            .GetAwaiter()
-                            .GetResult();
+                    App.Services.GetRequiredService<IComfyService>()
+                                .StopAsync()
+                                .GetAwaiter()
+                                .GetResult();
+                    Log.Information("App.Cleanup [{Source}]: ComfyUI zastaven", source);
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning(ex, "App.Exit: ComfyUI cleanup selhal — zombie proces může zůstat");
+                    Log.Warning(ex, "App.Cleanup [{Source}]: ComfyUI cleanup selhal — zombie proces může zůstat", source);
                 }
 
+                // 2) Force-flush SQLite connection pool — WAL checkpoint
                 try
                 {
                     Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-                    Log.Information("App.Exit: SQLite pool flushed");
+                    Log.Information("App.Cleanup [{Source}]: SQLite pool flushed", source);
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning(ex, "App.Exit: SQLite pool flush selhal — riziko ztráty posledních zpráv");
+                    Log.Warning(ex, "App.Cleanup [{Source}]: SQLite pool flush selhal", source);
                 }
 
-                try { Log.CloseAndFlush(); } catch { /* nemůžeme udělat víc */ }
-            };
+                // 3) Flush Serilog bufferů (musí být poslední)
+                try { Log.Information("App.Cleanup [{Source}]: dokončeno", source); Log.CloseAndFlush(); } catch { }
+            }
+
+            // Při zavření okna (normální exit i Alt+F4)
+            desktop.Exit += (_, _) => DoCleanup("desktop.Exit");
+
+            // Při pádu nebo Environment.Exit — ProcessExit se volá i při
+            // unhandled exception ještě před tím, než CLR terminuje proces.
+            // POZOR: handler musí být registrován až PO inicializaci DI (Services),
+            // protože DoCleanup přistupuje k Services.
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => DoCleanup("ProcessExit");
 
             if (!settings.SetupCompleted)
             {

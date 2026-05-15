@@ -264,7 +264,15 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             try
             {
                 var fromComfy = await _comfy.GetCheckpointsAsync();
-                combined.AddRange(fromComfy);
+                foreach (var name in fromComfy)
+                {
+                    // ComfyUI vrací i ControlNet/VAE/LoRA soubory, protože extra_model_paths.yaml
+                    // mapuje root "." na všechny kategorie. Filtrujeme stejně jako lokální sken.
+                    var fn = Path.GetFileName(name.Replace('/', Path.DirectorySeparatorChar));
+                    if (FluxDependencyService.IsFluxDep(fn)) continue;
+                    if (IsComfyPathExcluded(name))           continue;
+                    combined.Add(name);
+                }
             }
             catch (Exception ex)
             {
@@ -315,6 +323,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     /// <summary>
     /// Vrátí true pokud soubor leží v podadresáři, který ComfyUI vyhrazuje
     /// pro jiný typ modelu než checkpoint (ControlNet, VAE, LoRA, …).
+    /// Používá se pro lokální skenování (absolutní cesta + base dir).
     /// </summary>
     private static bool IsInExcludedSubdir(string filePath, string baseDir)
     {
@@ -326,6 +335,33 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             if (ExcludedModelSubdirs.Contains(parts[i]))
                 return true;
         }
+        return false;
+    }
+
+    /// <summary>
+    /// Vrátí true pokud ComfyUI relativní cesta (oddělená '/' nebo '\') obsahuje
+    /// podadresář vyhrazený pro jiný typ modelu (ControlNet, VAE, LoRA…),
+    /// nebo pokud je jméno souboru charakteristické pro non-checkpoint typ.
+    /// Používá se pro filtrování výstupu <see cref="IComfyService.GetCheckpointsAsync"/>,
+    /// protože extra_model_paths.yaml mapuje root '.', takže ComfyUI vidí vše.
+    /// </summary>
+    private static bool IsComfyPathExcluded(string comfyRelativePath)
+    {
+        // Cesta může být "model.safetensors" nebo "subdir/model.safetensors"
+        var parts = comfyRelativePath.Split('/', '\\', Path.DirectorySeparatorChar);
+        // Projdi všechny komponenty KROMĚ posledního (= souboru) — detekce dle složky
+        for (var i = 0; i < parts.Length - 1; i++)
+        {
+            if (ExcludedModelSubdirs.Contains(parts[i]))
+                return true;
+        }
+        // Detekce dle názvu souboru — ControlNets/VAE/LoRA v rootu nemají subdirektář,
+        // ale název je obvykle prozradí ("control_*", "vae-*", "lora_*" apod.).
+        var fileName = parts[^1].ToLowerInvariant();
+        if (fileName.StartsWith("control_")     || fileName.StartsWith("controlnet"))   return true;
+        if (fileName.StartsWith("vae-")         || fileName.StartsWith("vae_"))         return true;
+        if (fileName.StartsWith("lora_")        || fileName.StartsWith("lora-"))        return true;
+        if (fileName.StartsWith("hypernetwork_") || fileName.StartsWith("embedding_")) return true;
         return false;
     }
 
@@ -452,12 +488,21 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         GenerationProgress = 0;
         GenerationStatus   = "Odesílám do fronty…";
 
+        var generateStarted = DateTime.Now;
+
         try
         {
             var res    = Resolution;
             var seed   = Seed < 0 ? (long)Random.Shared.Next(1, int.MaxValue) : Seed;
             var isFlux = ComfyWorkflowBuilder.IsFluxModel(SelectedModel);
             var isGguf = ComfyWorkflowBuilder.IsGgufModel(SelectedModel);
+
+            Log.Information(
+                "Generování zahájeno — mód={Mode}, model={Model}, seed={Seed}, " +
+                "rozlišení={W}x{H}, kroky={Steps}, CFG={Cfg}, varianty={Count}, reference={RefCount}",
+                IsSmartMode ? "Smart" : "Manuál",
+                SelectedModel, seed, res.W, res.H, Steps, Cfg, VariantCount,
+                ReferenceImagePaths.Count);
 
             // Pre-flight check A: FLUX GGUF potřebuje samostatné CLIP-L + T5 + VAE
             // soubory v Models složce. Když chybí, ušetříme kruhovou cestu přes
@@ -650,7 +695,10 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 }
             }
 
+            Log.Information("Odesílám workflow do ComfyUI (model={Model}, sampler={Sampler}/{Scheduler})",
+                            SelectedModel, SelectedSampler, SelectedScheduler);
             var promptId = await _comfy.QueuePromptAsync(workflow, cts.Token);
+            Log.Information("ComfyUI přijal prompt (ID={PromptId})", promptId);
             GenerationStatus = "Generuji…";
 
             var progress = new Progress<int>(p =>
@@ -722,14 +770,21 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 });
             }
 
+            var elapsed = DateTime.Now - generateStarted;
+            Log.Information(
+                "Generování úspěšně dokončeno — {Count} obrázek, trvalo {Elapsed}",
+                result.Images.Count, elapsed.ToString(@"mm\:ss\.ff"));
             GenerationStatus = $"Hotovo! ({result.Images.Count} obrázek)";
         }
         catch (OperationCanceledException)
         {
+            var elapsed = DateTime.Now - generateStarted;
+            Log.Information("Generování zrušeno uživatelem po {Elapsed}", elapsed.ToString(@"mm\:ss\.ff"));
             GenerationStatus = "Zrušeno";
         }
         catch (Exception ex)
         {
+            var elapsed = DateTime.Now - generateStarted;
             var msg = ex.Message;
             if (msg.Contains("clip input is invalid", StringComparison.OrdinalIgnoreCase))
             {
@@ -737,12 +792,14 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 GenerationStatus = isFluxModel
                     ? "Model neobsahuje CLIP/VAE — stáhni kompletní FLUX checkpoint (ne jen UNet), nebo použij GGUF soubor se samostatnými clip_l + t5xxl + ae soubory."
                     : "Model neobsahuje CLIP — ověř, že jde o kompletní checkpoint soubor (ne jen UNet/transformer).";
-                Log.Warning("GenerateAsync: CLIP error pro model {Model}: {Msg}", SelectedModel, msg);
+                Log.Warning("Generování selhalo (CLIP error) — model={Model}, trvalo={Elapsed}: {Msg}",
+                            SelectedModel, elapsed.ToString(@"mm\:ss\.ff"), msg);
             }
             else
             {
                 GenerationStatus = $"Chyba: {msg}";
-                Log.Warning("GenerateAsync: {Msg}", msg);
+                Log.Warning("Generování selhalo — model={Model}, trvalo={Elapsed}: {Msg}",
+                            SelectedModel, elapsed.ToString(@"mm\:ss\.ff"), msg);
             }
         }
         finally
@@ -753,7 +810,12 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void StopGeneration() => _genCts?.Cancel();
+    private void StopGeneration()
+    {
+        if (_genCts is null) return;
+        Log.Information("Uživatel zrušil generování (model={Model})", SelectedModel);
+        _genCts.Cancel();
+    }
 
     /// <summary>Klik na thumbnail v pásu — zobrazí obrázek v hlavním canvasu.</summary>
     [RelayCommand]

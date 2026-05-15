@@ -282,6 +282,35 @@
                                   FontSize="12"
                                   MinWidth="190"
                                   IsEnabled="{Binding !IsSending}"/>
+                        <!-- GPU badge — zelený, viditelný pouze pokud model jede na GPU -->
+                        <Border IsVisible="{Binding IsGpuBackend}"
+                                Background="#0A2010"
+                                CornerRadius="5" Padding="6,3"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="{Binding BackendTooltip}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Gpu}"
+                                                 Width="12" Height="12" Foreground="#4ADE80"
+                                                 VerticalAlignment="Center"/>
+                                <TextBlock Text="GPU" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="#4ADE80" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <!-- CPU badge — jantarový, viditelný pokud model jede přes CPU (ne GPU) -->
+                        <Border IsVisible="{Binding IsCpuBackend}"
+                                Background="#1A1008"
+                                CornerRadius="5" Padding="6,3"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="{Binding BackendTooltip}">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Chip}"
+                                                 Width="12" Height="12" Foreground="#F59E0B"
+                                                 VerticalAlignment="Center"/>
+                                <TextBlock Text="CPU" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="#F59E0B" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Uvolnit model z VRAM -->
                         <Button IsVisible="{Binding IsModelLoaded}"
                                 Command="{Binding UnloadModelCommand}"
