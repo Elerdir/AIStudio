@@ -1,23 +1,26 @@
 using System.Runtime.CompilerServices;
 using System.Text;
 using AIStudio.Core.Interfaces;
+using AIStudio.Core.Models;
 using LLama;
 using LLama.Common;
 using LLama.Native;
 using LLama.Sampling;
+using Serilog;
 
 namespace AIStudio.Infrastructure.Services;
 
 public sealed class LlamaService : ILlamaService
 {
-    static LlamaService()
-    {
-        // Musí se zavolat PŘED prvním použitím LLamaWeights / ModelParams.
-        // Bez toho LLamaSharp auto-detekuje backend a při selhání načtení
-        // cudart64_12.dll tiše přepne na CPU bez jakéhokoli varování.
-        try { NativeLibraryConfig.All.WithCuda(); }
-        catch { /* CPU fallback pokud CUDA 12 runtime není nainstalován */ }
-    }
+    private readonly IGpuDetector? _gpuDetector;
+
+    /// <summary>
+    /// True jakmile jsme zavolali <see cref="NativeLibraryConfig"/>.With* metodu.
+    /// LLamaSharp NativeLibraryConfig je process-global a musí se nastavit
+    /// PŘED prvním <see cref="LLamaWeights.LoadFromFileAsync"/>. Druhé volání
+    /// na různém backendu už nepřepne — proto lazy init při prvním LoadModelAsync.
+    /// </summary>
+    private bool _backendInitialized;
 
     private LLamaWeights? _model;
     private ModelParams?  _modelParams;   // uloženo pro tvorbu čerstvého kontextu při každé generaci
@@ -26,11 +29,102 @@ public sealed class LlamaService : ILlamaService
 
     public string? LoadedModelName  { get; private set; }
     public string  BackendInfo      { get; private set; } = string.Empty;
+    public Gpu?    DetectedGpu      { get; private set; }
     public bool    IsLoaded         => _model is not null;
     public bool    IsLoadingModel   { get; private set; }
     public bool    UseGpu           { get; set; } = true;
 
     public event Action<string>? StatusChanged;
+
+    /// <summary>
+    /// DI registruje s <see cref="IGpuDetector"/> pokud je dostupný (Windows).
+    /// Bez detektoru padáme zpět na původní hard-coded CUDA inicializaci —
+    /// kompatibilní s aktuálním NVIDIA-only buildem.
+    /// </summary>
+    public LlamaService(IGpuDetector? gpuDetector = null)
+    {
+        _gpuDetector = gpuDetector;
+    }
+
+    /// <summary>
+    /// Lazy inicializace LLamaSharp backendu. Voláme z <see cref="LoadModelAsync"/>
+    /// před prvním LoadFromFileAsync — později už <see cref="NativeLibraryConfig"/>
+    /// nepřijímá změny.
+    ///
+    /// Aktuální stav (Phase A.2): NVIDIA → WithCuda, ostatní → CUDA fallback s warn.
+    /// Vulkan a Metal native libs zatím nejsou v projektu — přidají se v Phase B/C.
+    /// Pak se sem doplní WithVulkan() / WithMetal() větve.
+    /// </summary>
+    private async Task EnsureBackendInitializedAsync(CancellationToken ct)
+    {
+        if (_backendInitialized) return;
+
+        // Detekce GPU — pokud máme detector (Windows), zjistíme vendor;
+        // bez detektoru zachováme původní chování (zkusit CUDA).
+        if (_gpuDetector is not null)
+        {
+            try
+            {
+                DetectedGpu = await _gpuDetector.DetectAsync(ct);
+                Log.Information("LlamaService: detekovaná GPU {Vendor} {Name} (backend {Backend}, {VramGb:F1} GB VRAM)",
+                                DetectedGpu.Vendor, DetectedGpu.Name, DetectedGpu.Backend, DetectedGpu.VramGb);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "LlamaService: GPU detekce selhala — používám CUDA fallback");
+            }
+        }
+
+        switch (DetectedGpu?.Backend)
+        {
+            case GpuBackend.Cuda:
+                TrySetBackend(() => NativeLibraryConfig.All.WithCuda(), "CUDA");
+                break;
+
+            case GpuBackend.Vulkan:
+                // TODO Phase B: až bude LLamaSharp.Backend.Vulkan v csproj,
+                // změň na: NativeLibraryConfig.All.WithVulkan();
+                Log.Warning("LlamaService: Vulkan backend není v této verzi zapojen (AMD/Intel " +
+                            "uživatelé poběží přes CPU). Vulkan přijde v Phase B.");
+                break;
+
+            case GpuBackend.Metal:
+                // TODO Phase C: až bude LLamaSharp.Backend.Metal v csproj (macOS port),
+                // změň na: NativeLibraryConfig.All.WithMetal();
+                Log.Warning("LlamaService: Metal backend není v této verzi zapojen. " +
+                            "Apple Silicon podpora přijde s macOS portem.");
+                break;
+
+            case GpuBackend.Cpu:
+            case GpuBackend.DirectMl:
+                // Žádné With* volání = LLamaSharp default CPU.
+                Log.Information("LlamaService: poběží na CPU (žádný kompatibilní GPU backend)");
+                break;
+
+            case null:
+            default:
+                // Bez detektoru — zachovat původní chování (CUDA + tichý fallback)
+                TrySetBackend(() => NativeLibraryConfig.All.WithCuda(), "CUDA (default)");
+                break;
+        }
+
+        _backendInitialized = true;
+    }
+
+    private static void TrySetBackend(Action setter, string label)
+    {
+        try
+        {
+            setter();
+            Log.Information("LlamaService: nastaven {Label} backend", label);
+        }
+        catch (Exception ex)
+        {
+            // Native lib nedostupná (např. CUDA runtime chybí) — LLamaSharp si
+            // tiše stáhne CPU lib. To je v pořádku, jen to zalogujeme.
+            Log.Warning(ex, "LlamaService: {Label} init selhalo, propadne se na CPU", label);
+        }
+    }
 
     // ── Načítání modelu ────────────────────────────────────────────────────────
 
@@ -44,6 +138,11 @@ public sealed class LlamaService : ILlamaService
             StatusChanged?.Invoke($"Načítám {modelName}…");
 
             await DisposeModelAsync();
+
+            // Lazy backend init — musí proběhnout PŘED prvním LoadFromFileAsync.
+            // Jakmile LLamaSharp jednou inicializuje native lib, další With* volání
+            // už nepřepnou (process-global config).
+            await EnsureBackendInitializedAsync(ct);
 
             var parameters = new ModelParams(modelPath)
             {

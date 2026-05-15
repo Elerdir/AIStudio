@@ -1,3 +1,5 @@
+using AIStudio.Core.Models;
+
 namespace AIStudio.Core.Interfaces;
 
 public interface ILlamaService : IAsyncDisposable
@@ -8,6 +10,13 @@ public interface ILlamaService : IAsyncDisposable
     bool    IsLoaded        { get; }
     bool    IsLoadingModel  { get; }
     bool    UseGpu          { get; set; }
+
+    /// <summary>
+    /// Detekovaná GPU (vendor, model, VRAM, doporučený backend) — výsledek
+    /// jednorázové <see cref="IGpuDetector"/> detekce při prvním načtení modelu.
+    /// <c>null</c> dokud uživatel nenačte aspoň jeden model.
+    /// </summary>
+    Gpu? DetectedGpu { get; }
 
     /// <summary>
     /// Vyvolá se při změně stavu: načítání modelu, dokončení, chyba.
