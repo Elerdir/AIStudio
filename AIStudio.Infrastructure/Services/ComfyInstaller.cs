@@ -665,4 +665,69 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
         if (proc.ExitCode != 0)
             throw new InvalidOperationException($"pip install skončilo s kódem {proc.ExitCode} — viz log");
     }
+
+    // ── DirectML pro AMD / Intel GPU ─────────────────────────────────────────
+
+    public bool IsDirectMlInstalled(string pythonExe)
+    {
+        if (string.IsNullOrWhiteSpace(pythonExe) || !File.Exists(pythonExe))
+            return false;
+
+        // Embedded Python má site-packages v {pythonRoot}/Lib/site-packages.
+        // torch_directml se instaluje jako modul torch_directml/__init__.py.
+        var pythonDir = Path.GetDirectoryName(pythonExe);
+        if (pythonDir is null) return false;
+
+        var sitePackages = Path.Combine(pythonDir, "Lib", "site-packages");
+        if (!Directory.Exists(sitePackages))
+        {
+            // Některé portable buildy mají site-packages v jiné cestě
+            // (python_embeded/Lib/site-packages vs python_embeded/site-packages).
+            sitePackages = Path.Combine(pythonDir, "site-packages");
+            if (!Directory.Exists(sitePackages)) return false;
+        }
+
+        var moduleFile = Path.Combine(sitePackages, "torch_directml", "__init__.py");
+        return File.Exists(moduleFile);
+    }
+
+    public async Task EnsureDirectMlInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default)
+    {
+        if (IsDirectMlInstalled(pythonExe))
+        {
+            Log.Information("ComfyInstaller: torch-directml už nainstalován, přeskakuji");
+            progress?.Report(new(ComfyInstallStage.Done, "DirectML je již nainstalován",
+                                 100, 0, 0, 0, null));
+            return;
+        }
+
+        if (!File.Exists(pythonExe))
+            throw new InvalidOperationException($"Embedded Python nenalezen: {pythonExe}");
+
+        progress?.Report(new(ComfyInstallStage.Finishing,
+            "Instaluji DirectML pro AMD/Intel GPU (~700 MB stažení)…",
+            0, 0, 0, 0, null));
+
+        Log.Information("ComfyInstaller: zahajuji pip install torch-directml");
+
+        // torch-directml je velký balíček (vytváří se z PyTorch wheel +
+        // DirectML knihovny). 5 min timeout v RunPipInstallAsync to musí stačit.
+        await RunPipInstallAsync(pythonExe, "torch-directml", ct);
+
+        if (!IsDirectMlInstalled(pythonExe))
+        {
+            throw new InvalidOperationException(
+                "torch-directml byl nainstalován, ale modul torch_directml " +
+                "se nenašel v site-packages. Možná konflikt s existujícím torch.");
+        }
+
+        progress?.Report(new(ComfyInstallStage.Done,
+            "DirectML nainstalován — ComfyUI poběží s --directml flagem",
+            100, 0, 0, 0, null));
+        Log.Information("ComfyInstaller: torch-directml úspěšně nainstalován");
+    }
 }

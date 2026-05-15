@@ -46,4 +46,21 @@ public interface IComfyInstaller
         string                            pythonExe,
         IProgress<ComfyInstallProgress>?  progress = null,
         CancellationToken                 ct       = default);
+
+    /// <summary>True pokud je v embedded Pythonu nainstalován <c>torch-directml</c>.</summary>
+    bool IsDirectMlInstalled(string pythonExe);
+
+    /// <summary>
+    /// Doinstaluje <c>torch-directml</c> přes pip do embedded Pythonu ComfyUI
+    /// Portable. Volá se po základní instalaci ComfyUI pokud detekovaná GPU je
+    /// AMD/Intel — DirectML je jejich jediná cesta k akceleraci image gen na
+    /// Windows. Idempotentní: pokud už je nainstalován, vrátí ihned.
+    ///
+    /// ComfyService pak musí ComfyUI spouštět s <c>--directml</c> flagem.
+    /// </summary>
+    Task EnsureDirectMlInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default);
 }

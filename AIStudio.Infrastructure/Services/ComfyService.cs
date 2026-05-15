@@ -12,6 +12,8 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
     private readonly ISettingsService  _settings;
     private readonly IComfyInstaller   _installer;
     private readonly IComfyHttpClient  _httpClient;
+    private readonly IGpuDetector?     _gpuDetector;
+    private AIStudio.Core.Models.Gpu?  _detectedGpu;
 
     private Process? _process;
     private readonly string _clientId = Guid.NewGuid().ToString("N")[..12];
@@ -34,11 +36,13 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "AIStudio", "comfy.pid");
 
-    public ComfyService(ISettingsService settings, IComfyInstaller installer, IComfyHttpClient httpClient)
+    public ComfyService(ISettingsService settings, IComfyInstaller installer,
+                         IComfyHttpClient httpClient, IGpuDetector? gpuDetector = null)
     {
-        _settings   = settings;
-        _installer  = installer;
-        _httpClient = httpClient;
+        _settings    = settings;
+        _installer   = installer;
+        _httpClient  = httpClient;
+        _gpuDetector = gpuDetector;
     }
 
     // ── Init ──────────────────────────────────────────────────────────────────
@@ -198,6 +202,29 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                             "SDXL safetensors fungují i bez něj");
         }
 
+        // ── DirectML pro AMD / Intel (Phase B.2) ────────────────────────────
+        // Pokud máme AMD nebo Intel kartu a torch-directml chybí, doinstalujeme
+        // ho hned před startem. Pro NVIDIA tento krok přeskakujeme — CUDA build
+        // ComfyUI ho nepotřebuje a torch-directml by zbytečně zabral ~700 MB.
+        await EnsureGpuDetectedAsync(ct);
+        var needsDirectMl = _detectedGpu?.Backend is AIStudio.Core.Models.GpuBackend.Vulkan
+                            or AIStudio.Core.Models.GpuBackend.DirectMl;
+        if (needsDirectMl && !_installer.IsDirectMlInstalled(python))
+        {
+            try
+            {
+                SetStatus(ComfyStatus.Starting,
+                    "Instaluji torch-directml pro AMD/Intel GPU (~700 MB, jednorázově)…");
+                await _installer.EnsureDirectMlInstalledAsync(dir, python, progress: null, ct);
+                Log.Information("ComfyService: torch-directml nainstalován");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "ComfyService: instalace torch-directml selhala — ComfyUI poběží " +
+                                "na CPU. Uživatel může zkusit instalaci ručně nebo počkat na další verzi.");
+            }
+        }
+
         SetStatus(ComfyStatus.Starting, "Spouštím ComfyUI… (může trvat 1-3 minuty)");
 
         var port = _settings.Settings.ComfyUiPort;
@@ -210,9 +237,22 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
         // Replikujeme to, co dělá distribuční run_nvidia_gpu.bat.
         var isPortable = python.Contains("python_embeded", StringComparison.OrdinalIgnoreCase);
 
+        // ── Backend volba: --directml pro AMD/Intel (Phase B.2) ─────────────
+        // GPU vendor detekujeme přes IGpuDetector; pokud běžíme na AMD/Intel
+        // a torch-directml je v embedded Pythonu, přidáme --directml flag.
+        // ComfyUI pak nepoužívá CUDA inicializaci a místo toho běží přes DML.
+        await EnsureGpuDetectedAsync(ct);
+        var useDirectMl = _detectedGpu?.Backend is AIStudio.Core.Models.GpuBackend.Vulkan
+                           or AIStudio.Core.Models.GpuBackend.DirectMl
+                          && _installer.IsDirectMlInstalled(python);
+
+        var directMlFlag = useDirectMl ? " --directml" : string.Empty;
+        if (useDirectMl)
+            Log.Information("ComfyService: AMD/Intel detekováno + torch-directml přítomen → ComfyUI poběží s --directml");
+
         var arguments = isPortable
-            ? $"-s \"{mainPy}\" --windows-standalone-build --port {port} --listen 127.0.0.1"
-            : $"\"{mainPy}\" --port {port} --listen 127.0.0.1";
+            ? $"-s \"{mainPy}\" --windows-standalone-build{directMlFlag} --port {port} --listen 127.0.0.1"
+            : $"\"{mainPy}\"{directMlFlag} --port {port} --listen 127.0.0.1";
 
         var workingDir = isPortable
             ? (Path.GetDirectoryName(dir) ?? dir)   // ComfyUI_windows_portable/ namísto ComfyUI/
@@ -549,6 +589,26 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
     private int Port => _settings.Settings.ComfyUiPort;
 
     private Task<bool> IsHealthyAsync() => _httpClient.IsHealthyAsync(Port);
+
+    /// <summary>
+    /// Lazy detekce GPU pomocí <see cref="IGpuDetector"/>. Výsledek se cache-uje
+    /// v <see cref="_detectedGpu"/>. Bez detektoru (non-Windows nebo DI bez impl)
+    /// zůstává null a ComfyService se chová jako dosud (CUDA default).
+    /// </summary>
+    private async Task EnsureGpuDetectedAsync(CancellationToken ct)
+    {
+        if (_detectedGpu is not null || _gpuDetector is null) return;
+        try
+        {
+            _detectedGpu = await _gpuDetector.DetectAsync(ct);
+            Log.Information("ComfyService: detekovaná GPU {Vendor} {Name} (backend {Backend})",
+                            _detectedGpu.Vendor, _detectedGpu.Name, _detectedGpu.Backend);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ComfyService: GPU detekce selhala");
+        }
+    }
 
     /// <summary>
     /// Vytvoří v ComfyUI rootu soubor <c>extra_model_paths.yaml</c>, který ComfyUI

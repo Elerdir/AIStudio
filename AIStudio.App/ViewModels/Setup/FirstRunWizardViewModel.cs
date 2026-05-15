@@ -92,8 +92,8 @@ public partial class FirstRunWizardViewModel : ViewModelBase
     public string GpuDetailLine => GpuDetail?.Vendor switch
     {
         GpuVendor.Nvidia => "Plná CUDA podpora — LLM a obrázky poběží na GPU.",
-        GpuVendor.Amd    => "AMD karta — LLM poběží přes Vulkan (cca 70–80 % CUDA rychlosti). Generování obrázků bude přes DirectML (pomalejší než NVIDIA, ale funguje).",
-        GpuVendor.Intel  => "Intel GPU — LLM poběží přes Vulkan. Generování obrázků přes DirectML (pomalejší než NVIDIA, ale funguje).",
+        GpuVendor.Amd    => "AMD karta — LLM přes Vulkan (~70–80 % CUDA rychlosti), generování obrázků přes DirectML (pomalejší, ale funguje). Při prvním spuštění ComfyUI se jednorázově stáhne torch-directml (~700 MB).",
+        GpuVendor.Intel  => "Intel GPU — LLM přes Vulkan, generování obrázků přes DirectML. Při prvním spuštění ComfyUI se jednorázově stáhne torch-directml (~700 MB).",
         GpuVendor.Apple  => "Apple Silicon — Metal backend přijde s macOS verzí AI Studia.",
         GpuVendor.Unknown => "Žádná GPU nebyla detekována — vše poběží na CPU. Můžete zkusit menší modely (Llama 3.2 3B).",
         _                 => string.Empty,
