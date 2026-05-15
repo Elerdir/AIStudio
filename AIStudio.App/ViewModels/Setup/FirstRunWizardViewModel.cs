@@ -12,6 +12,7 @@ public partial class FirstRunWizardViewModel : ViewModelBase
     private readonly ISettingsService      _settings;
     private readonly ISystemMonitorService _monitor;
     private readonly IComfyInstaller       _comfyInstaller;
+    private readonly IGpuDetector?         _gpuDetector;
 
     // ── Průchod kroky ─────────────────────────────────────────────────────────
     //
@@ -72,6 +73,31 @@ public partial class FirstRunWizardViewModel : ViewModelBase
     public string GpuSummaryLine => GpuDetected
         ? $"{GpuName}  ({VramTotalGb:F1} GB VRAM)"
         : "GPU nebylo detekováno — bude použit CPU";
+
+    /// <summary>
+    /// Detekovaný GPU vendor + doporučený backend. Nastavuje <see cref="IGpuDetector"/>
+    /// asynchronně z <see cref="Initialize"/>. Null dokud detekce neproběhne.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GpuDetailLine), nameof(HasGpuDetail))]
+    private Gpu? _gpuDetail;
+
+    public bool HasGpuDetail => GpuDetail is not null;
+
+    /// <summary>
+    /// Vendor-aware vysvětlení pro krok 2 wizardu. Říká uživateli rovnou pravdu:
+    /// NVIDIA = plná CUDA podpora, AMD = Vulkan přijde, Intel = Vulkan přijde,
+    /// neznámý vendor = poběží na CPU. UX cíl je nelhat uživateli o stavu.
+    /// </summary>
+    public string GpuDetailLine => GpuDetail?.Vendor switch
+    {
+        GpuVendor.Nvidia => "Plná CUDA podpora — LLM a obrázky poběží na GPU.",
+        GpuVendor.Amd    => "AMD karta — LLM zatím poběží na CPU, plná Vulkan podpora přijde v další verzi. Generování obrázků bude přes DirectML (pomalejší než NVIDIA, ale funguje).",
+        GpuVendor.Intel  => "Intel GPU — LLM zatím poběží na CPU, plná Vulkan podpora přijde v další verzi. Generování obrázků přes DirectML.",
+        GpuVendor.Apple  => "Apple Silicon — Metal backend přijde s macOS verzí AI Studia.",
+        GpuVendor.Unknown => "Žádná GPU nebyla detekována — vše poběží na CPU. Můžete zkusit menší modely (Llama 3.2 3B).",
+        _                 => string.Empty,
+    };
 
     // ── Krok 3 — API tokeny ───────────────────────────────────────────────────
 
@@ -187,11 +213,13 @@ public partial class FirstRunWizardViewModel : ViewModelBase
 
     public FirstRunWizardViewModel(ISettingsService settings,
                                     ISystemMonitorService monitor,
-                                    IComfyInstaller comfyInstaller)
+                                    IComfyInstaller comfyInstaller,
+                                    IGpuDetector? gpuDetector = null)
     {
         _settings        = settings;
         _monitor         = monitor;
         _comfyInstaller  = comfyInstaller;
+        _gpuDetector     = gpuDetector;
     }
 
     public void Initialize()
@@ -212,6 +240,25 @@ public partial class FirstRunWizardViewModel : ViewModelBase
         // Zaregistruj se na první status update pro detekci GPU
         _monitor.StatusUpdated += OnFirstStatusUpdate;
         _ = _monitor.StartAsync();
+
+        // GPU vendor detekce — paralelně s monitorem. Vrátí Gpu record
+        // s detekovaným backendem (CUDA pro NVIDIA, Vulkan placeholder pro AMD/Intel,
+        // Cpu pro Unknown). Wizard krok 2 ho použije pro vendor-specific text.
+        if (_gpuDetector is not null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var detected = await _gpuDetector.DetectAsync();
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() => GpuDetail = detected);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Wizard: GPU vendor detekce selhala");
+                }
+            });
+        }
 
         // Timeout — pokud do 6 vteřin nic, označíme GPU jako nenalezené.
         // POZN.: bez TaskScheduler.FromCurrentSynchronizationContext bychom byli

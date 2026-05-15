@@ -306,6 +306,25 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Vendor-specific info box — pravdivé info o tom, co AI Studio
+                     s detekovaným vendorem reálně umí. Skryje se pokud detekce
+                     vrátila Unknown (tam místo toho funguje box „GPU nedetekováno"). -->
+                <Border IsVisible="{Binding HasGpuDetail}"
+                        Margin="0,12,0,0"
+                        Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                        CornerRadius="10" Padding="14,11">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.InformationOutline}"
+                                         Width="14" Height="14"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                         VerticalAlignment="Top" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding GpuDetailLine}"
+                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                   TextWrapping="Wrap" LineHeight="18"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Toggle GPU / CPU -->
                 <Border Margin="0,16,0,0" Background="{DynamicResource PanelBgBrush}"
                         BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
