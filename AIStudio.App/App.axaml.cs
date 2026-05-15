@@ -124,7 +124,10 @@ public partial class App : Application
         // DI selže s jasným chybovým hláškou.
         if (OperatingSystem.IsWindows())
             services.AddSingleton<IGpuDetector, WindowsGpuDetector>();
-        services.AddSingleton<ISystemMonitorService, SystemMonitorService>();
+        // System monitor — per-platform impl. Windows umí nvidia-smi + WMI;
+        // macOS přijde s Phase C portem (system_profiler + IOKit).
+        if (OperatingSystem.IsWindows())
+            services.AddSingleton<ISystemMonitorService, WindowsSystemMonitorService>();
         services.AddSingleton<ILlamaService, LlamaService>();
         services.AddSingleton<IDownloadService, DownloadService>();
         services.AddSingleton<IChatRepository, SqliteChatRepository>();
@@ -182,7 +185,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var settingsSvc = Services.GetRequiredService<ISettingsService>();
-            var monitor  = (SystemMonitorService)Services.GetRequiredService<ISystemMonitorService>();
+            var monitor  = Services.GetRequiredService<ISystemMonitorService>();
 
             // ── Cleanup handler ───────────────────────────────────────────────
             // Sdílená akce volaná jak při čistém zavření (desktop.Exit), tak

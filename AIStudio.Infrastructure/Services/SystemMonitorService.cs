@@ -7,7 +7,16 @@ using AIStudio.Core.Models;
 
 namespace AIStudio.Infrastructure.Services;
 
-public sealed class SystemMonitorService : ISystemMonitorService, IDisposable
+/// <summary>
+/// Windows implementace <see cref="ISystemMonitorService"/>. Sbírá CPU/RAM/GPU
+/// metriky přes WMI <c>Win32_VideoController</c>, <c>nvidia-smi</c> a P/Invoke
+/// <c>GetSystemTimes</c>.
+///
+/// Pro macOS port (Phase C) přijde <c>MacOsSystemMonitorService</c> používající
+/// <c>system_profiler</c> + IOKit. Společný interface zůstává beze změny.
+/// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+public sealed class WindowsSystemMonitorService : ISystemMonitorService, IDisposable
 {
     private CancellationTokenSource? _cts;
     private readonly int _currentPid = Environment.ProcessId;
