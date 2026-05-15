@@ -116,4 +116,78 @@ public class SettingsServiceTests : IDisposable
 
         fired.Should().BeTrue();
     }
+
+    // ── Šifrování tokenů (DPAPI / AES-GCM fallback) ───────────────────────────
+
+    [Fact]
+    public async Task SaveAsync_TokensAreEncryptedOnDisk()
+    {
+        var svc = MakeService();
+        svc.Settings.HuggingFaceToken = "hf_secret_PLAINTEXT";
+        svc.Settings.CivitaiApiKey    = "civitai_secret_PLAINTEXT";
+
+        await svc.SaveAsync();
+
+        // Na disku NESMÍ být plaintext token
+        var raw = await File.ReadAllTextAsync(_settingsPath);
+        raw.Should().NotContain("hf_secret_PLAINTEXT");
+        raw.Should().NotContain("civitai_secret_PLAINTEXT");
+        // Měl by tam být prefix značící šifrování
+        raw.Should().Contain("enc:v1:");
+    }
+
+    [Fact]
+    public async Task LoadAsync_LegacyPlaintextToken_StaysReadable()
+    {
+        // Simulujeme starou settings.json s plaintext tokenem (před zavedením šifrování)
+        var legacy = new AppSettings
+        {
+            HuggingFaceToken = "hf_legacy_plain",
+            CivitaiApiKey    = "civ_legacy_plain"
+        };
+        var json = JsonSerializer.Serialize(legacy, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(_settingsPath, json);
+
+        var svc = MakeService();
+        await svc.LoadAsync();
+
+        // VM musí dostat plaintext (legacy token bez prefixu je idempotentní)
+        svc.Settings.HuggingFaceToken.Should().Be("hf_legacy_plain");
+        svc.Settings.CivitaiApiKey.Should().Be("civ_legacy_plain");
+    }
+
+    // ── Atomicita zápisu + recovery ───────────────────────────────────────────
+
+    [Fact]
+    public async Task SaveAsync_CreatesBackupOfPreviousVersion()
+    {
+        // První save vytvoří hlavní soubor
+        var svc1 = MakeService();
+        svc1.Settings.ModelsDirectory = @"C:\Original";
+        await svc1.SaveAsync();
+
+        // Druhý save by měl ten starý uložit jako .bak
+        var svc2 = MakeService();
+        await svc2.LoadAsync();
+        svc2.Settings.ModelsDirectory = @"C:\Updated";
+        await svc2.SaveAsync();
+
+        File.Exists(_settingsPath + ".bak").Should().BeTrue("předchozí verze settings.json musí být v .bak");
+        File.Exists(_settingsPath + ".tmp").Should().BeFalse("temp soubor musí být po atomic replace odstraněn");
+    }
+
+    [Fact]
+    public async Task LoadAsync_MainFileMissing_RecoversFromBackup()
+    {
+        // Vyrobíme legitimní .bak (bez hlavního souboru) — simulace pádu těsně po File.Replace
+        var bak = new AppSettings { ModelsDirectory = @"C:\FromBackup" };
+        var json = JsonSerializer.Serialize(bak, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(_settingsPath + ".bak", json);
+
+        var svc = MakeService();
+        await svc.LoadAsync();
+
+        svc.Settings.ModelsDirectory.Should().Be(@"C:\FromBackup");
+        File.Exists(_settingsPath).Should().BeTrue(".bak musí být obnoveno jako hlavní soubor");
+    }
 }
