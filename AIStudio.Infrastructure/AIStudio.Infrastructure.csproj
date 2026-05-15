@@ -9,8 +9,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Cross-platform packages -->
     <PackageReference Include="LLamaSharp" Version="0.22.0" />
-    <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.22.0" />
     <!-- Cpu backend je tranzitivní závislost — vyloučíme native assets aby nedošlo
          ke konfliktu AVX variant (avx/avx2/avx512/noavx) při dotnet publish -->
     <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.22.0">
@@ -21,11 +21,31 @@
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <!-- Pro rozbalení ComfyUI Portable .7z archivu při auto-instalaci -->
     <PackageReference Include="SharpCompress" Version="0.40.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
+  </ItemGroup>
+
+  <!-- Windows-specific packages — na macOS / Linux by build padl (CUDA driver,
+       WMI, 7z native DLL bundled jen pro Windows binárky). Phase B/C přidá
+       per-platform varianty: LLamaSharp.Backend.Vulkan (AMD/Intel),
+       LLamaSharp.Backend.Metal (Apple Silicon). -->
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
+    <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.22.0" />
     <!-- Bundluje 7z.dll (x64+x86) — nativní 7-Zip engine bez nutnosti instalace 7-Zipu uživatelem -->
     <PackageReference Include="SevenZipExtractor" Version="1.0.17" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.7" />
+    <!-- WMI klient — pro Win32_VideoController, Win32_Processor, Win32_OperatingSystem -->
     <PackageReference Include="System.Management" Version="10.0.7" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
+  </ItemGroup>
+
+  <!-- Windows-specific implementace, které používají WMI / nvidia-smi / 7z DLL.
+       Na non-Windows je vynech kompilace — DI registrace je už platform-guarded.
+       Až přijde Phase C, přidáme zde i Compile Remove pro MacOs*.cs na ne-macOS. -->
+  <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
+    <Compile Remove="Services\WindowsGpuDetector.cs" />
+    <!-- Soubor stále SystemMonitorService.cs (class přejmenována v Phase A.4) -->
+    <Compile Remove="Services\SystemMonitorService.cs" />
+    <!-- Soubor stále ComfyInstaller.cs (class přejmenována v Phase A.3) -->
+    <Compile Remove="Services\ComfyInstaller.cs" />
   </ItemGroup>
 
   <PropertyGroup>

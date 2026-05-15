@@ -1,13 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <!-- OutputType per-platform:
+           Windows → WinExe (bez console okna pro GUI app)
+           macOS / Linux → Exe (Avalonia.Desktop zvládne GUI bez WinExe)
+         Phase C přidá macOS .app bundling přes <CFBundle*> properties. -->
+    <OutputType Condition="'$(OS)' == 'Windows_NT'">WinExe</OutputType>
+    <OutputType Condition="'$(OS)' != 'Windows_NT'">Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
-    <!-- Embed ikona do .exe — zobrazí se v Průzkumníku, Start Menu, taskbaru, Task Manageru.
-         Pokud chceš vlastní ikonu, prostě přepiš soubor Assets\avalonia-logo.ico. -->
-    <ApplicationIcon>Assets\avalonia-logo.ico</ApplicationIcon>
+    <!-- app.manifest a .ico jsou Win32 PE resource — na macOS / Linux je SDK
+         ignoruje s warningem; raději úplně vyřadit. -->
+    <ApplicationManifest Condition="'$(OS)' == 'Windows_NT'">app.manifest</ApplicationManifest>
+    <ApplicationIcon Condition="'$(OS)' == 'Windows_NT'">Assets\avalonia-logo.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <!-- Potlačí chybu NETSDK1152 při publish (LLamaSharp.Backend.Cpu AVX varianty) -->
     <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
