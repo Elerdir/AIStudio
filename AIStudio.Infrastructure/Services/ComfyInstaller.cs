@@ -13,14 +13,19 @@ using AIStudio.Core.Models;
 namespace AIStudio.Infrastructure.Services;
 
 /// <summary>
-/// Stáhne nejnovější ComfyUI Portable (Windows + NVIDIA build) z GitHubu
-/// a rozbalí ho. Po dokončení vrátí cesty k <c>main.py</c> (pro spuštění)
-/// a <c>python.exe</c> (vlastní embedded Python z portable buildu).
+/// Windows-specifická implementace <see cref="IComfyInstaller"/>. Stáhne
+/// nejnovější ComfyUI Portable (Windows + NVIDIA build) z GitHubu a rozbalí
+/// ho. Po dokončení vrátí cesty k <c>main.py</c> a embedded <c>python.exe</c>.
 ///
-/// Architektonická poznámka: ComfyService a ComfyInstaller jsou záměrně oddělené
-/// — Service umí jen řídit běžící proces, Installer řeší jen one-shot instalaci.
+/// Architektonická poznámka: ComfyService a Installer jsou záměrně oddělené —
+/// Service řídí běžící proces, Installer řeší jen one-shot instalaci.
+///
+/// Pro macOS port přijde <c>MacOsComfyInstaller</c> používající <c>git clone</c>
+/// + <c>python -m venv</c> + <c>pip install -r requirements.txt</c> (žádné
+/// portable buildy pro macOS Apple Silicon neexistují).
 /// </summary>
-public sealed class ComfyInstaller : IComfyInstaller
+[System.Runtime.Versioning.SupportedOSPlatform("windows")]
+public sealed class WindowsComfyInstaller : IComfyInstaller
 {
     private readonly IDownloadService _downloader;
 
@@ -34,7 +39,7 @@ public sealed class ComfyInstaller : IComfyInstaller
         }
     };
 
-    public ComfyInstaller(IDownloadService downloader)
+    public WindowsComfyInstaller(IDownloadService downloader)
     {
         _downloader = downloader;
     }
