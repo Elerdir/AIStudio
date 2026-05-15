@@ -78,15 +78,15 @@ public class FirstRunWizardViewModelTests
     }
 
     [Fact]
-    public void IsLastStep_TrueOnlyAtStep5()
+    public void IsLastStep_TrueOnlyAtStep6()
     {
         var (vm, _, _) = MakeVm();
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 6; i++)
         {
             vm.IsLastStep.Should().BeFalse($"krok {i} není poslední");
             vm.NextCommand.Execute(null);
         }
-        vm.IsLastStep.Should().BeTrue("krok 5 je poslední");
+        vm.IsLastStep.Should().BeTrue("krok 6 je poslední");
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class FirstRunWizardViewModelTests
         var (vm, _, _) = MakeVm();
         vm.NextButtonText.Should().Be("Pokračovat →");
 
-        for (int i = 0; i < 5; i++) vm.NextCommand.Execute(null);
+        for (int i = 0; i < 6; i++) vm.NextCommand.Execute(null);
         vm.NextButtonText.Should().Be("Spustit AI Studio →");
     }
 
@@ -108,16 +108,17 @@ public class FirstRunWizardViewModelTests
     [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
+    [InlineData(6)]
     public void IsStepN_TrueOnlyForCurrentStep(int targetStep)
     {
         var (vm, _, _) = MakeVm();
         for (int i = 0; i < targetStep; i++) vm.NextCommand.Execute(null);
 
         bool[] expected = [
-            vm.IsStep0, vm.IsStep1, vm.IsStep2, vm.IsStep3, vm.IsStep4, vm.IsStep5
+            vm.IsStep0, vm.IsStep1, vm.IsStep2, vm.IsStep3, vm.IsStep4, vm.IsStep5, vm.IsStep6
         ];
 
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < 7; i++)
             expected[i].Should().Be(i == targetStep, $"IsStep{i} při targetStep={targetStep}");
     }
 
@@ -185,8 +186,8 @@ public class FirstRunWizardViewModelTests
         bool completed = false;
         vm.WizardCompleted += (_, _) => completed = true;
 
-        // Přejdeme na krok 5 (poslední) a klikneme Next → Finish
-        for (int i = 0; i < 5; i++) vm.NextCommand.Execute(null);
+        // Přejdeme na krok 6 (poslední) a klikneme Next → Finish
+        for (int i = 0; i < 6; i++) vm.NextCommand.Execute(null);
         vm.NextCommand.Execute(null);   // poslední Next = Finish
 
         seed.ModelsDirectory.Should().Be(@"D:\Models");
@@ -206,7 +207,7 @@ public class FirstRunWizardViewModelTests
         var (vm, _, _) = MakeVm(seed);
 
         vm.ModelsDirectory = FirstRunWizardViewModel.DefaultModelsDir;
-        for (int i = 0; i < 6; i++) vm.NextCommand.Execute(null);
+        for (int i = 0; i < 7; i++) vm.NextCommand.Execute(null);
 
         // Výchozí cesta se ukládá jako prázdný string (kompaktní uložení)
         seed.ModelsDirectory.Should().BeEmpty();
@@ -306,6 +307,58 @@ public class FirstRunWizardViewModelTests
         }
     }
 
+    // ── Doporučené modely krok 5 ──────────────────────────────────────────────
+
+    [Fact]
+    public void RecommendedModelChoices_AllPreselectedByDefault()
+    {
+        var (vm, _, _) = MakeVm();
+        vm.RecommendedModelChoices.Should().NotBeEmpty();
+        vm.RecommendedModelChoices.Should().OnlyContain(c => c.IsSelected);
+        vm.HasSelectedRecommendedModels.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RecommendedSummaryLine_ZeroSelected_SaysNone()
+    {
+        var (vm, _, _) = MakeVm();
+        foreach (var c in vm.RecommendedModelChoices) c.IsSelected = false;
+        vm.RecommendedSummaryLine.Should().Contain("Žádné");
+        vm.HasSelectedRecommendedModels.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Finish_SavesSelectedModelIds_ToPendingModelDownloads()
+    {
+        var seed = new AppSettings();
+        var (vm, _, _) = MakeVm(seed);
+        vm.Initialize();
+
+        // Zvolíme jen první model
+        foreach (var c in vm.RecommendedModelChoices) c.IsSelected = false;
+        vm.RecommendedModelChoices[0].IsSelected = true;
+        var expectedId = vm.RecommendedModelChoices[0].Model.Id;
+
+        for (int i = 0; i < 7; i++) vm.NextCommand.Execute(null);
+
+        seed.PendingModelDownloads.Should().ContainSingle()
+            .Which.Should().Be(expectedId);
+    }
+
+    [Fact]
+    public void Finish_NoModelSelected_PendingDownloadsEmpty()
+    {
+        var seed = new AppSettings();
+        var (vm, _, _) = MakeVm(seed);
+        vm.Initialize();
+
+        foreach (var c in vm.RecommendedModelChoices) c.IsSelected = false;
+
+        for (int i = 0; i < 7; i++) vm.NextCommand.Execute(null);
+
+        seed.PendingModelDownloads.Should().BeEmpty();
+    }
+
     [Fact]
     public void Finish_WithComfyInstalled_EnablesAutoStart()
     {
@@ -320,8 +373,8 @@ public class FirstRunWizardViewModelTests
             var (vm, _, _) = MakeVm(seed);
             vm.Initialize();
 
-            // Projdi všech 6 kroků (0→1→2→3→4→5→Finish)
-            for (int i = 0; i < 6; i++) vm.NextCommand.Execute(null);
+            // Projdi všech 7 kroků (0→1→2→3→4→5→6→Finish)
+            for (int i = 0; i < 7; i++) vm.NextCommand.Execute(null);
 
             seed.AutoStartComfyUi.Should().BeTrue("ComfyUI je instalovaný, autostart se zapne automaticky");
             seed.SetupCompleted.Should().BeTrue();

@@ -39,7 +39,7 @@
                     </StackPanel>
                 </StackPanel>
 
-                <!-- Step dots (6 kroků: uvítání, modely, GPU, tokeny, ComfyUI, souhrn) -->
+                <!-- Step dots (7 kroků: uvítání, modely, GPU, tokeny, ComfyUI, doporučené modely, souhrn) -->
                 <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
 
                     <!-- Dot 0 -->
@@ -92,13 +92,23 @@
                                 Width="8" Height="8" HorizontalAlignment="Center"/>
                     </Panel>
 
-                    <!-- Dot 5 (souhrn) -->
+                    <!-- Dot 5 (doporučené modely) -->
                     <Panel Width="24" Height="8">
                         <Border CornerRadius="4" Background="#7C3AED"
                                 IsVisible="{Binding IsStep5}"
                                 Width="24" Height="8"/>
                         <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
                                 IsVisible="{Binding !IsStep5}"
+                                Width="8" Height="8" HorizontalAlignment="Center"/>
+                    </Panel>
+
+                    <!-- Dot 6 (souhrn) -->
+                    <Panel Width="24" Height="8">
+                        <Border CornerRadius="4" Background="#7C3AED"
+                                IsVisible="{Binding IsStep6}"
+                                Width="24" Height="8"/>
+                        <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
+                                IsVisible="{Binding !IsStep6}"
                                 Width="8" Height="8" HorizontalAlignment="Center"/>
                     </Panel>
 
@@ -592,8 +602,89 @@
             </StackPanel>
             </ScrollViewer>
 
-            <!-- ═══ KROK 5: Hotovo ═══ -->
+            <!-- ═══ KROK 5: Doporučené modely ═══ -->
             <ScrollViewer IsVisible="{Binding IsStep5}" Padding="40,32,40,16"
+                          VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0" Spacing="0">
+                <TextBlock Text="Doporučené modely" FontSize="22" FontWeight="Bold"
+                           Foreground="#FFFFFF"/>
+                <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
+                           LineHeight="22" TextWrapping="Wrap"
+                           Text="Vybereme za vás jeden chat model a jeden generátor obrázků. Po dokončení průvodce se začnou stahovat na pozadí — vidět budou v sekci Modely."/>
+
+                <!-- Karty modelů -->
+                <ItemsControl Margin="0,24,0,0"
+                              ItemsSource="{Binding RecommendedModelChoices}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FirstRunWizardViewModel+RecommendedModelChoice">
+                            <Border Margin="0,0,0,12"
+                                    Background="{DynamicResource PanelBgBrush}"
+                                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                    CornerRadius="12" Padding="16,14">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                    <!-- Checkbox -->
+                                    <CheckBox Grid.Column="0"
+                                              IsChecked="{Binding IsSelected}"
+                                              VerticalAlignment="Center"/>
+
+                                    <!-- Detail -->
+                                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding Model.Name}"
+                                                       FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextLightBrush}"/>
+                                            <Border Background="#1A1228" CornerRadius="4" Padding="6,2"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding KindLabel}"
+                                                           FontSize="10" Foreground="#A78BFA"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Model.Description}"
+                                                   FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+
+                                    <!-- Velikost -->
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding SizeLabel}"
+                                                   FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextLightBrush}"
+                                                   HorizontalAlignment="Right"/>
+                                        <TextBlock Text="ke stažení"
+                                                   FontSize="10" Foreground="{DynamicResource TextDisabledBrush}"
+                                                   HorizontalAlignment="Right"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Info pruh -->
+                <Border Margin="0,8,0,0"
+                        Background="{DynamicResource HoverBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="14,11">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.InformationOutline}"
+                                         Width="14" Height="14" VerticalAlignment="Top" Margin="0,2,0,0"
+                                         Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <StackPanel Spacing="3">
+                            <TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap">
+                                Modely se stáhnou na pozadí <Run FontWeight="SemiBold" Text="po dokončení průvodce"/>. Aplikace bude fungovat — během stahování vidíte progres v sekci Modely.
+                            </TextBlock>
+                            <TextBlock FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="Tip: krok lze přeskočit a stáhnout si modely sami z Modely → Doporučené."/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+            </ScrollViewer>
+
+            <!-- ═══ KROK 6: Hotovo ═══ -->
+            <ScrollViewer IsVisible="{Binding IsStep6}" Padding="40,32,40,16"
                           VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="Vše je připraveno! 🎉" FontSize="22" FontWeight="Bold"
@@ -673,6 +764,26 @@
                                 <TextBlock Text="ComfyUI (generování obrázků)"
                                            FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <TextBlock Text="{Binding ComfySummaryLine}"
+                                           FontSize="11" Foreground="{DynamicResource TextLightBrush}"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border Height="1" Background="{DynamicResource AppBorderBrush}"/>
+
+                        <!-- Doporučené modely -->
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="#4ADE80"
+                                       IsVisible="{Binding HasSelectedRecommendedModels}"
+                                       VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Minus}" Width="16" Height="16"
+                                       Foreground="{DynamicResource TextDisabledBrush}"
+                                       IsVisible="{Binding !HasSelectedRecommendedModels}"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel>
+                                <TextBlock Text="Doporučené modely"
+                                           FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBlock Text="{Binding RecommendedSummaryLine}"
                                            FontSize="11" Foreground="{DynamicResource TextLightBrush}"
                                            TextWrapping="Wrap"/>
                             </StackPanel>

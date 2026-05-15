@@ -186,6 +186,8 @@ public class SettingsService : ISettingsService
             PythonPath           = src.PythonPath,
             CheckForUpdates      = src.CheckForUpdates,
             UpdateChannel        = src.UpdateChannel,
+            // Kopie kolekce — reference by zapsala neúmyslně sdílený stav
+            PendingModelDownloads = new List<string>(src.PendingModelDownloads),
         };
     }
 }

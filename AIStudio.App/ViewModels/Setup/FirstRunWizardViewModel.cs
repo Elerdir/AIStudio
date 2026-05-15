@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Infrastructure.Services;
 
 namespace AIStudio.App.ViewModels.Setup;
 
@@ -18,13 +19,14 @@ public partial class FirstRunWizardViewModel : ViewModelBase
     // 1 = Složka modelů
     // 2 = GPU detekce
     // 3 = API tokeny
-    // 4 = ComfyUI install (NEW — krok pro generování obrázků)
-    // 5 = Souhrn
+    // 4 = ComfyUI install
+    // 5 = Doporučené modely (NEW)
+    // 6 = Souhrn
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(
         nameof(IsStep0), nameof(IsStep1), nameof(IsStep2),
-        nameof(IsStep3), nameof(IsStep4), nameof(IsStep5),
+        nameof(IsStep3), nameof(IsStep4), nameof(IsStep5), nameof(IsStep6),
         nameof(IsLastStep), nameof(CanGoBack), nameof(NextButtonText),
         nameof(CanGoNext))]
     private int _currentStep;
@@ -35,7 +37,8 @@ public partial class FirstRunWizardViewModel : ViewModelBase
     public bool IsStep3 => CurrentStep == 3;
     public bool IsStep4 => CurrentStep == 4;
     public bool IsStep5 => CurrentStep == 5;
-    public bool IsLastStep  => CurrentStep == 5;
+    public bool IsStep6 => CurrentStep == 6;
+    public bool IsLastStep  => CurrentStep == 6;
     public bool CanGoBack   => CurrentStep > 0 && !IsInstallingComfy;
     public string NextButtonText => IsLastStep ? "Spustit AI Studio →" : "Pokračovat →";
 
@@ -124,6 +127,57 @@ public partial class FirstRunWizardViewModel : ViewModelBase
     /// pokud uživatel klikne na Zrušit nebo zavře okno.
     /// </summary>
     private CancellationTokenSource? _installCts;
+
+    // ── Krok 5 — Doporučené modely ───────────────────────────────────────────
+    //
+    // VM vystavuje plochou wrap třídu RecommendedModelChoice s IsSelected,
+    // aby AXAML mohl rovnou bindovat na CheckBox. Zdrojem pravdy jsou položky
+    // ve <see cref="RecommendedModels.All"/>.
+
+    /// <summary>
+    /// Wrapper kolem <see cref="RecommendedModel"/> pro UI binding —
+    /// hlavně přidá <see cref="IsSelected"/> a předpočítaný popisek velikosti.
+    /// </summary>
+    public partial class RecommendedModelChoice : ObservableObject
+    {
+        public RecommendedModel Model { get; }
+        [ObservableProperty] private bool _isSelected;
+
+        public string SizeLabel  => Model.SizeBytes switch
+        {
+            >= 1_073_741_824 => $"{Model.SizeBytes / 1_073_741_824.0:F1} GB",
+            >= 1_048_576     => $"{Model.SizeBytes / 1_048_576.0:F0} MB",
+            _                => $"{Model.SizeBytes / 1024.0:F0} KB"
+        };
+        public string KindLabel  => Model.Kind == RecommendedModelKind.Chat
+            ? "Chat (LLM)" : "Generování obrázků";
+
+        public RecommendedModelChoice(RecommendedModel model, bool defaultSelected)
+        {
+            Model = model;
+            _isSelected = defaultSelected;
+        }
+    }
+
+    /// <summary>Seznam doporučených modelů pro UI binding (krok 5).</summary>
+    public List<RecommendedModelChoice> RecommendedModelChoices { get; } =
+        RecommendedModels.All
+            .Select(m => new RecommendedModelChoice(m, defaultSelected: true))
+            .ToList();
+
+    /// <summary>True pokud uživatel vybral aspoň jeden model k stažení.</summary>
+    public bool HasSelectedRecommendedModels =>
+        RecommendedModelChoices.Any(c => c.IsSelected);
+
+    public int SelectedRecommendedCount =>
+        RecommendedModelChoices.Count(c => c.IsSelected);
+
+    public string RecommendedSummaryLine => SelectedRecommendedCount switch
+    {
+        0 => "Žádné modely nebudou staženy",
+        1 => "1 model se stáhne na pozadí po startu aplikace",
+        _ => $"{SelectedRecommendedCount} modely se stáhnou na pozadí po startu aplikace"
+    };
 
     // ── Událost dokončení ─────────────────────────────────────────────────────
 
@@ -329,8 +383,17 @@ public partial class FirstRunWizardViewModel : ViewModelBase
             if (IsComfyInstalled)
                 s.AutoStartComfyUi = true;
 
+            // Uložíme IDs vybraných doporučených modelů. App po wizardu vyzvedne
+            // PendingModelDownloads a spustí stahování přes IDownloadService.
+            s.PendingModelDownloads = RecommendedModelChoices
+                .Where(c => c.IsSelected)
+                .Select(c => c.Model.Id)
+                .ToList();
+
             // Awaitujeme save — fire-and-forget v původní verzi tiše ztrácel chyby
             await _settings.SaveAsync();
+            Log.Information("Wizard: Finish — {N} modelů ke stažení, ComfyUI={Comfy}",
+                            s.PendingModelDownloads.Count, IsComfyInstalled);
         }
         catch (Exception ex)
         {

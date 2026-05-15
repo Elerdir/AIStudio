@@ -59,4 +59,14 @@ public class AppSettings
     /// nejnovější release v daném kanálu, takže beta-testeři dostávají preview.
     /// </summary>
     public string UpdateChannel { get; set; } = "stable";
+
+    // ── First-run wizard handoff ──────────────────────────────────────────────
+
+    /// <summary>
+    /// ID doporučených modelů, které uživatel ve wizardu označil k stažení.
+    /// Po dokončení wizardu App vyzvedne tento seznam, spustí stahování přes
+    /// <see cref="Interfaces.IDownloadService"/> a seznam vyprázdní.
+    /// IDs odpovídají <c>RecommendedModels.All[i].Id</c>.
+    /// </summary>
+    public List<string> PendingModelDownloads { get; set; } = new();
 }
