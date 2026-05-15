@@ -23,6 +23,7 @@ public partial class ChatPageViewModel : ViewModelBase
     private readonly ISettingsService           _settings;
     private readonly INavigationService         _nav;
     private readonly ISystemPromptPresetService _presetService;
+    private readonly ISystemMonitorService?     _monitor;
 
     [ObservableProperty] private string                 _inputText            = string.Empty;
     [ObservableProperty] private ConversationViewModel? _selectedConversation;
@@ -85,8 +86,66 @@ public partial class ChatPageViewModel : ViewModelBase
 
     /// <summary>True pokud je načtený model offloadován na GPU (CUDA/Metal).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(BackendTooltip), nameof(IsCpuBackend))]
+    [NotifyPropertyChangedFor(nameof(BackendTooltip), nameof(IsCpuBackend), nameof(MemoryUsageLabel))]
     private bool _isGpuBackend;
+
+    // ── Live system metrics (RAM / VRAM ticker v chat headeru) ───────────────
+
+    /// <summary>Využití RAM v GB (z <see cref="ISystemMonitorService"/>).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MemoryUsageLabel))]
+    private double _ramUsedGb;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MemoryUsageLabel))]
+    private double _ramTotalGb;
+
+    /// <summary>Využití VRAM v GB (jen pro GPU backend — pro CPU zůstává 0).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MemoryUsageLabel))]
+    private double _vramUsedGb;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MemoryUsageLabel))]
+    private double _vramTotalGb;
+
+    /// <summary>
+    /// Lidsky čitelný popisek paměti, který se ukáže v badge vedle modelu.
+    /// Pro GPU backend ukazuje VRAM (kolik model+aplikace zabírají v kartě),
+    /// pro CPU backend ukazuje RAM. Při total=0 (monitor ještě neměřil)
+    /// vrátí prázdný řetězec, badge se v UI skryje.
+    /// </summary>
+    public string MemoryUsageLabel
+    {
+        get
+        {
+            if (IsGpuBackend && VramTotalGb > 0)
+                return $"VRAM {VramUsedGb:F1} / {VramTotalGb:F1} GB";
+            if (!IsGpuBackend && RamTotalGb > 0)
+                return $"RAM {RamUsedGb:F1} / {RamTotalGb:F1} GB";
+            return string.Empty;
+        }
+    }
+
+    /// <summary>Tooltip s detailem na hover — vysvětlí co se měří.</summary>
+    public string MemoryUsageTooltip => IsGpuBackend
+        ? "Využití VRAM celou aplikací (model + ostatní procesy). Aktualizováno každé 2,5 s."
+        : "Využití operační paměti (RAM) celou aplikací. Aktualizováno každé 2,5 s.";
+
+    private void OnSystemStatusUpdated(object? sender, SystemStatus status)
+    {
+        // StatusUpdated jezdí z thread-pool threadu monitorovacího loopu;
+        // UI thread switch obstará Dispatcher.UIThread.Post.
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => ApplySystemStatus(status));
+    }
+
+    private void ApplySystemStatus(SystemStatus s)
+    {
+        RamUsedGb   = s.RamUsedGb;
+        RamTotalGb  = s.RamTotalGb;
+        VramUsedGb  = s.VramUsedGb;
+        VramTotalGb = s.VramTotalGb;
+    }
 
     /// <summary>True pokud je model načtený, ale jede přes CPU (ne GPU).</summary>
     public bool IsCpuBackend => IsModelLoaded && !IsGpuBackend;
@@ -194,18 +253,30 @@ public partial class ChatPageViewModel : ViewModelBase
     private ConversationViewModel? _subscribedConv;
 
     public ChatPageViewModel(ILlamaService llama, IChatRepository repo, ISettingsService settings,
-                             INavigationService nav, ISystemPromptPresetService presetService)
+                             INavigationService nav, ISystemPromptPresetService presetService,
+                             ISystemMonitorService? monitor = null)
     {
         _llama         = llama;
         _repo          = repo;
         _settings      = settings;
         _nav           = nav;
         _presetService = presetService;
+        _monitor       = monitor;
 
         // Builtin presety jsou immediate-available bez I/O; uživatelské se
         // doplní asynchronně přes LoadPresetsAsync (volá se např. po Load()).
         SystemPromptPresets = new ObservableCollection<SystemPromptPreset>(_presetService.BuiltInPresets);
         _ = LoadPresetsAsync();
+
+        // Live RAM/VRAM ticker — system monitor sbírá metriky každých 2.5 s,
+        // přesměrujeme je do badge vedle modelu v chat headeru.
+        if (_monitor is not null)
+        {
+            _monitor.StatusUpdated += OnSystemStatusUpdated;
+            // Pokud monitor už něco nasbíral před tím, než jsme se přihlásili
+            if (_monitor.Current is not null)
+                ApplySystemStatus(_monitor.Current);
+        }
 
         _llama.StatusChanged += status =>
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
