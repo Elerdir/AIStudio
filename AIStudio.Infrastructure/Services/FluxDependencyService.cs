@@ -31,12 +31,14 @@ public sealed class FluxDependencyService : IFluxDependencyService
     // GatedUrl    = záloha pokud PublicUrl vrátí 401/403 — vyžaduje HF Bearer token
     private static readonly DepInfo[] Deps =
     [
-        new(FileName:  "clip_l.safetensors",
+        new(Label:     "CLIP-L",
+            FileName:  "clip_l.safetensors",
             PublicUrl: "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors",
             GatedUrl:  null,
             Subdir:    "clip"),
 
-        new(FileName:  "ae.safetensors",
+        new(Label:     "VAE",
+            FileName:  "ae.safetensors",
             // comfyanonymous hostuje pouze text encodery, VAE je od BFL.
             // FLUX.1-dev má VAE přístupnou přes Apache-2.0 licenci bez nutnosti
             // přijmout extra podmínky — zkusíme nejdřív bez tokenu;
@@ -45,7 +47,8 @@ public sealed class FluxDependencyService : IFluxDependencyService
             GatedUrl:  "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors",
             Subdir:    "vae"),
 
-        new(FileName:  "t5xxl_fp8_e4m3fn.safetensors",
+        new(Label:     "T5",
+            FileName:  "t5xxl_fp8_e4m3fn.safetensors",
             PublicUrl: "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors",
             GatedUrl:  null,
             Subdir:    "clip"),  // stahujeme jako poslední — největší (~4.9 GB)
@@ -97,6 +100,22 @@ public sealed class FluxDependencyService : IFluxDependencyService
                 return false;
         }
         return true;
+    }
+
+    public IReadOnlyList<string> FindMissing(string modelsDir)
+    {
+        // Pro neexistující / prázdnou cestu vrátíme všechny — UI uživateli ukáže
+        // kompletní seznam toho, co je potřeba doplnit.
+        if (string.IsNullOrWhiteSpace(modelsDir) || !Directory.Exists(modelsDir))
+            return Deps.Select(d => d.Label).ToList();
+
+        var missing = new List<string>();
+        foreach (var dep in Deps)
+        {
+            if (!IsPresent(modelsDir, dep))
+                missing.Add(dep.Label);
+        }
+        return missing;
     }
 
     public bool HasGgufModels(string modelsDir)
@@ -315,6 +334,7 @@ public sealed class FluxDependencyService : IFluxDependencyService
     // ── Privátní record pro metadata závislosti ───────────────────────────────
 
     private sealed record DepInfo(
+        string  Label,       // Lidský název pro UI — "CLIP-L", "T5", "VAE"
         string  FileName,
         string  PublicUrl,   // Vyzkoušíme bez tokenu — veřejné nebo polopřístupné
         string? GatedUrl,    // Záloha s tokenem pokud PublicUrl vrátí 401/403

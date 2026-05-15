@@ -539,7 +539,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             // ComfyUI validation error a uživateli rovnou řekneme, co stáhnout.
             if (isFlux && isGguf)
             {
-                var missing = FindMissingFluxDependencies();
+                var missing = _fluxDeps?.FindMissing(ResolveModelsDir()) ?? new List<string>();
                 if (missing.Count > 0)
                 {
                     // Pokud deps stahujeme na pozadí, ukažeme uživateli přesný stav
@@ -1067,37 +1067,12 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Zkontroluje, jestli v Models složce existují soubory potřebné pro FLUX GGUF
-    /// workflow (CLIP-L, T5, VAE). Vrátí seznam přátelských názvů těch chybějících.
-    /// Hledá pohledem do Models adresáře — extra_model_paths.yaml mapuje subdirs
-    /// (clip/, vae/) i samotný root, takže to opravdu pokrývá obě varianty.
+    /// Resolve uživatelské Models cesty (nebo default AppData). Používá se v
+    /// několika místech pre-flight kontrol — vyextrahováno aby se neopakovalo.
     /// </summary>
-    private List<string> FindMissingFluxDependencies()
-    {
-        var modelsDir = string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
+    private string ResolveModelsDir() =>
+        string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                            "AIStudio", "Models")
             : _settings.Settings.ModelsDirectory;
-
-        var missing = new List<string>();
-
-        var deps = new (string Label, string FileName, string Subdir)[]
-        {
-            ("CLIP-L", ComfyWorkflowBuilder.DefaultFluxClipL, "clip"),
-            ("T5",     ComfyWorkflowBuilder.DefaultFluxT5,    "clip"),
-            ("VAE",    ComfyWorkflowBuilder.DefaultFluxVae,   "vae"),
-        };
-
-        foreach (var (label, file, sub) in deps)
-        {
-            // Zkontrolujeme primární umístění (root) i podsložku — přesně tak,
-            // jak ComfyUI hledá přes extra_model_paths.yaml.
-            var inRoot = Path.Combine(modelsDir, file);
-            var inSub  = Path.Combine(modelsDir, sub, file);
-            if (!File.Exists(inRoot) && !File.Exists(inSub))
-                missing.Add(label);
-        }
-
-        return missing;
-    }
 }

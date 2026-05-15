@@ -29,6 +29,13 @@ public interface IFluxDependencyService
     bool AreDependenciesPresent(string modelsDir);
 
     /// <summary>
+    /// Vrátí lidská jména chybějících FLUX závislostí (např. <c>["CLIP-L", "VAE"]</c>).
+    /// Prázdný seznam = všechno je v pořádku. Slouží pro pre-flight check
+    /// v generování — UI uživateli ukáže konkrétní seznam toho, co je třeba stáhnout.
+    /// </summary>
+    IReadOnlyList<string> FindMissing(string modelsDir);
+
+    /// <summary>
     /// Vrátí true pokud modelsDir obsahuje alespoň jeden .gguf soubor —
     /// to je spolehlivý signál, že uživatel FLUX GGUF model používá.
     /// </summary>
