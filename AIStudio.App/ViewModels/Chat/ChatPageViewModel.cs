@@ -121,8 +121,9 @@ public partial class ChatPageViewModel : ViewModelBase
         get
         {
             var conv = SelectedConversation;
-            if (conv is null || conv.MaxTokens == 0) return 0;
-            return Math.Min(100, EstimatedTokens * 100.0 / conv.MaxTokens);
+            return conv is null
+                ? 0
+                : AIStudio.Core.Services.TokenEstimator.UsagePercent(EstimatedTokens, conv.MaxTokens);
         }
     }
 
@@ -486,8 +487,10 @@ public partial class ChatPageViewModel : ViewModelBase
     private void UpdateEstimatedTokens()
     {
         var conv = SelectedConversation;
-        // Hrubý odhad: 1 token ≈ 4 znaky (angličtina); pro češtinu mírně podceněno, ale dostatečné pro UI
-        EstimatedTokens = conv is null ? 0 : conv.Messages.Sum(m => m.Content.Length) / 4;
+        EstimatedTokens = conv is null
+            ? 0
+            : AIStudio.Core.Services.TokenEstimator.EstimateMessages(
+                conv.Messages.Select(m => m.Content));
         OnPropertyChanged(nameof(EstimatedTokensLabel));
         OnPropertyChanged(nameof(EstimatedTokensPercent));
     }

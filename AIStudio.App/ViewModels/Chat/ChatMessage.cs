@@ -18,8 +18,15 @@ public partial class ChatMessage : ObservableObject
     [NotifyPropertyChangedFor(nameof(TokenHint))]
     private string _content = string.Empty;
 
-    /// <summary>Hrubý odhad počtu tokenů zprávy pro zobrazení v UI (1 token ≈ 4 znaky).</summary>
-    public string TokenHint => Content.Length < 4 ? "" : $"~{Content.Length / 4}t";
+    /// <summary>Hrubý odhad počtu tokenů zprávy pro zobrazení v UI.</summary>
+    public string TokenHint
+    {
+        get
+        {
+            var t = AIStudio.Core.Services.TokenEstimator.EstimateText(Content);
+            return t > 0 ? $"~{t}t" : "";
+        }
+    }
 
     // ── Zobrazení času ────────────────────────────────────────────────────────
 
