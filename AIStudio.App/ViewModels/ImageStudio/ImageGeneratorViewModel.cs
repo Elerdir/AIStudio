@@ -75,7 +75,34 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
     public bool HasLoras => SelectedLoras.Count > 0;
 
+    // ── Galerie — stránkované načítání ───────────────────────────────────────
+    // Při 5k+ obrázcích by načtení všech do ObservableCollection zamrzlo UI
+    // (memory + bitmapa preview). Stránkujeme po 50, „Načíst další" tlačítko
+    // dotahuje další várku ze SQLite.
+
+    /// <summary>Velikost stránky pro galerii. Konzervativní default — odladěno pro 8 GB RAM.</summary>
+    private const int GalleryPageSize = 50;
+
     public ObservableCollection<GeneratedImageViewModel> GeneratedImages { get; } = new();
+
+    /// <summary>Celkový počet záznamů v DB (může být větší než GeneratedImages.Count).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GalleryStatusLine), nameof(CanLoadMoreImages))]
+    private int _totalImagesInDb;
+
+    /// <summary>True když ještě nejsou stažené stránky se vším co je v DB.</summary>
+    public bool CanLoadMoreImages => GeneratedImages.Count < TotalImagesInDb;
+
+    /// <summary>Lidsky čitelný status — „Zobrazeno 50 z 1247".</summary>
+    public string GalleryStatusLine => TotalImagesInDb switch
+    {
+        0    => string.Empty,
+        var t when GeneratedImages.Count >= t => $"Zobrazeno všech {t}",
+        var t => $"Zobrazeno {GeneratedImages.Count} z {t}"
+    };
+
+    /// <summary>Probíhá načítání další stránky? Brání dvojkliku.</summary>
+    [ObservableProperty] private bool _isLoadingMoreImages;
 
     public static IReadOnlyList<AspectRatio> AspectRatios { get; } = Enum.GetValues<AspectRatio>();
     public static IReadOnlyList<ImageQuality> Qualities { get; }   = Enum.GetValues<ImageQuality>();
@@ -766,6 +793,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 {
                     GeneratedImages.Insert(0, vm);
                     LatestImage = vm;
+                    // Inkrementuj total count — udržuje status label „Zobrazeno X z Y"
+                    TotalImagesInDb++;
                     OnPropertyChanged(nameof(HasGeneratedImages));
                 });
             }
@@ -970,44 +999,98 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Naplní GeneratedImages záznamy z DB (volá se při startu).</summary>
+    /// <summary>
+    /// Naplní GeneratedImages první stránkou záznamů z DB (volá se při startu).
+    /// Zbylé stránky se dotahují přes <see cref="LoadMoreImagesAsync"/>.
+    /// </summary>
     public async Task LoadSavedImagesAsync()
     {
         try
         {
-            var records = await _imageRepo.LoadAllImagesAsync();
+            var total   = await _imageRepo.CountImagesAsync();
+            var records = await _imageRepo.LoadImagesPagedAsync(skip: 0, take: GalleryPageSize);
+
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 GeneratedImages.Clear();
-                foreach (var rec in records)
-                {
-                    // Přeskoč záznamy, jejichž soubor byl ručně smazán
-                    if (!File.Exists(rec.FilePath)) continue;
-
-                    var vm = new GeneratedImageViewModel
-                    {
-                        FilePath  = rec.FilePath,
-                        Prompt    = rec.Prompt,
-                        Model     = rec.ModelName,
-                        Seed      = rec.Seed,
-                        Width     = rec.Width,
-                        Height    = rec.Height,
-                        Sampler   = rec.Sampler,
-                        Scheduler = rec.Scheduler,
-                        Steps     = rec.Steps,
-                        Cfg       = rec.Cfg,
-                        Timestamp = rec.GeneratedAt,
-                    };
-                    GeneratedImages.Add(vm);
-                }
+                AppendRecords(records);
+                TotalImagesInDb = total;
 
                 LatestImage = GeneratedImages.Count > 0 ? GeneratedImages[0] : null;
                 OnPropertyChanged(nameof(HasGeneratedImages));
+                OnPropertyChanged(nameof(GalleryStatusLine));
+                OnPropertyChanged(nameof(CanLoadMoreImages));
             });
+
+            Log.Information("Galerie: načtena první stránka ({Page}/{Total} obrázků)",
+                            GeneratedImages.Count, total);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to load saved images from DB");
+        }
+    }
+
+    /// <summary>
+    /// Doplní galerii o další stránku (skip = aktuálně zobrazeno, take = GalleryPageSize).
+    /// Triggered uživatelem přes tlačítko „Načíst další" v UI.
+    /// </summary>
+    [RelayCommand]
+    private async Task LoadMoreImagesAsync()
+    {
+        if (IsLoadingMoreImages || !CanLoadMoreImages) return;
+
+        IsLoadingMoreImages = true;
+        try
+        {
+            var skip    = GeneratedImages.Count;
+            var records = await _imageRepo.LoadImagesPagedAsync(skip, GalleryPageSize);
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                AppendRecords(records);
+                OnPropertyChanged(nameof(GalleryStatusLine));
+                OnPropertyChanged(nameof(CanLoadMoreImages));
+            });
+
+            Log.Debug("Galerie: doplněna další stránka ({N} obrázků, total v UI {Total})",
+                      records.Count, GeneratedImages.Count);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Galerie: LoadMore selhal");
+        }
+        finally
+        {
+            IsLoadingMoreImages = false;
+        }
+    }
+
+    /// <summary>
+    /// Mapuje <see cref="ImageRecord"/> → <see cref="GeneratedImageViewModel"/>
+    /// a přidá do <see cref="GeneratedImages"/>. Záznamy se smazaným souborem
+    /// na disku přeskakuje.
+    /// </summary>
+    private void AppendRecords(IReadOnlyList<ImageRecord> records)
+    {
+        foreach (var rec in records)
+        {
+            if (!File.Exists(rec.FilePath)) continue;
+
+            GeneratedImages.Add(new GeneratedImageViewModel
+            {
+                FilePath  = rec.FilePath,
+                Prompt    = rec.Prompt,
+                Model     = rec.ModelName,
+                Seed      = rec.Seed,
+                Width     = rec.Width,
+                Height    = rec.Height,
+                Sampler   = rec.Sampler,
+                Scheduler = rec.Scheduler,
+                Steps     = rec.Steps,
+                Cfg       = rec.Cfg,
+                Timestamp = rec.GeneratedAt,
+            });
         }
     }
 

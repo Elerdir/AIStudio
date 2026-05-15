@@ -118,4 +118,89 @@ public class SqliteImageRepositoryTests : IAsyncLifetime
         await _repo.Invoking(r => r.DeleteImageAsync("neexistující-id"))
                    .Should().NotThrowAsync();
     }
+
+    // ── Paginace ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CountImagesAsync_EmptyDb_ReturnsZero()
+    {
+        var count = await _repo.CountImagesAsync();
+        count.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CountImagesAsync_AfterInserts_ReturnsTotal()
+    {
+        for (var i = 0; i < 5; i++)
+            await _repo.SaveImageAsync(MakeImage());
+
+        var count = await _repo.CountImagesAsync();
+        count.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task LoadImagesPagedAsync_FirstPage_ReturnsNewestN()
+    {
+        // 10 obrázků se stoupajícím GeneratedAt — nejnovější má vyšší index
+        var ids = new List<string>();
+        var baseTime = DateTime.UtcNow.AddHours(-10);
+        for (var i = 0; i < 10; i++)
+        {
+            var img = MakeImage() with { GeneratedAt = baseTime.AddMinutes(i) };
+            ids.Add(img.Id);
+            await _repo.SaveImageAsync(img);
+        }
+
+        // První stránka po 3 = nejnovější 3 (i=9, 8, 7)
+        var page = await _repo.LoadImagesPagedAsync(skip: 0, take: 3);
+
+        page.Should().HaveCount(3);
+        page[0].Id.Should().Be(ids[9]);
+        page[1].Id.Should().Be(ids[8]);
+        page[2].Id.Should().Be(ids[7]);
+    }
+
+    [Fact]
+    public async Task LoadImagesPagedAsync_SecondPage_SkipsCorrectly()
+    {
+        var ids = new List<string>();
+        var baseTime = DateTime.UtcNow.AddHours(-10);
+        for (var i = 0; i < 10; i++)
+        {
+            var img = MakeImage() with { GeneratedAt = baseTime.AddMinutes(i) };
+            ids.Add(img.Id);
+            await _repo.SaveImageAsync(img);
+        }
+
+        var page = await _repo.LoadImagesPagedAsync(skip: 3, take: 3);
+
+        page.Should().HaveCount(3);
+        // Skip 3 nejnovějších → vrátí i=6, 5, 4
+        page[0].Id.Should().Be(ids[6]);
+        page[1].Id.Should().Be(ids[5]);
+        page[2].Id.Should().Be(ids[4]);
+    }
+
+    [Fact]
+    public async Task LoadImagesPagedAsync_BeyondEnd_ReturnsEmpty()
+    {
+        await _repo.SaveImageAsync(MakeImage());
+        await _repo.SaveImageAsync(MakeImage());
+
+        var page = await _repo.LoadImagesPagedAsync(skip: 100, take: 50);
+
+        page.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LoadImagesPagedAsync_InvalidArgs_HandledGracefully()
+    {
+        await _repo.SaveImageAsync(MakeImage());
+
+        var noTake = await _repo.LoadImagesPagedAsync(skip: 0, take: 0);
+        noTake.Should().BeEmpty();
+
+        var negativeSkip = await _repo.LoadImagesPagedAsync(skip: -5, take: 10);
+        negativeSkip.Should().HaveCount(1, "negativní skip se normalizuje na 0");
+    }
 }

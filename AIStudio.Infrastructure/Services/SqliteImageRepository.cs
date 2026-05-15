@@ -73,36 +73,19 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
 
     // ── Read ───────────────────────────────────────────────────────────────────
 
+    private const string SelectColumns =
+        "Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, Sampler, Scheduler, GeneratedAt";
+
     public async Task<IReadOnlyList<ImageRecord>> LoadAllImagesAsync()
     {
         try
         {
             await using var conn = await OpenAsync();
             await using var cmd  = conn.CreateCommand();
-            cmd.CommandText =
-                "SELECT Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, Sampler, Scheduler, GeneratedAt " +
-                "FROM Images ORDER BY GeneratedAt DESC";
+            cmd.CommandText = $"SELECT {SelectColumns} FROM Images ORDER BY GeneratedAt DESC";
 
-            var list = new List<ImageRecord>();
-            await using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                list.Add(new ImageRecord(
-                    reader.GetString(0),
-                    reader.GetString(1),
-                    reader.GetString(2),
-                    reader.GetString(3),
-                    reader.GetInt64(4),
-                    reader.GetInt32(5),
-                    reader.GetInt32(6),
-                    reader.GetInt32(7),
-                    reader.GetDouble(8),
-                    reader.GetString(9),
-                    reader.GetString(10),
-                    DateTime.Parse(reader.GetString(11))));
-            }
-
-            Log.Debug("Loaded {Count} image records from DB", list.Count);
+            var list = await ReadImagesAsync(cmd);
+            Log.Debug("Loaded {Count} image records from DB (LoadAll)", list.Count);
             return list;
         }
         catch (Exception ex)
@@ -110,6 +93,73 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
             Log.Error(ex, "Failed to load images from DB");
             return Array.Empty<ImageRecord>();
         }
+    }
+
+    public async Task<IReadOnlyList<ImageRecord>> LoadImagesPagedAsync(int skip, int take)
+    {
+        if (skip < 0) skip = 0;
+        if (take <= 0) return Array.Empty<ImageRecord>();
+
+        try
+        {
+            await using var conn = await OpenAsync();
+            await using var cmd  = conn.CreateCommand();
+            cmd.CommandText = $"SELECT {SelectColumns} FROM Images " +
+                              "ORDER BY GeneratedAt DESC LIMIT $take OFFSET $skip";
+            cmd.Parameters.AddWithValue("$take", take);
+            cmd.Parameters.AddWithValue("$skip", skip);
+
+            var list = await ReadImagesAsync(cmd);
+            Log.Debug("Loaded {Count} image records (skip={Skip}, take={Take})",
+                      list.Count, skip, take);
+            return list;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to load paged images from DB (skip={Skip}, take={Take})", skip, take);
+            return Array.Empty<ImageRecord>();
+        }
+    }
+
+    public async Task<int> CountImagesAsync()
+    {
+        try
+        {
+            await using var conn = await OpenAsync();
+            await using var cmd  = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM Images";
+            var raw = await cmd.ExecuteScalarAsync();
+            return raw is long l ? (int)l : Convert.ToInt32(raw);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to count images in DB");
+            return 0;
+        }
+    }
+
+    /// <summary>Společný čtecí helper — všechny SELECT mají stejný column order (viz <see cref="SelectColumns"/>).</summary>
+    private static async Task<List<ImageRecord>> ReadImagesAsync(SqliteCommand cmd)
+    {
+        var list = new List<ImageRecord>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            list.Add(new ImageRecord(
+                reader.GetString(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                reader.GetInt64(4),
+                reader.GetInt32(5),
+                reader.GetInt32(6),
+                reader.GetInt32(7),
+                reader.GetDouble(8),
+                reader.GetString(9),
+                reader.GetString(10),
+                DateTime.Parse(reader.GetString(11))));
+        }
+        return list;
     }
 
     // ── Write ──────────────────────────────────────────────────────────────────

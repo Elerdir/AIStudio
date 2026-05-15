@@ -1377,9 +1377,47 @@
                         BorderThickness="0,1,0,0"
                         Padding="8,6"
                         IsVisible="{Binding HasGeneratedImages}">
-                    <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                  VerticalScrollBarVisibility="Disabled"
-                                  Height="90">
+                    <DockPanel>
+                        <!-- Pravý sloupec: status + „Načíst další" -->
+                        <Border DockPanel.Dock="Right"
+                                Background="#0C0C10"
+                                BorderBrush="#1E1E24" BorderThickness="1,0,0,0"
+                                Padding="12,6"
+                                MinWidth="140">
+                            <StackPanel Spacing="6" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding GalleryStatusLine}"
+                                           FontSize="10" Foreground="{DynamicResource TextDisabledBrush}"
+                                           HorizontalAlignment="Center"
+                                           TextWrapping="Wrap" TextAlignment="Center"/>
+                                <Button Command="{Binding LoadMoreImagesCommand}"
+                                        IsVisible="{Binding CanLoadMoreImages}"
+                                        IsEnabled="{Binding !IsLoadingMoreImages}"
+                                        Background="#1A1228"
+                                        BorderBrush="#2A1A44" BorderThickness="1"
+                                        CornerRadius="6" Padding="10,5"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        ToolTip.Tip="Načte ze SQLite dalších 50 obrázků">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ChevronDoubleDown}"
+                                                         Width="12" Height="12" Foreground="#A78BFA"
+                                                         VerticalAlignment="Center"/>
+                                        <TextBlock Text="Načíst další"
+                                                   FontSize="11" Foreground="#A78BFA"
+                                                   VerticalAlignment="Center"
+                                                   IsVisible="{Binding !IsLoadingMoreImages}"/>
+                                        <TextBlock Text="Načítám…"
+                                                   FontSize="11" Foreground="#A78BFA"
+                                                   VerticalAlignment="Center"
+                                                   IsVisible="{Binding IsLoadingMoreImages}"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                        <!-- Vlastní strip -->
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      Height="90">
                         <ItemsControl ItemsSource="{Binding GeneratedImages}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -1452,7 +1490,8 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </ScrollViewer>
+                        </ScrollViewer>
+                    </DockPanel>
                 </Border>
 
                 <!-- ── Zoom overlay ──────────────────────────────────────────── -->
