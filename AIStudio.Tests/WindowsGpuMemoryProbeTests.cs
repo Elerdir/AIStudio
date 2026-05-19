@@ -44,4 +44,20 @@ public class WindowsGpuMemoryProbeTests
     {
         WindowsGpuMemoryProbe.IsTotalVramSensor(sensorName).Should().Be(expected);
     }
+
+    // ── WindowsLiveGpuMonitor.IsUsedVramSensor ──────────────────────────────
+
+    [Theory]
+    [InlineData("GPU Memory Used",                 true)]
+    [InlineData("D3D Dedicated Memory Used",       true)]
+    [InlineData("D3D Shared Memory Used",          true)]
+    [InlineData("gpu memory used",                 true)]   // case-insensitive
+    [InlineData("GPU Memory Total",                false)]  // total ≠ used
+    [InlineData("GPU Memory Free",                 false)]
+    [InlineData("GPU Core",                        false)]
+    [InlineData("",                                false)]
+    public void IsUsedVramSensor_MatchesKnownNames(string sensorName, bool expected)
+    {
+        WindowsLiveGpuMonitor.IsUsedVramSensor(sensorName).Should().Be(expected);
+    }
 }

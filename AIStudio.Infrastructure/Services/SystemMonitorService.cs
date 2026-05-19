@@ -30,6 +30,11 @@ public sealed class WindowsSystemMonitorService : ISystemMonitorService, IDispos
     private long _prevKernelTicks;
     private long _prevUserTicks;
 
+    // Long-lived LibreHardwareMonitor wrapper — používáme pro AMD/Intel karty,
+    // kde nvidia-smi neexistuje a WMI Win32_VideoController nedává used VRAM.
+    // Inicializován při StartAsync, uzavřen při Dispose.
+    private readonly WindowsLiveGpuMonitor _lhmMonitor = new();
+
     // Kandidátní cesty pro nvidia-smi — PATH + nejčastější umístění na Windows
     private static readonly string[] NvidiaSmiCandidates =
     [
@@ -55,6 +60,10 @@ public sealed class WindowsSystemMonitorService : ISystemMonitorService, IDispos
             // Inicializace baseline pro CPU delta výpočet — první GetCpuUsage()
             // tedy vrátí 0, druhé už reálné %.
             ReadSystemTimes(out _prevIdleTicks, out _prevKernelTicks, out _prevUserTicks);
+
+            // LibreHardwareMonitor monitor — cca 50-100 ms na cold open, pak jen
+            // levné polling cycles. Inicializujeme jednou tady, ne v každém collectu.
+            _lhmMonitor.Initialize();
 
             // CPU název zjistíme jednou na začátku (WMI dotaz je pomalý)
             _cachedCpuName = GetCpuName();
@@ -354,13 +363,24 @@ public sealed class WindowsSystemMonitorService : ISystemMonitorService, IDispos
             var (wmiName, wmiVramGb) = GetWmiGpuBasicInfo();
             if (!string.IsNullOrEmpty(wmiName))
             {
+                // Pokus o doplnění live VRAM přes LHM (AMD ADL / Intel D3D / NVIDIA NVAPI).
+                // WMI samo dává max total VRAM (a to ještě s overflow nad 4 GB),
+                // takže pro AMD/Intel je tohle jediná cesta jak dostat used hodnotu.
+                double lhmUsedGb = 0, lhmTotalGb = wmiVramGb;
+                if (_lhmMonitor.IsAvailable)
+                {
+                    var (uGb, tGb) = _lhmMonitor.TryReadCurrent();
+                    if (uGb > 0) lhmUsedGb  = uGb;
+                    if (tGb > 0) lhmTotalGb = tGb;  // LHM total přebije WMI (přesnější nad 4 GB)
+                }
+
                 if (!_gpuLoggedOnce)
                 {
-                    Log.Information("SystemMonitor: GPU via WMI = {Name} ({TotalGb:F1} GB)",
-                                    wmiName, wmiVramGb);
+                    Log.Information("SystemMonitor: GPU via WMI = {Name} ({TotalGb:F1} GB, LHM used={UsedGb:F1} GB)",
+                                    wmiName, lhmTotalGb, lhmUsedGb);
                     _gpuLoggedOnce = true;
                 }
-                return (wmiName, 0, wmiVramGb, 0, true, []);
+                return (wmiName, lhmUsedGb, lhmTotalGb, 0, true, []);
             }
 
             if (!_gpuLoggedOnce)
@@ -513,5 +533,6 @@ public sealed class WindowsSystemMonitorService : ISystemMonitorService, IDispos
     public void Dispose()
     {
         _cts?.Cancel();
+        _lhmMonitor.Dispose();
     }
 }
