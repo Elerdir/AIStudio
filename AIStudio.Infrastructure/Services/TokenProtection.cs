@@ -91,17 +91,31 @@ internal static class TokenProtection
         }
     }
 
-    // ── Cross-platform fallback (AES-GCM s klíčem odvozeným z machine+user) ──
+    // ── Cross-platform fallback (AES-GCM) ────────────────────────────────────
     //
-    // Toto NENÍ OS keychain. Klíč je odvozený z deterministických hodnot
-    // (machineGuid + username), takže malware co umí číst tyto hodnoty může
-    // i dešifrovat token. Ale brání banálnímu „cat settings.json" útoku.
-    // TODO: na macOS přepnout na Keychain Services, na Linux na libsecret.
+    // macOS:    klíč v Keychain (přes `security` CLI). Skutečný secret —
+    //           malware co čte settings.json bez root přístupu Keychain
+    //           neobejde.
+    // Linux:    klíč odvozený z machineGuid + username (deterministic hash).
+    //           Brání banálnímu „cat settings.json", ale ne útoku co umí
+    //           přečíst /etc/machine-id. TODO: libsecret integrace.
 
     private static byte[] DeriveKey()
     {
-        // Stabilní seed pro tuhle session i mezi spuštěními:
-        //   machineGuid (Mac: serial, Linux: /etc/machine-id) + username
+        // macOS: zkus Keychain. Při prvním běhu vygenerujeme náhodný 32-byte
+        // klíč a uložíme; další běhy ho jen načtou. To dává reálnou ochranu
+        // settings.json — útočník bez Keychain accessu token nedešifruje.
+        if (OperatingSystem.IsMacOS())
+        {
+            var keychainKey = MacOsKeychainKeyStore.GetOrCreateKey();
+            if (keychainKey is not null) return keychainKey;
+            // Keychain nedostupné (např. headless CI bez login session) — propadneme
+            // na deterministic hash, ať appka pořád funguje.
+            Log.Warning("TokenProtection: macOS Keychain nedostupné, propadám na deterministic hash key");
+        }
+
+        // Deterministic seed pro Linux / Keychain fallback:
+        //   machineName + username + OS popis
         // Hash uřízneme na 32 bajtů (AES-256).
         var seed = $"AIStudio.v1|{Environment.MachineName}|{Environment.UserName}|{RuntimeInformation.OSDescription}";
         return SHA256.HashData(Encoding.UTF8.GetBytes(seed));
