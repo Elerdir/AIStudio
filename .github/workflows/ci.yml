@@ -6,10 +6,12 @@ on:
   push:
     branches: [main]
 
-# Cíl: každý PR i push do main projde buildem a testy na Windows.
-# macOS job je dnes "ostře hraný placeholder" — buildí, ale runtime test nemá
-# Apple Silicon (placeholder = Intel runner). Phase C přepne na macos-14 (M1 runner)
-# až bude existovat macOS impl (GpuDetector, SystemMonitorService, ComfyInstaller).
+# Cíl: každý PR i push do main projde buildem a testy na Windows i macOS.
+# Po Phase C jsme přepnuli z "placeholder build" na "hard gate" — macOS
+# Apple Silicon impl (GpuDetector, SystemMonitor, ComfyInstaller,
+# KeychainKeyStore, Backend.Metal) je v kódu. CI ověří, že
+# osx-arm64 publish se vůbec dá vyrobit; runtime tests potřebují skutečnou
+# Apple Silicon mašinu (macos-14 runner) a pustí se až přidáme test mark.
 jobs:
   test-windows:
     name: Tests (Windows)
@@ -37,18 +39,11 @@ jobs:
           path: '**/test-results.trx'
           if-no-files-found: warn
 
-  # macOS build job — Phase C placeholder.
-  # Dnes ověřuje POUZE že csproj má rozumné platform conditions a build na
-  # macOS runneru nepadá na chybějící Windows-only packages. Žádné integration
-  # testy zatím — Apple Silicon (macos-14) runner přijde, až bude existovat
-  # MacOsGpuDetector + LLamaSharp.Backend.Metal.
-  #
-  # continue-on-error: true znamená že selhání NEBLOKUJE merge — máme tu jen
-  # signál pro vývojáře, ne tvrdý gate, dokud Phase C neproběhne.
+  # macOS build na Apple Silicon runneru. macos-14 = M1 GitHub runner
+  # (macos-latest aliases na něj v 2025, ale fixujeme explicitně pro stabilitu).
   build-macos:
-    name: Build (macOS, Phase C placeholder)
-    runs-on: macos-latest
-    continue-on-error: true
+    name: Build + tests (macOS Apple Silicon)
+    runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -65,3 +60,32 @@ jobs:
             -r osx-arm64 \
             --no-restore \
             -p:PublishReadyToRun=false
+
+      # Pure-logic testy běží i na macOS — TokenProtection / TokenEstimator /
+      # MacOsGpuDetectorTests (parser JSON, žádný shell call). Real-system
+      # tests (system_profiler) by chybu nereportovaly i bez Mac runneru.
+      - name: Run tests
+        run: dotnet test AIStudio.Tests/AIStudio.Tests.csproj -c Release --no-build --logger "trx;LogFileName=test-results-macos.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-macos
+          path: '**/test-results-macos.trx'
+          if-no-files-found: warn
+
+      # Publish .app bundle pro ověření, že CFBundle properties + Info.plist
+      # produkuje funkční artefakt. Self-contained = nepotřebuje .NET runtime
+      # nainstalovaný na cílovém Macu (uživatel si stáhne .app a pustí).
+      - name: Publish (osx-arm64 .app)
+        run: |
+          dotnet publish AIStudio.App/AIStudio.App.csproj \
+            -c Release \
+            -r osx-arm64 \
+            --self-contained true \
+            -p:PublishReadyToRun=false \
+            -o publish/osx-arm64
+
+      - name: List publish output (sanity check)
+        run: ls -la publish/osx-arm64
