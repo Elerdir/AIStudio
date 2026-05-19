@@ -40,6 +40,11 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.7" />
     <!-- WMI klient — pro Win32_VideoController, Win32_Processor, Win32_OperatingSystem -->
     <PackageReference Include="System.Management" Version="10.0.7" />
+    <!-- LibreHardwareMonitorLib — cross-vendor GPU metrics (NVIDIA via NVAPI,
+         AMD via ADL, Intel via D3D). Klíčové pro AMD karty s > 4 GB VRAM, kde
+         WMI Win32_VideoController.AdapterRAM přetéká (UInt32) a hlásí 0.
+         Apache-2.0 licence, bez admin práv pro většinu read-only sensorů. -->
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.4" />
   </ItemGroup>
 
   <!-- Windows-specific implementace, které používají WMI / nvidia-smi / 7z DLL.

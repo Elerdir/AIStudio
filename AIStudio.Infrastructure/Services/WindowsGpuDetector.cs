@@ -152,6 +152,21 @@ public sealed class WindowsGpuDetector : IGpuDetector
 
             if (best is not null)
             {
+                // VRAM fallback: pokud WMI AdapterRAM hlásí 0 (UInt32 overflow nad 4 GB),
+                // zkusíme LibreHardwareMonitor přes NVAPI/ADL/D3D registry.
+                // Pro AMD RX 6750 a podobné karty je tohle jediná cesta jak dostat
+                // skutečnou hodnotu — bez ní by chat memory ticker ukazoval 0/0.
+                if (best.VramBytes == 0)
+                {
+                    var lhmBytes = WindowsGpuMemoryProbe.TryReadVramTotalBytes();
+                    if (lhmBytes > 0)
+                    {
+                        Log.Information("WindowsGpuDetector: WMI AdapterRAM=0 (overflow), " +
+                                        "doplněno z LHM = {Mb} MB", lhmBytes / 1_048_576);
+                        best = best with { VramBytes = lhmBytes };
+                    }
+                }
+
                 Log.Information("WindowsGpuDetector: WMI = {Vendor} {Name} ({VramGb:F1} GB, backend={Backend})",
                                 best.Vendor, best.Name, best.VramGb, best.Backend);
                 return best;
