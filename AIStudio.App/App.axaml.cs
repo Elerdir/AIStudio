@@ -133,10 +133,11 @@ public partial class App : Application
         services.AddSingleton<IChatRepository, SqliteChatRepository>();
         services.AddSingleton<IComfyHttpClient, ComfyHttpClient>();
         services.AddSingleton<IComfyService, ComfyService>();
-        // ComfyUI installer — per-platform impl. Windows má portable .7z s embedded
-        // Pythonem; macOS bude git-clone + venv (přijde s macOS portem v Phase C).
+        // ComfyUI installer — per-platform impl.
         if (OperatingSystem.IsWindows())
             services.AddSingleton<IComfyInstaller, WindowsComfyInstaller>();
+        else if (OperatingSystem.IsMacOS())
+            services.AddSingleton<IComfyInstaller, MacOsComfyInstaller>();
         services.AddSingleton<ILoraLibraryService, LoraLibraryService>();
         services.AddSingleton<IImageRepository, SqliteImageRepository>();
         services.AddSingleton<IHuggingFaceClient, HuggingFaceClient>();
