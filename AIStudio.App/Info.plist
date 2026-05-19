@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Bundle identity ─────────────────────────────────────────────────── -->
+    <key>CFBundleIdentifier</key>
+    <string>cz.niderle.aistudio</string>
+    <key>CFBundleName</key>
+    <string>AI Studio</string>
+    <key>CFBundleDisplayName</key>
+    <string>AI Studio</string>
+    <key>CFBundleExecutable</key>
+    <string>AIStudio.App</string>
+
+    <!-- Verze — Phase C drží 0.1.0 jako placeholder, dotnet publish nastavuje
+         skrz <Version> v csproj, ale plist je statický. Při release bumpneme. -->
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>0.1.0</string>
+
+    <!-- Packaging ───────────────────────────────────────────────────────── -->
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+
+    <!-- Ikona (Phase C zatím bez vlastní .icns, použijeme Avalonia default;
+         až bude vlastní AppIcon.icns v Resources/, odkomentuj řádek). -->
+    <!--
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    -->
+
+    <!-- Minimální macOS verze. Apple Silicon = M1 = macOS 11.0 Big Sur,
+         ale .NET 10 vyžaduje 12.0+. Cílíme tedy na macOS 12 Monterey jako
+         spodní hranici. -->
+    <key>LSMinimumSystemVersion</key>
+    <string>12.0</string>
+
+    <!-- Apple Silicon only (rozhodnuto dle požadavku — Intel Mac NEpodporujeme).
+         LSRequiresNativeExecution = true zabrání běhu pod Rosetta 2 — uživatel
+         místo toho dostane chybu při open. -->
+    <key>LSRequiresNativeExecution</key>
+    <true/>
+
+    <!-- GUI aplikace s normálním Dock ikonem (nikoliv menu-bar-only utilita). -->
+    <key>LSUIElement</key>
+    <false/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+
+    <!-- Network permission — aplikace volá HuggingFace, Civitai, ComfyUI
+         localhost a updatehub.niderle.cz. Bez tohoto by sandbox builds odmítaly
+         outbound HTTP. -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <false/>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
+
+    <!-- Default copyright text v About dialogu (Apple Menu → About AI Studio). -->
+    <key>NSHumanReadableCopyright</key>
+    <string>© 2025 Ladislav Niderle</string>
+</dict>
+</plist>

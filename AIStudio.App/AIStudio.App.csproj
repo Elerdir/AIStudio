@@ -18,6 +18,29 @@
     <ErrorOnDuplicatePublishOutputFiles>false</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
 
+  <!-- macOS .app bundle metadata. Aktivuje se při publish s RID osx-arm64,
+       SDK pak vyrobí složku AIStudio.app/Contents/MacOS/AIStudio.App místo
+       holé binárky. CFBundle* properties čte ze sourozeneckého Info.plist. -->
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX')) Or $(RuntimeIdentifier.StartsWith('osx'))">
+    <!-- Identifikace bundle (musí matchnout Info.plist CFBundleIdentifier). -->
+    <CFBundleIdentifier>cz.niderle.aistudio</CFBundleIdentifier>
+    <CFBundleName>AI Studio</CFBundleName>
+    <CFBundleDisplayName>AI Studio</CFBundleDisplayName>
+    <CFBundleVersion>0.1.0</CFBundleVersion>
+    <CFBundleShortVersionString>0.1.0</CFBundleShortVersionString>
+    <CFBundleExecutable>AIStudio.App</CFBundleExecutable>
+    <NSHumanReadableCopyright>© 2025 Ladislav Niderle</NSHumanReadableCopyright>
+    <!-- Min. macOS verze. .NET 10 oficiálně 12+. -->
+    <LSMinimumSystemVersion>12.0</LSMinimumSystemVersion>
+  </PropertyGroup>
+
+  <!-- Info.plist se kopíruje do AIStudio.app/Contents/ při publish. -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX')) Or $(RuntimeIdentifier.StartsWith('osx'))">
+    <None Include="Info.plist" Pack="false">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
