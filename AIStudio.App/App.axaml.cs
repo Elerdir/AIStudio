@@ -124,10 +124,12 @@ public partial class App : Application
             services.AddSingleton<IGpuDetector, WindowsGpuDetector>();
         else if (OperatingSystem.IsMacOS())
             services.AddSingleton<IGpuDetector, MacOsGpuDetector>();
-        // System monitor — per-platform impl. Windows umí nvidia-smi + WMI;
-        // macOS přijde s Phase C portem (system_profiler + IOKit).
+        // System monitor — per-platform impl. Windows: nvidia-smi + WMI;
+        // macOS: sysctl + vm_stat + system_profiler.
         if (OperatingSystem.IsWindows())
             services.AddSingleton<ISystemMonitorService, WindowsSystemMonitorService>();
+        else if (OperatingSystem.IsMacOS())
+            services.AddSingleton<ISystemMonitorService, MacOsSystemMonitorService>();
         services.AddSingleton<ILlamaService, LlamaService>();
         services.AddSingleton<IDownloadService, DownloadService>();
         services.AddSingleton<IChatRepository, SqliteChatRepository>();
