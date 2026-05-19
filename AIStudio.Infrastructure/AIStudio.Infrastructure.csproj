@@ -43,8 +43,7 @@
   </ItemGroup>
 
   <!-- Windows-specific implementace, které používají WMI / nvidia-smi / 7z DLL.
-       Na non-Windows je vynech kompilace — DI registrace je už platform-guarded.
-       Až přijde Phase C, přidáme zde i Compile Remove pro MacOs*.cs na ne-macOS. -->
+       Na non-Windows je vynech kompilace — DI registrace je už platform-guarded. -->
   <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
     <Compile Remove="Services\WindowsGpuDetector.cs" />
     <!-- Soubor stále SystemMonitorService.cs (class přejmenována v Phase A.4) -->
@@ -52,6 +51,12 @@
     <!-- Soubor stále ComfyInstaller.cs (class přejmenována v Phase A.3) -->
     <Compile Remove="Services\ComfyInstaller.cs" />
   </ItemGroup>
+
+  <!-- macOS-specifické implementace mají [SupportedOSPlatform("macos")]
+       atributy, takže kompilují na všech platformách (jen Process.Start
+       calls by na Windows nikdy neproběhly). DI je registruje jen na macOS
+       runtime (OperatingSystem.IsMacOS() guard v App.axaml.cs).
+       Tím pádem mohou cross-referencovat z App vrstvy bez konfliktu. -->
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

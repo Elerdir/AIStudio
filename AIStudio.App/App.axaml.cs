@@ -119,11 +119,11 @@ public partial class App : Application
         // Infrastructure
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<ISystemPromptPresetService, SystemPromptPresetService>();
-        // GPU detekce — per-platform impl. Windows je dnešní default; macOS přijde
-        // s Apple Silicon portem (Fáze C). Pokud poběží na neznámé platformě,
-        // DI selže s jasným chybovým hláškou.
+        // GPU detekce — per-platform impl.
         if (OperatingSystem.IsWindows())
             services.AddSingleton<IGpuDetector, WindowsGpuDetector>();
+        else if (OperatingSystem.IsMacOS())
+            services.AddSingleton<IGpuDetector, MacOsGpuDetector>();
         // System monitor — per-platform impl. Windows umí nvidia-smi + WMI;
         // macOS přijde s Phase C portem (system_profiler + IOKit).
         if (OperatingSystem.IsWindows())
