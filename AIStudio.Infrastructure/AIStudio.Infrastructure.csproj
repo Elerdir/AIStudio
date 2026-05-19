@@ -58,6 +58,14 @@
        runtime (OperatingSystem.IsMacOS() guard v App.axaml.cs).
        Tím pádem mohou cross-referencovat z App vrstvy bez konfliktu. -->
 
+  <!-- macOS-only packages — LLamaSharp.Backend.Metal je nutný pro Apple Silicon
+       Metal akceleraci. Na Windows / Linux ho nepotřebujeme a NuGet by ho ani
+       neuměl resolvnut (osx-arm64 / osx-x64 RID).
+       Detekce přes MSBuild predikát funguje na Windows i POSIX shells. -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <PackageReference Include="LLamaSharp.Backend.Metal" Version="0.22.0" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

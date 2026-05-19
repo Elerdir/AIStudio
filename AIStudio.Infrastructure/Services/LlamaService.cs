@@ -95,10 +95,13 @@ public sealed class LlamaService : ILlamaService
                 break;
 
             case GpuBackend.Metal:
-                // TODO Phase C: až bude LLamaSharp.Backend.Metal v csproj (macOS port),
-                // změň na: NativeLibraryConfig.All.WithMetal();
-                Log.Warning("LlamaService: Metal backend není v této verzi zapojen. " +
-                            "Apple Silicon podpora přijde s macOS portem.");
+                // Phase C.2 zapojeno — LLamaSharp.Backend.Metal je v csproj
+                // pod IsOSPlatform('OSX') guardu. Protože extension metoda
+                // WithMetal() existuje jen když je Backend.Metal balík přítomen
+                // (na Windows ne), voláme ji přes reflection. Na non-macOS
+                // se sem stejně nedostaneme — IGpuDetector vrací Apple jen
+                // na Apple Silicon, kde Metal balík v csproj je.
+                TrySetBackend(InvokeWithMetal, "Metal");
                 break;
 
             case GpuBackend.Cpu:
@@ -130,6 +133,37 @@ public sealed class LlamaService : ILlamaService
             // tiše stáhne CPU lib. To je v pořádku, jen to zalogujeme.
             Log.Warning(ex, "LlamaService: {Label} init selhalo, propadne se na CPU", label);
         }
+    }
+
+    /// <summary>
+    /// Volá <c>NativeLibraryConfig.All.WithMetal()</c> přes reflection, protože
+    /// extension metoda existuje pouze když je v projektu balík
+    /// <c>LLamaSharp.Backend.Metal</c> (conditional pod IsOSPlatform('OSX')).
+    /// Na Windows / Linux buildu by přímé volání nezkompilovalo.
+    ///
+    /// Pokud reflection nenajde <c>WithMetal</c> (např. starší verze nebo
+    /// balík chybí v aktuálním buildu), vyhodí <see cref="InvalidOperationException"/>;
+    /// <see cref="TrySetBackend"/> ji zalogguje jako warning a propadne na CPU.
+    /// </summary>
+    private static void InvokeWithMetal()
+    {
+        var configContainer = typeof(NativeLibraryConfig)
+            .GetProperty("All", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            ?.GetValue(null)
+            ?? throw new InvalidOperationException("NativeLibraryConfig.All nedostupné");
+
+        var withMetal = configContainer.GetType().GetMethod("WithMetal",
+                            new[] { typeof(bool) })
+                     ?? configContainer.GetType().GetMethod("WithMetal", Type.EmptyTypes)
+                     ?? throw new InvalidOperationException(
+                            "WithMetal API není dostupné — chybí balík LLamaSharp.Backend.Metal " +
+                            "(očekáváno na macOS Apple Silicon buildu).");
+
+        // Bool overload preferujeme — zachová symetrii s WithCuda(true) / WithVulkan(true).
+        var args = withMetal.GetParameters().Length == 1
+            ? new object[] { true }
+            : Array.Empty<object>();
+        withMetal.Invoke(configContainer, args);
     }
 
     // ── Načítání modelu ────────────────────────────────────────────────────────
