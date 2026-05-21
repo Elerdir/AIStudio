@@ -182,10 +182,10 @@
             <Border Grid.Row="0" Padding="20,12,20,10"
                     BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1"
                     Background="{DynamicResource PanelBgBrush}">
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="10">
+                <StackPanel Spacing="10">
 
-                    <!-- Titulek + edit -->
-                    <Panel Grid.Column="0" VerticalAlignment="Center">
+                    <!-- ── Řádek 1: Titulek konverzace + akční ikony (celá šířka) ── -->
+                    <Panel VerticalAlignment="Center">
 
                         <!-- View mode -->
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4"
@@ -267,9 +267,16 @@
                                  KeyDown="TitleEditBox_KeyDown"/>
                     </Panel>
 
+                    <!-- ── Řádek 2: Model picker + posuvníky ──
+                         WrapPanel se zalomí na víc řádků, když okno není dost
+                         široké. Tím pádem titulek nahoře i posuvník teploty
+                         zůstanou vždy celé vidět, místo aby se ořezaly. -->
+                    <WrapPanel Orientation="Horizontal">
+
                     <!-- Model picker + unload + thinking toggle -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                Spacing="6" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="6" VerticalAlignment="Center"
+                                Margin="0,0,16,4">
                         <TextBlock Text="Model:"
                                    FontSize="11" Foreground="{DynamicResource TextWeakBrush}"
                                    VerticalAlignment="Center"/>
@@ -364,8 +371,8 @@
                     </StackPanel>
 
                     <!-- Token slider + context bar -->
-                    <StackPanel Grid.Column="2" Spacing="3" VerticalAlignment="Center"
-                                MinWidth="200">
+                    <StackPanel Spacing="3" VerticalAlignment="Center"
+                                Width="210" Margin="0,0,16,4">
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <TextBlock Grid.Column="0"
                                        Text="Tokeny"
@@ -397,8 +404,8 @@
                     </StackPanel>
 
                     <!-- Temperature slider -->
-                    <StackPanel Grid.Column="3" Spacing="3" VerticalAlignment="Center"
-                                MinWidth="140"
+                    <StackPanel Spacing="3" VerticalAlignment="Center"
+                                Width="160" Margin="0,0,0,4"
                                 IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}">
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <TextBlock Grid.Column="0"
@@ -416,7 +423,8 @@
                                 VerticalAlignment="Center"/>
                     </StackPanel>
 
-                </Grid>
+                    </WrapPanel>
+                </StackPanel>
             </Border>
 
             <!-- ── Row 1: Systémový prompt panel (skrytý pokud není aktivní) ── -->
