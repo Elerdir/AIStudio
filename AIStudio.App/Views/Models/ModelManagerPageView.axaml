@@ -168,8 +168,10 @@
             <ColumnDefinition Width="340" MinWidth="240" MaxWidth="720"/>
         </Grid.ColumnDefinitions>
 
-        <!-- Splitter mezi listem a detailem -->
-        <GridSplitter Grid.Column="1" Grid.Row="0" Grid.RowSpan="3"
+        <!-- Splitter mezi listem a detailem — jen řádky 1+2 (toolbar/detail-header
+             a obsah). Řádek 0 je celostranová hlavička přes všechny sloupce,
+             tam splitter nepatří — jinak svislá čára „prosvítá" přes tlačítka. -->
+        <GridSplitter Grid.Column="1" Grid.Row="1" Grid.RowSpan="2"
                       ResizeDirection="Columns"
                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                       Background="#1E1E22" Cursor="SizeWestEast">
