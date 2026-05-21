@@ -804,9 +804,10 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
             var elapsed = DateTime.Now - generateStarted;
             Log.Information(
-                "Generování úspěšně dokončeno — {Count} obrázek, trvalo {Elapsed}",
-                result.Images.Count, elapsed.ToString(@"mm\:ss\.ff"));
-            GenerationStatus = $"Hotovo! ({result.Images.Count} obrázek)";
+                "Generování úspěšně dokončeno — {Count} {Word}, trvalo {Elapsed}",
+                result.Images.Count, PluralizeImages(result.Images.Count),
+                elapsed.ToString(@"mm\:ss\.ff"));
+            GenerationStatus = $"Hotovo! ({result.Images.Count} {PluralizeImages(result.Images.Count)})";
         }
         catch (OperationCanceledException)
         {
@@ -1075,4 +1076,15 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                            "AIStudio", "Models")
             : _settings.Settings.ModelsDirectory;
+
+    /// <summary>
+    /// České skloňování slova „obrázek" podle počtu:
+    /// 1 → obrázek, 2-4 → obrázky, 0 a 5+ → obrázků.
+    /// </summary>
+    private static string PluralizeImages(int count) => count switch
+    {
+        1          => "obrázek",
+        >= 2 and <= 4 => "obrázky",
+        _          => "obrázků",
+    };
 }

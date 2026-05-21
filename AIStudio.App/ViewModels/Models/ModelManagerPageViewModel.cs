@@ -542,7 +542,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
                 model.DownloadSpeedBytesPerSec = 0;
                 model.DownloadError            =
                     $"Checksum neshoda — soubor je poškozený. " +
-                    $"Očekáváno: {ex.Expected[..8]}…, obdrženo: {ex.Actual[..8]}….";
+                    $"Očekáváno: {ShortHash(ex.Expected)}…, obdrženo: {ShortHash(ex.Actual)}….";
                 _activeDownloads.Remove(model);
             });
         }
@@ -558,8 +558,17 @@ public partial class ModelManagerPageViewModel : ViewModelBase
                 model.DownloadSpeedBytesPerSec = 0;
                 _activeDownloads.Remove(model);
 
-                var tmp = Path.Combine(ModelsDir, model.FileName + ".tmp");
-                if (File.Exists(tmp)) File.Delete(tmp);
+                // .tmp cleanup — pokud je soubor zamčený (antivir scan), nesmí to
+                // vyhodit unobserved exception uvnitř Dispatcher.Post lambda.
+                try
+                {
+                    var tmp = Path.Combine(ModelsDir, model.FileName + ".tmp");
+                    if (File.Exists(tmp)) File.Delete(tmp);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "DownloadAsync: úklid .tmp po zrušení selhal");
+                }
             });
         }
         catch (Exception ex)
@@ -1019,4 +1028,14 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         < 1_073_741_824 => $"{bytes / 1_048_576.0:F1} MB",
         _               => $"{bytes / 1_073_741_824.0:F2} GB"
     };
+
+    /// <summary>
+    /// Bezpečně zkrátí hash na prvních 8 znaků. SHA-256 je vždy 64 znaků,
+    /// ale defenzivně proti kratším / prázdným hodnotám (jiný hash algoritmus,
+    /// poškozená metadata) — bez Math.Min by hrozil ArgumentOutOfRangeException.
+    /// </summary>
+    private static string ShortHash(string? hash) =>
+        string.IsNullOrEmpty(hash)
+            ? "?"
+            : hash[..Math.Min(8, hash.Length)];
 }

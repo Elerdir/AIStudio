@@ -279,24 +279,12 @@ public partial class SettingsPageViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void OpenHuggingFacePage()
-    {
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-        {
-            FileName  = "https://huggingface.co/settings/tokens",
-            UseShellExecute = true
-        });
-    }
+    private void OpenHuggingFacePage() =>
+        AIStudio.Infrastructure.Services.PlatformShell.OpenUrl("https://huggingface.co/settings/tokens");
 
     [RelayCommand]
-    private void OpenCivitaiPage()
-    {
-        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-        {
-            FileName  = "https://civitai.com/user/account",
-            UseShellExecute = true
-        });
-    }
+    private void OpenCivitaiPage() =>
+        AIStudio.Infrastructure.Services.PlatformShell.OpenUrl("https://civitai.com/user/account");
 
     [RelayCommand]
     private void ClearHfToken()
@@ -362,18 +350,9 @@ public partial class SettingsPageViewModel : ViewModelBase
     private void ResetPythonPath() => PythonPath = string.Empty;
 
     [RelayCommand]
-    private void OpenComfyUiReleases()
-    {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName        = "https://github.com/comfyanonymous/ComfyUI/releases",
-                UseShellExecute = true
-            });
-        }
-        catch { /* prohlížeč nemusí být k dispozici */ }
-    }
+    private void OpenComfyUiReleases() =>
+        AIStudio.Infrastructure.Services.PlatformShell.OpenUrl(
+            "https://github.com/comfyanonymous/ComfyUI/releases");
 
     /// <summary>Otevře samostatné okno s diagnostickým prohlížečem logů.</summary>
     [RelayCommand]

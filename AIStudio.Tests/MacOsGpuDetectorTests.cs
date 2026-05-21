@@ -9,9 +9,13 @@ namespace AIStudio.Tests;
 /// runtime + system_profiler binárku. Testujeme pure-logic JSON parser
 /// + pomocné metody (vendor detekce, velikost stringu).
 ///
-/// Class nemá [SupportedOSPlatform("macos")] na testech, protože parser
-/// metody jsou čistě string/JSON manipulace a fungují na všech platformách.
+/// Třída nese [SupportedOSPlatform("macos")] kvůli CA1416 — testované
+/// metody jsou sice čistě string/JSON manipulace, ale dědí atribut z
+/// MacOsGpuDetector. Atribut je pouze analyzer hint, nemá runtime efekt:
+/// testy se spustí i na Windows CI runneru a projdou (stejný pattern
+/// jako WindowsGpuDetectorTests).
 /// </summary>
+[System.Runtime.Versioning.SupportedOSPlatform("macos")]
 public class MacOsGpuDetectorTests
 {
     // ── IsAppleVendor ────────────────────────────────────────────────────────
