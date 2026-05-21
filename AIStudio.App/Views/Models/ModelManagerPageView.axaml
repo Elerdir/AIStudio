@@ -16,11 +16,12 @@
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                         Command="{ReflectionBinding $parent[UserControl].DataContext.SelectModelCommand}"
                         CommandParameter="{Binding}">
-                    <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="12">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
 
                         <!-- Thumbnail: načtený obrázek nebo placeholder ikona -->
-                        <Border Grid.Row="0" Grid.RowSpan="3" Grid.Column="0"
+                        <Border Grid.Column="0"
                                 Width="48" Height="48" CornerRadius="10" ClipToBounds="True"
+                                VerticalAlignment="Top"
                                 Background="#1A1A2E" BorderBrush="#2A2A3E" BorderThickness="1"
                                 IsVisible="{Binding HasThumbnail}">
                             <Panel>
@@ -33,43 +34,97 @@
                             </Panel>
                         </Border>
 
-                        <!-- Name + badges -->
-                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <!-- Obsah karty: název, badge, popis, meta — vše ve sloupci.
+                             Název je samostatně, takže TextTrimming reálně funguje
+                             (v horizontálním StackPanelu měl nekonečnou šířku a přetékal).
+                             Badge i meta jdou do WrapPanelu — při úzkém okně se zalomí. -->
+                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+
+                            <!-- Název -->
                             <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"/>
-                            <Border IsVisible="{Binding IsActive}"
-                                    Background="#172917" BorderBrush="#264726" BorderThickness="1"
-                                    CornerRadius="4" Padding="7,2">
-                                <TextBlock Text="● Aktivní" FontSize="10" Foreground="#4ADE80"/>
-                            </Border>
-                            <Border IsVisible="{Binding IsDownloaded}"
-                                    Background="#151524" BorderBrush="#252540" BorderThickness="1"
-                                    CornerRadius="4" Padding="7,2">
-                                <TextBlock Text="Staženo" FontSize="10" Foreground="#818CF8"/>
-                            </Border>
-                            <Border IsVisible="{Binding IsChatCategory}"
-                                    Background="#1A1830" BorderBrush="#2A2450" BorderThickness="1"
-                                    CornerRadius="4" Padding="7,2">
-                                <TextBlock Text="Chat" FontSize="10" Foreground="#A78BFA"/>
-                            </Border>
-                            <Border IsVisible="{Binding IsImageCategory}"
-                                    Background="#1A2520" BorderBrush="#254035" BorderThickness="1"
-                                    CornerRadius="4" Padding="7,2">
-                                <TextBlock Text="Obrázky" FontSize="10" Foreground="#34D399"/>
-                            </Border>
-                            <Border IsVisible="{Binding IsNsfw}"
-                                    Background="#2A0E1A" BorderBrush="#5A1A30" BorderThickness="1"
-                                    CornerRadius="4" Padding="7,2">
-                                <TextBlock Text="NSFW" FontSize="10" Foreground="#F87171"/>
-                            </Border>
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{Binding Name}"/>
+
+                            <!-- Badge — WrapPanel, každý badge má pravý margin místo Spacing -->
+                            <WrapPanel>
+                                <Border IsVisible="{Binding IsActive}" Margin="0,0,6,0"
+                                        Background="#172917" BorderBrush="#264726" BorderThickness="1"
+                                        CornerRadius="4" Padding="7,2">
+                                    <TextBlock Text="● Aktivní" FontSize="10" Foreground="#4ADE80"/>
+                                </Border>
+                                <Border IsVisible="{Binding IsDownloaded}" Margin="0,0,6,0"
+                                        Background="#151524" BorderBrush="#252540" BorderThickness="1"
+                                        CornerRadius="4" Padding="7,2">
+                                    <TextBlock Text="Staženo" FontSize="10" Foreground="#818CF8"/>
+                                </Border>
+                                <Border IsVisible="{Binding IsChatCategory}" Margin="0,0,6,0"
+                                        Background="#1A1830" BorderBrush="#2A2450" BorderThickness="1"
+                                        CornerRadius="4" Padding="7,2">
+                                    <TextBlock Text="Chat" FontSize="10" Foreground="#A78BFA"/>
+                                </Border>
+                                <Border IsVisible="{Binding IsImageCategory}" Margin="0,0,6,0"
+                                        Background="#1A2520" BorderBrush="#254035" BorderThickness="1"
+                                        CornerRadius="4" Padding="7,2">
+                                    <TextBlock Text="Obrázky" FontSize="10" Foreground="#34D399"/>
+                                </Border>
+                                <Border IsVisible="{Binding IsNsfw}" Margin="0,0,6,0"
+                                        Background="#2A0E1A" BorderBrush="#5A1A30" BorderThickness="1"
+                                        CornerRadius="4" Padding="7,2">
+                                    <TextBlock Text="NSFW" FontSize="10" Foreground="#F87171"/>
+                                </Border>
+                            </WrapPanel>
+
+                            <!-- Popis — max 2 řádky, pak ořez -->
+                            <TextBlock Text="{Binding Description}" FontSize="12"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
+                                       IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                            <!-- Meta info — WrapPanel, zalomí se na další řádek -->
+                            <WrapPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,12,2"
+                                            IsVisible="{Binding Size, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <mi:MaterialIcon Kind="Harddisk" Width="14" Height="14" Foreground="{DynamicResource TextWeakBrush}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Size}" FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,12,2" IsVisible="{Binding HasBaseModel}">
+                                    <TextBlock Text="{Binding BaseModel}" FontSize="11" Foreground="#5B6EAE"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,12,2">
+                                    <mi:MaterialIcon Kind="Download" Width="14" Height="14" Foreground="{DynamicResource TextWeakBrush}"/>
+                                    <TextBlock Text="{Binding DownloadCountLabel}" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,12,2" IsVisible="{Binding HasRating}">
+                                    <mi:MaterialIcon Kind="Star" Width="14" Height="14" Foreground="#FBBF24"/>
+                                    <TextBlock Text="{Binding RatingLabel}" FontSize="11" Foreground="#FBBF24"/>
+                                </StackPanel>
+                                <Border Background="#1E1E2A" BorderBrush="#2A2A3E" BorderThickness="1"
+                                        CornerRadius="4" Padding="6,1" Margin="0,0,8,2">
+                                    <TextBlock Text="{Binding SourceLabel}" FontSize="10" Foreground="#5B6EAE"/>
+                                </Border>
+                                <Border Background="#1E1E2A" BorderBrush="#2A2A3E" BorderThickness="1"
+                                        CornerRadius="4" Padding="6,1" Margin="0,0,8,2"
+                                        IsVisible="{Binding Quantization, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <TextBlock Text="{Binding Quantization}" FontSize="10" Foreground="#5B6EAE"/>
+                                </Border>
+                                <Border Background="#162214" BorderBrush="#213320" BorderThickness="1"
+                                        CornerRadius="4" Padding="6,1" Margin="0,0,8,2"
+                                        IsVisible="{Binding HasVramInfo}">
+                                    <TextBlock Text="{Binding VramLabel}" FontSize="10" Foreground="#4ADE80"/>
+                                </Border>
+                            </WrapPanel>
                         </StackPanel>
 
-                        <!-- Action panel (mutex IsVisible) -->
-                        <Panel Grid.Row="0" Grid.Column="2" Grid.RowSpan="3"
-                               VerticalAlignment="Center" MinWidth="140">
+                        <!-- Svislý oddělovač — vizuálně odděluje akční část karty -->
+                        <Border Grid.Column="2" Width="1" Margin="0,2"
+                                Background="{DynamicResource AppBorderBrush}"
+                                VerticalAlignment="Stretch"/>
+
+                        <!-- Akční část karty — pevná šířka, tlačítka jednotná (Stretch + Height 34) -->
+                        <Panel Grid.Column="3" VerticalAlignment="Center" Width="156">
                             <!-- Stahování -->
-                            <StackPanel IsVisible="{Binding ShowDownloading}" Spacing="5" Width="160">
+                            <StackPanel IsVisible="{Binding ShowDownloading}" Spacing="5">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                                     <ProgressBar Grid.Column="0" Value="{Binding DownloadProgress}"
                                                  Minimum="0" Maximum="100" Height="4" CornerRadius="2"
@@ -93,11 +148,28 @@
                                 </Grid>
                             </StackPanel>
 
+                            <!-- Čeká ve frontě -->
+                            <StackPanel IsVisible="{Binding IsQueued}" Spacing="5">
+                                <Border Background="#1A1830" BorderBrush="#2A2450" BorderThickness="1"
+                                        CornerRadius="6" Padding="8,5" HorizontalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                                        <mi:MaterialIcon Kind="TrayFull" Width="13" Height="13" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Ve frontě" FontSize="11" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+                                <Button Classes="secondary" Padding="8,4" FontSize="11"
+                                        Foreground="#F87171" Content="Zrušit"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{ReflectionBinding $parent[UserControl].DataContext.CancelDownloadCommand}"
+                                        CommandParameter="{Binding}"/>
+                            </StackPanel>
+
                             <!-- Chyba -->
-                            <StackPanel IsVisible="{Binding ShowDownloadError}" Spacing="5" Width="150">
+                            <StackPanel IsVisible="{Binding ShowDownloadError}" Spacing="5">
                                 <TextBlock Text="{Binding DownloadError}" FontSize="10"
                                            Foreground="#F87171" TextWrapping="Wrap"/>
-                                <Button Classes="secondary" Foreground="#F87171" Padding="8,4" FontSize="11"
+                                <Button Classes="secondary" Foreground="#F87171" FontSize="11"
+                                        Height="34" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                         Content="Zkusit znovu"
                                         Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadCommand}"
                                         CommandParameter="{Binding}"/>
@@ -106,55 +178,18 @@
                             <!-- Staženo → Nastavit aktivní -->
                             <Button Classes="secondary" IsVisible="{Binding ShowDownloaded}"
                                     IsEnabled="{Binding !IsActive}"
+                                    Height="34" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                     Content="Nastavit aktivní"
                                     Command="{ReflectionBinding $parent[UserControl].DataContext.SetActiveCommand}"
                                     CommandParameter="{Binding}"/>
 
-                            <!-- Nestaženo → Stáhnout / Vybrat soubor -->
+                            <!-- Nestaženo → Detail -->
                             <Button Classes="primary" IsVisible="{Binding ShowDownloadButton}"
+                                    Height="34" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                     Content="Detail"
                                     Command="{ReflectionBinding $parent[UserControl].DataContext.SelectModelCommand}"
                                     CommandParameter="{Binding}"/>
                         </Panel>
-
-                        <!-- Description -->
-                        <TextBlock Grid.Row="1" Grid.Column="1"
-                                   Text="{Binding Description}" FontSize="12"
-                                   Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
-
-                        <!-- Meta info -->
-                        <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="10">
-                            <StackPanel Orientation="Horizontal" Spacing="4"
-                                        IsVisible="{Binding Size, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                <mi:MaterialIcon Kind="Harddisk" Width="14" Height="14" Foreground="{DynamicResource TextWeakBrush}" VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding Size}" FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasBaseModel}">
-                                <TextBlock Text="{Binding BaseModel}" FontSize="11" Foreground="#5B6EAE"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="4">
-                                <mi:MaterialIcon Kind="Download" Width="14" Height="14" Foreground="{DynamicResource TextWeakBrush}"/>
-                                <TextBlock Text="{Binding DownloadCountLabel}" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasRating}">
-                                <mi:MaterialIcon Kind="Star" Width="14" Height="14" Foreground="#FBBF24"/>
-                                <TextBlock Text="{Binding RatingLabel}" FontSize="11" Foreground="#FBBF24"/>
-                            </StackPanel>
-                            <Border Background="#1E1E2A" BorderBrush="#2A2A3E" BorderThickness="1"
-                                    CornerRadius="4" Padding="6,1">
-                                <TextBlock Text="{Binding SourceLabel}" FontSize="10" Foreground="#5B6EAE"/>
-                            </Border>
-                            <Border Background="#1E1E2A" BorderBrush="#2A2A3E" BorderThickness="1"
-                                    CornerRadius="4" Padding="6,1"
-                                    IsVisible="{Binding Quantization, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                <TextBlock Text="{Binding Quantization}" FontSize="10" Foreground="#5B6EAE"/>
-                            </Border>
-                            <Border Background="#162214" BorderBrush="#213320" BorderThickness="1"
-                                    CornerRadius="4" Padding="6,1"
-                                    IsVisible="{Binding HasVramInfo}">
-                                <TextBlock Text="{Binding VramLabel}" FontSize="10" Foreground="#4ADE80"/>
-                            </Border>
-                        </StackPanel>
                     </Grid>
                 </Button>
             </Border>

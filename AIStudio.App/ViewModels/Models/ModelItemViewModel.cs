@@ -171,6 +171,14 @@ public partial class ModelItemViewModel : ViewModelBase
     private bool _isVerifyingChecksum;
 
     /// <summary>
+    /// True pokud model čeká ve frontě stahování (zařazen, ale ještě nezačal).
+    /// Stahuje se sériově jeden po druhém — ostatní čekají s tímto příznakem.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDownloadButton), nameof(ShowDirectDownloadButton))]
+    private bool _isQueued;
+
+    /// <summary>
     /// True pokud uživatel klikl na „Odebrat model" a teď čekáme na potvrzení.
     /// Při true XAML zobrazuje místo tlačítka „Odebrat" inline panel
     /// „Opravdu smazat? [Ano] [Zrušit]" — prevence překlepnutí bez modálního dialogu.
@@ -189,7 +197,7 @@ public partial class ModelItemViewModel : ViewModelBase
     public bool ShowDownloading    => IsDownloading || IsVerifyingChecksum;
     public bool ShowDownloadError  => !IsDownloading && HasError;
     public bool ShowDownloaded     => IsDownloaded && !IsDownloading && !HasError;
-    public bool ShowDownloadButton => !IsDownloaded && !IsDownloading && !HasError;
+    public bool ShowDownloadButton => !IsDownloaded && !IsDownloading && !IsQueued && !HasError;
     public bool HasError           => !string.IsNullOrEmpty(DownloadError);
     public bool HasContextLength   => ContextLength > 0;
 
