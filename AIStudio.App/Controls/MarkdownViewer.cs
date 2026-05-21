@@ -40,22 +40,58 @@ public class MarkdownViewer : ContentControl
     private static readonly FontFamily MonoFont =
         new FontFamily("Cascadia Code,Cascadia Mono,Consolas,Courier New,monospace");
 
-    private static readonly IBrush FgDefault   = new SolidColorBrush(Color.Parse("#EBEBF5"));
-    private static readonly IBrush FgDim       = new SolidColorBrush(Color.Parse("#888896"));
-    private static readonly IBrush FgCode      = new SolidColorBrush(Color.Parse("#E879F9"));
-    private static readonly IBrush FgLink      = new SolidColorBrush(Color.Parse("#818CF8"));
-    private static readonly IBrush FgH1        = new SolidColorBrush(Color.Parse("#FFFFFF"));
-    private static readonly IBrush FgH2        = new SolidColorBrush(Color.Parse("#F0F0FF"));
-    private static readonly IBrush FgH3        = new SolidColorBrush(Color.Parse("#DDDDEE"));
-    private static readonly IBrush BgCodeBlock  = new SolidColorBrush(Color.Parse("#0F0F11"));
-    private static readonly IBrush BgCodeLang   = new SolidColorBrush(Color.Parse("#1A1A20"));
-    private static readonly IBrush BgQuote      = new SolidColorBrush(Color.Parse("#18181E"));
-    private static readonly IBrush BorderCode   = new SolidColorBrush(Color.Parse("#2A2A32"));
-    private static readonly IBrush AccentQuote  = new SolidColorBrush(Color.Parse("#7C3AED"));
-    private static readonly IBrush BrushSep     = new SolidColorBrush(Color.Parse("#2A2A2E"));
-    private static readonly IBrush BgCopyBtn    = new SolidColorBrush(Color.Parse("#1E1E28"));
-    private static readonly IBrush FgCopyBtn    = new SolidColorBrush(Color.Parse("#555560"));
-    private static readonly IBrush FgCopyBtnOk  = new SolidColorBrush(Color.Parse("#4ADE80"));
+    /// <summary>
+    /// Sada barev pro jednu theme variantu. Akcentové barvy (kód, link, quote
+    /// pruh, copy-OK) jsou v obou paletách stejné — fungují na světlém i tmavém
+    /// pozadí. Liší se jen strukturální barvy (text, pozadí, borders).
+    /// </summary>
+    private sealed record MarkdownPalette(
+        IBrush FgDefault, IBrush FgDim,
+        IBrush FgCode,    IBrush FgLink,
+        IBrush FgH1,      IBrush FgH2,     IBrush FgH3,
+        IBrush BgCodeBlock, IBrush BgCodeLang, IBrush BgQuote,
+        IBrush BorderCode,  IBrush AccentQuote, IBrush BrushSep,
+        IBrush BgCopyBtn,   IBrush FgCopyBtn,   IBrush FgCopyBtnOk);
+
+    private static readonly MarkdownPalette DarkPalette = new(
+        FgDefault:   new SolidColorBrush(Color.Parse("#EBEBF5")),
+        FgDim:       new SolidColorBrush(Color.Parse("#888896")),
+        FgCode:      new SolidColorBrush(Color.Parse("#E879F9")),
+        FgLink:      new SolidColorBrush(Color.Parse("#818CF8")),
+        FgH1:        new SolidColorBrush(Color.Parse("#FFFFFF")),
+        FgH2:        new SolidColorBrush(Color.Parse("#F0F0FF")),
+        FgH3:        new SolidColorBrush(Color.Parse("#DDDDEE")),
+        BgCodeBlock: new SolidColorBrush(Color.Parse("#0F0F11")),
+        BgCodeLang:  new SolidColorBrush(Color.Parse("#1A1A20")),
+        BgQuote:     new SolidColorBrush(Color.Parse("#18181E")),
+        BorderCode:  new SolidColorBrush(Color.Parse("#2A2A32")),
+        AccentQuote: new SolidColorBrush(Color.Parse("#7C3AED")),
+        BrushSep:    new SolidColorBrush(Color.Parse("#2A2A2E")),
+        BgCopyBtn:   new SolidColorBrush(Color.Parse("#1E1E28")),
+        FgCopyBtn:   new SolidColorBrush(Color.Parse("#555560")),
+        FgCopyBtnOk: new SolidColorBrush(Color.Parse("#4ADE80")));
+
+    private static readonly MarkdownPalette LightPalette = new(
+        FgDefault:   new SolidColorBrush(Color.Parse("#1C1C1E")),
+        FgDim:       new SolidColorBrush(Color.Parse("#636370")),
+        FgCode:      new SolidColorBrush(Color.Parse("#A21CAF")),  // tmavší fialová pro kontrast na světlém
+        FgLink:      new SolidColorBrush(Color.Parse("#4F46E5")),  // tmavší indigo
+        FgH1:        new SolidColorBrush(Color.Parse("#0A0A0C")),
+        FgH2:        new SolidColorBrush(Color.Parse("#1C1C2E")),
+        FgH3:        new SolidColorBrush(Color.Parse("#33333F")),
+        BgCodeBlock: new SolidColorBrush(Color.Parse("#F4F4F8")),
+        BgCodeLang:  new SolidColorBrush(Color.Parse("#E8E8EE")),
+        BgQuote:     new SolidColorBrush(Color.Parse("#F0F0F4")),
+        BorderCode:  new SolidColorBrush(Color.Parse("#D1D1D6")),
+        AccentQuote: new SolidColorBrush(Color.Parse("#7C3AED")),
+        BrushSep:    new SolidColorBrush(Color.Parse("#D1D1D6")),
+        BgCopyBtn:   new SolidColorBrush(Color.Parse("#E8E8EE")),
+        FgCopyBtn:   new SolidColorBrush(Color.Parse("#8E8E98")),
+        FgCopyBtnOk: new SolidColorBrush(Color.Parse("#16A34A")));
+
+    /// <summary>Aktuální paleta dle <see cref="StyledElement.ActualThemeVariant"/>.</summary>
+    private MarkdownPalette Palette =>
+        ActualThemeVariant == Avalonia.Styling.ThemeVariant.Light ? LightPalette : DarkPalette;
 
     // ── Setup ─────────────────────────────────────────────────────────────────
 
@@ -67,8 +103,19 @@ public class MarkdownViewer : ContentControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        // Při přepnutí Light/Dark theme znovu vykreslíme — barvy jsou zapečené
+        // do už vytvořených Run/Border objektů, samy se nepřebarví.
+        ActualThemeVariantChanged += OnThemeVariantChanged;
         Render();
     }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        ActualThemeVariantChanged -= OnThemeVariantChanged;
+    }
+
+    private void OnThemeVariantChanged(object? sender, EventArgs e) => Render();
 
     // ── Core render ───────────────────────────────────────────────────────────
 
@@ -123,14 +170,15 @@ public class MarkdownViewer : ContentControl
         var url  = link.Url ?? string.Empty;
         var alt  = link.FirstChild is LiteralInline lt ? lt.Content.ToString() : "obrázek";
 
+        var pal = Palette;
         var wrapper = new Border
         {
             CornerRadius = new CornerRadius(8),
             ClipToBounds = true,
             MaxWidth     = 420,
             Margin       = new Thickness(0, isFirst ? 0 : 8, 0, 0),
-            Background   = BgCodeBlock,
-            BorderBrush  = BorderCode,
+            Background   = pal.BgCodeBlock,
+            BorderBrush  = pal.BorderCode,
             BorderThickness = new Thickness(1),
         };
 
@@ -152,7 +200,7 @@ public class MarkdownViewer : ContentControl
                 wrapper.Child = new TextBlock
                 {
                     Text       = $"[{alt}: {Path.GetFileName(url)}]",
-                    Foreground = FgDim,
+                    Foreground = pal.FgDim,
                     Padding    = new Thickness(10, 6),
                     FontSize   = 13,
                 };
@@ -163,7 +211,7 @@ public class MarkdownViewer : ContentControl
             wrapper.Child = new TextBlock
             {
                 Text       = $"[{alt}: {Path.GetFileName(url)}]",
-                Foreground = FgDim,
+                Foreground = pal.FgDim,
                 Padding    = new Thickness(10, 6),
                 FontSize   = 13,
             };
@@ -176,11 +224,12 @@ public class MarkdownViewer : ContentControl
 
     private Control RenderHeading(HeadingBlock hb, bool isFirst)
     {
+        var pal = Palette;
         var (size, weight, fg, topMargin, bottomMargin) = hb.Level switch
         {
-            1 => (20.0, FontWeight.Bold,     FgH1, isFirst ? 0.0 : 16.0, 8.0),
-            2 => (17.0, FontWeight.SemiBold, FgH2, isFirst ? 0.0 : 12.0, 5.0),
-            _ => (14.5, FontWeight.SemiBold, FgH3, isFirst ? 0.0 : 10.0, 3.0),
+            1 => (20.0, FontWeight.Bold,     pal.FgH1, isFirst ? 0.0 : 16.0, 8.0),
+            2 => (17.0, FontWeight.SemiBold, pal.FgH2, isFirst ? 0.0 : 12.0, 5.0),
+            _ => (14.5, FontWeight.SemiBold, pal.FgH3, isFirst ? 0.0 : 10.0, 3.0),
         };
 
         var tb = new SelectableTextBlock
@@ -204,7 +253,7 @@ public class MarkdownViewer : ContentControl
     {
         var tb = new SelectableTextBlock
         {
-            Foreground   = FgDefault,
+            Foreground   = Palette.FgDefault,
             FontSize     = 14,
             LineHeight   = 22,
             TextWrapping = TextWrapping.Wrap,
@@ -229,6 +278,7 @@ public class MarkdownViewer : ContentControl
             sb.AppendLine(cb.Lines.Lines[i].ToString());
         var code = sb.ToString().TrimEnd();
 
+        var pal   = Palette;
         var inner = new StackPanel();
 
         // Hlavičkový řádek: název jazyka vlevo + tlačítko Copy vpravo
@@ -236,15 +286,15 @@ public class MarkdownViewer : ContentControl
         {
             Text       = "Kopírovat",
             FontSize   = 11,
-            Foreground = FgCopyBtn,
+            Foreground = pal.FgCopyBtn,
         };
 
         var copyBtn = new Button
         {
             Content         = copyLabel,
-            Background      = BgCopyBtn,
+            Background      = pal.BgCopyBtn,
             BorderThickness = new Thickness(1),
-            BorderBrush     = BorderCode,
+            BorderBrush     = pal.BorderCode,
             CornerRadius    = new CornerRadius(5),
             Padding         = new Thickness(8, 3),
             Cursor          = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand),
@@ -260,12 +310,12 @@ public class MarkdownViewer : ContentControl
                     await clipboard.SetTextAsync(code);
 
                 copyLabel.Text       = "Zkopírováno ✓";
-                copyLabel.Foreground = FgCopyBtnOk;
+                copyLabel.Foreground = pal.FgCopyBtnOk;
 
                 await Task.Delay(1500);
 
                 copyLabel.Text       = "Kopírovat";
-                copyLabel.Foreground = FgCopyBtn;
+                copyLabel.Foreground = pal.FgCopyBtn;
             }
             catch { /* clipboard nedostupný */ }
         };
@@ -273,13 +323,13 @@ public class MarkdownViewer : ContentControl
         var headerGrid = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("*,Auto"),
-            Background        = BgCodeLang,
+            Background        = pal.BgCodeLang,
         };
 
         // Název jazyka (vlevo, jen pokud je definován)
         var langLabel = new Border
         {
-            BorderBrush     = BorderCode,
+            BorderBrush     = pal.BorderCode,
             BorderThickness = new Thickness(0, 0, 0, 1),
             Padding         = new Thickness(12, 5, 12, 5),
             Child           = new TextBlock
@@ -287,7 +337,7 @@ public class MarkdownViewer : ContentControl
                 Text       = !string.IsNullOrEmpty(lang) ? lang : "kód",
                 FontFamily = MonoFont,
                 FontSize   = 11,
-                Foreground = FgDim,
+                Foreground = pal.FgDim,
             },
         };
         Grid.SetColumn(langLabel, 0);
@@ -296,7 +346,7 @@ public class MarkdownViewer : ContentControl
         // Copy tlačítko (vpravo)
         var copyWrap = new Border
         {
-            BorderBrush     = BorderCode,
+            BorderBrush     = pal.BorderCode,
             BorderThickness = new Thickness(0, 0, 0, 1),
             Padding         = new Thickness(8, 4),
             Child           = copyBtn,
@@ -317,7 +367,7 @@ public class MarkdownViewer : ContentControl
                 FontFamily   = MonoFont,
                 FontSize     = 13,
                 LineHeight   = 20,
-                Foreground   = FgDefault,
+                Foreground   = pal.FgDefault,
                 TextWrapping = TextWrapping.NoWrap,
                 Padding      = new Thickness(12, 8, 12, 8),
             },
@@ -325,8 +375,8 @@ public class MarkdownViewer : ContentControl
 
         return new Border
         {
-            Background      = BgCodeBlock,
-            BorderBrush     = BorderCode,
+            Background      = pal.BgCodeBlock,
+            BorderBrush     = pal.BorderCode,
             BorderThickness = new Thickness(1),
             CornerRadius    = new CornerRadius(8),
             ClipToBounds    = true,
@@ -361,7 +411,7 @@ public class MarkdownViewer : ContentControl
             row.Children.Add(new TextBlock
             {
                 Text              = bullet,
-                Foreground        = FgDim,
+                Foreground        = Palette.FgDim,
                 FontSize          = 14,
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin            = new Thickness(2, 2, 0, 0),
@@ -412,8 +462,8 @@ public class MarkdownViewer : ContentControl
 
         return new Border
         {
-            Background      = BgQuote,
-            BorderBrush     = AccentQuote,
+            Background      = Palette.BgQuote,
+            BorderBrush     = Palette.AccentQuote,
             BorderThickness = new Thickness(3, 0, 0, 0),
             CornerRadius    = new CornerRadius(0, 6, 6, 0),
             Margin          = new Thickness(0, isFirst ? 0 : 8, 0, 0),
@@ -423,10 +473,10 @@ public class MarkdownViewer : ContentControl
 
     // ── Thematic break ────────────────────────────────────────────────────────
 
-    private static Control RenderThematicBreak(bool isFirst) => new Border
+    private Control RenderThematicBreak(bool isFirst) => new Border
     {
         Height     = 1,
-        Background = BrushSep,
+        Background = Palette.BrushSep,
         Margin     = new Thickness(0, isFirst ? 4 : 12, 0, 12),
     };
 
@@ -454,14 +504,14 @@ public class MarkdownViewer : ContentControl
                     {
                         FontFamily = MonoFont,
                         FontSize   = 13,
-                        Foreground = FgCode,
+                        Foreground = Palette.FgCode,
                     });
                     break;
 
                 case LinkInline link:
                     var linkSpan = new Span
                     {
-                        Foreground      = FgLink,
+                        Foreground      = Palette.FgLink,
                         TextDecorations = TextDecorations.Underline,
                     };
                     if (link.FirstChild is LiteralInline linkText)
