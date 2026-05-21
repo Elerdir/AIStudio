@@ -133,6 +133,12 @@ public partial class ModelManagerPageViewModel : ViewModelBase
     /// <summary>True pokud je ve frontě aspoň jedna položka — pro UI badge / tlačítko fronty.</summary>
     public bool HasQueuedDownloads => DownloadQueue.Count > 0;
 
+    /// <summary>Počet položek ve frontě — pro číselný badge na tlačítku „Fronta".</summary>
+    public int DownloadQueueCount => DownloadQueue.Count;
+
+    /// <summary>Otevřené okno fronty — držíme referenci, aby se neotvíralo víckrát.</summary>
+    private AIStudio.App.Views.Models.DownloadQueueWindow? _queueWindow;
+
     // ── Path resolution ───────────────────────────────────────────────────────
 
     private string ModelsDir
@@ -167,7 +173,11 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         // Notifikace prázdného stavu v tabech Hledat/Stažené — ObservableCollection
         // sám PropertyChanged nefiruje, ale CollectionChanged fíruje při Add/Clear.
         SearchResults.CollectionChanged    += (_, _) => OnPropertyChanged(nameof(HasNoSearchResults));
-        DownloadQueue.CollectionChanged    += (_, _) => OnPropertyChanged(nameof(HasQueuedDownloads));
+        DownloadQueue.CollectionChanged    += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasQueuedDownloads));
+            OnPropertyChanged(nameof(DownloadQueueCount));
+        };
         DownloadedModels.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasNoDownloadedModels));
@@ -718,6 +728,27 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         // Běžící položku (není IsQueued) nepřesouvej.
         if (!model.IsQueued) return;
         DownloadQueue.Move(i, i + 1);
+    }
+
+    /// <summary>
+    /// Otevře (nebo aktivuje) okno fronty stahování. Okno bindује přímo na
+    /// tento VM — je to DI singleton, takže fronta zůstává konzistentní.
+    /// </summary>
+    [RelayCommand]
+    private void OpenDownloadQueue()
+    {
+        if (_queueWindow is not null)
+        {
+            _queueWindow.Activate();
+            return;
+        }
+
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } win }) return;
+
+        _queueWindow = new AIStudio.App.Views.Models.DownloadQueueWindow { DataContext = this };
+        _queueWindow.Closed += (_, _) => _queueWindow = null;
+        _queueWindow.Show(win);
     }
 
     [RelayCommand]

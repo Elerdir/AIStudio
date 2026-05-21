@@ -231,6 +231,19 @@
                                FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Classes="secondary" Command="{Binding OpenDownloadQueueCommand}"
+                            ToolTip.Tip="Zobrazit frontu stahování">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <mi:MaterialIcon Kind="TrayFull" Width="16" Height="16" VerticalAlignment="Center"/>
+                            <TextBlock Text="Fronta" VerticalAlignment="Center"/>
+                            <Border IsVisible="{Binding HasQueuedDownloads}"
+                                    Background="#7C3AED" CornerRadius="9" MinWidth="18" Height="18"
+                                    Padding="5,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding DownloadQueueCount}" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </StackPanel>
+                    </Button>
                     <Button Classes="secondary" Command="{Binding AddLocalModelCommand}"
                             ToolTip.Tip="Přidat model ze svého disku">
                         <StackPanel Orientation="Horizontal" Spacing="8">

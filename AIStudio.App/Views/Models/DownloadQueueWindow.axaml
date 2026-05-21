@@ -1,0 +1,122 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AIStudio.App.ViewModels.Models"
+        xmlns:mi="using:Material.Icons.Avalonia"
+        x:Class="AIStudio.App.Views.Models.DownloadQueueWindow"
+        x:DataType="vm:ModelManagerPageViewModel"
+        Title="AI Studio — Fronta stahování"
+        Width="540" Height="560"
+        MinWidth="420" MinHeight="320"
+        Background="{DynamicResource AppBgBrush}"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Header -->
+        <Border Grid.Row="0" Padding="20,16,20,14"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*">
+                <mi:MaterialIcon Grid.Column="0" Kind="TrayFull" Width="22" Height="22"
+                                 Foreground="#A78BFA" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <StackPanel Grid.Column="1" Spacing="3">
+                    <TextBlock Text="Fronta stahování" FontSize="17" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Modely se stahují postupně jeden po druhém. Pořadí čekajících můžeš změnit šipkami."
+                               FontSize="11" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Obsah -->
+        <Panel Grid.Row="1">
+
+            <!-- Prázdná fronta -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                        IsVisible="{Binding !HasQueuedDownloads}">
+                <mi:MaterialIcon Kind="TrayRemove" Width="40" Height="40"
+                                 Foreground="{DynamicResource AppBorderBrush}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Fronta je prázdná" FontSize="13"
+                           Foreground="{DynamicResource TextDisabledBrush}" HorizontalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Seznam položek fronty -->
+            <ScrollViewer Padding="16,14" IsVisible="{Binding HasQueuedDownloads}">
+                <ItemsControl ItemsSource="{Binding DownloadQueue}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ModelItemViewModel">
+                            <Border Margin="0,0,0,8" CornerRadius="10"
+                                    Background="{DynamicResource CardBgBrush}"
+                                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                    Padding="14,12">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+
+                                    <!-- Název + stav -->
+                                    <StackPanel Grid.Column="0" Spacing="6" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}"/>
+
+                                        <!-- Právě se stahuje — progress + rychlost -->
+                                        <StackPanel IsVisible="{Binding ShowDownloading}" Spacing="5">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <ProgressBar Grid.Column="0" Value="{Binding DownloadProgress}"
+                                                             Minimum="0" Maximum="100" Height="5" CornerRadius="3"
+                                                             Foreground="#7C3AED"
+                                                             Background="{DynamicResource AppBorderBrush}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding DownloadProgressLabel}"
+                                                           FontSize="11" FontWeight="SemiBold" Foreground="#A78BFA"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <TextBlock Text="{Binding DownloadedLabel}" FontSize="10.5"
+                                                           Foreground="{DynamicResource TextWeakBrush}"/>
+                                                <TextBlock Text="{Binding DownloadSpeedLabel}" FontSize="10.5"
+                                                           Foreground="{DynamicResource TextWeakBrush}"/>
+                                                <TextBlock Text="{Binding EtaLabel}" FontSize="10.5"
+                                                           Foreground="{DynamicResource TextDisabledBrush}"
+                                                           IsVisible="{Binding EtaLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- Čeká ve frontě -->
+                                        <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsQueued}">
+                                            <mi:MaterialIcon Kind="ClockOutline" Width="13" Height="13"
+                                                             Foreground="{DynamicResource TextHintBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Čeká ve frontě" FontSize="11"
+                                                       Foreground="{DynamicResource TextHintBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Akce: posun nahoru/dolů + zrušit -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
+                                                VerticalAlignment="Center">
+                                        <Button Classes="secondary" Padding="7,5"
+                                                IsVisible="{Binding IsQueued}"
+                                                ToolTip.Tip="Posunout nahoru (stáhne se dřív)"
+                                                Command="{ReflectionBinding $parent[Window].DataContext.MoveUpInQueueCommand}"
+                                                CommandParameter="{Binding}">
+                                            <mi:MaterialIcon Kind="ArrowUp" Width="15" Height="15"/>
+                                        </Button>
+                                        <Button Classes="secondary" Padding="7,5"
+                                                IsVisible="{Binding IsQueued}"
+                                                ToolTip.Tip="Posunout dolů (stáhne se později)"
+                                                Command="{ReflectionBinding $parent[Window].DataContext.MoveDownInQueueCommand}"
+                                                CommandParameter="{Binding}">
+                                            <mi:MaterialIcon Kind="ArrowDown" Width="15" Height="15"/>
+                                        </Button>
+                                        <Button Classes="secondary" Padding="7,5" Foreground="#F87171"
+                                                ToolTip.Tip="Zrušit stahování"
+                                                Command="{ReflectionBinding $parent[Window].DataContext.CancelDownloadCommand}"
+                                                CommandParameter="{Binding}">
+                                            <mi:MaterialIcon Kind="Close" Width="15" Height="15"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Panel>
+    </Grid>
+</Window>
