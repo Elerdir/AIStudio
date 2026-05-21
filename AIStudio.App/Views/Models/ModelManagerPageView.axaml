@@ -644,32 +644,63 @@
                                     <DataTemplate x:DataType="vm:HfFileInfoVm">
                                         <Border Margin="0,0,0,6" CornerRadius="8"
                                                 Background="{DynamicResource SubtlePanelBgBrush}" BorderBrush="{DynamicResource HoverBgBrush}" BorderThickness="1"
-                                                Padding="12,10">
-                                            <StackPanel Spacing="8">
-                                                <!-- Název souboru — celý, zalamovat, tooltip pro kopírování -->
-                                                <TextBlock Text="{Binding Path}" FontSize="12"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"
-                                                           ToolTip.Tip="{Binding Path}"/>
-                                                <!-- Velikost + tlačítko Stáhnout -->
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                    <TextBlock Grid.Column="0" Text="{Binding SizeLabel}"
-                                                               FontSize="11" Foreground="{DynamicResource TextHintBrush}"
-                                                               VerticalAlignment="Center"/>
-                                                    <Button Grid.Column="1" Classes="primary" Padding="12,5"
-                                                            IsEnabled="{Binding !IsDownloading}"
+                                                Padding="12,9">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                <!-- Název souboru + velikost — jeden kompaktní řádek, ořez s tooltipem -->
+                                                <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Path}" FontSize="12"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip.Tip="{Binding Path}"/>
+                                                    <TextBlock Text="{Binding SizeLabel}" FontSize="10.5"
+                                                               Foreground="{DynamicResource TextHintBrush}"/>
+                                                </StackPanel>
+
+                                                <!-- Stavová akce: Stáhnout / Ve frontě / Stahuje se / Staženo -->
+                                                <Panel Grid.Column="1" VerticalAlignment="Center" MinWidth="106">
+                                                    <!-- Lze stáhnout -->
+                                                    <Button Classes="primary" Padding="12,6"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                            IsVisible="{Binding CanDownload}"
                                                             Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadHfFileCommand}"
                                                             CommandParameter="{Binding}">
                                                         <StackPanel Orientation="Horizontal" Spacing="5">
-                                                            <mi:MaterialIcon Kind="Download" Width="14" Height="14"
-                                                                       VerticalAlignment="Center" IsVisible="{Binding !IsDownloading}"/>
-                                                            <TextBlock Text="Stáhnout" FontSize="11" VerticalAlignment="Center"
-                                                                       IsVisible="{Binding !IsDownloading}"/>
-                                                            <TextBlock Text="Stahuji…" FontSize="11" VerticalAlignment="Center"
-                                                                       IsVisible="{Binding IsDownloading}"/>
+                                                            <mi:MaterialIcon Kind="Download" Width="13" Height="13" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="Stáhnout" FontSize="11" VerticalAlignment="Center"/>
                                                         </StackPanel>
                                                     </Button>
-                                                </Grid>
-                                            </StackPanel>
+
+                                                    <!-- Čeká ve frontě -->
+                                                    <Border IsVisible="{Binding IsQueued}"
+                                                            Background="#1A1830" BorderBrush="#2A2450" BorderThickness="1"
+                                                            CornerRadius="6" Padding="8,5">
+                                                        <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+                                                            <mi:MaterialIcon Kind="TrayFull" Width="12" Height="12" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="Ve frontě" FontSize="10.5" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Právě se stahuje -->
+                                                    <Border IsVisible="{Binding IsDownloading}"
+                                                            Background="#1A1024" BorderBrush="#3A2450" BorderThickness="1"
+                                                            CornerRadius="6" Padding="8,5">
+                                                        <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+                                                            <mi:MaterialIcon Kind="DownloadCircleOutline" Width="12" Height="12" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="Stahuje se…" FontSize="10.5" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Už stažené — žádné tlačítko, jen příznak -->
+                                                    <Border IsVisible="{Binding IsDownloaded}"
+                                                            Background="#151524" BorderBrush="#252540" BorderThickness="1"
+                                                            CornerRadius="6" Padding="8,5">
+                                                        <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+                                                            <mi:MaterialIcon Kind="CheckCircle" Width="12" Height="12" Foreground="#818CF8" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="Staženo" FontSize="10.5" Foreground="#818CF8" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </Panel>
+                                            </Grid>
                                         </Border>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

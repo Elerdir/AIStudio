@@ -56,8 +56,24 @@ public partial class HfFileInfoVm : ObservableObject
     public string RepoId   { get; }
     public long   SizeBytes { get; }
 
-    [ObservableProperty] private bool _isDownloading;
-    [ObservableProperty] private bool _isDownloaded;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBusy), nameof(CanDownload))]
+    private bool _isDownloading;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanDownload))]
+    private bool _isDownloaded;
+
+    /// <summary>True pokud varianta čeká ve frontě stahování (ještě nezačala).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBusy), nameof(CanDownload))]
+    private bool _isQueued;
+
+    /// <summary>True pokud varianta běží nebo čeká — tlačítko Stáhnout je pak skryté.</summary>
+    public bool IsBusy => IsDownloading || IsQueued;
+
+    /// <summary>True pokud lze variantu stáhnout — není stažená ani ve frontě/stahuje se.</summary>
+    public bool CanDownload => !IsDownloaded && !IsBusy;
 
     public HfFileInfoVm(HfFileInfo info, string repoId)
     {

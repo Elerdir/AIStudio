@@ -114,9 +114,24 @@ public partial class ModelManagerPageViewModel : ViewModelBase
     public ObservableCollection<HfFileInfoVm> HfFiles { get; } = new();
     public bool HasHfFiles => HfFiles.Count > 0;
 
-    // ── Download tracking ─────────────────────────────────────────────────────
+    // ── Download tracking + fronta ────────────────────────────────────────────
 
     private readonly Dictionary<ModelItemViewModel, CancellationTokenSource> _activeDownloads = new();
+
+    /// <summary>Spojení queue položky → HF varianta — pro zrcadlení stavu zpět do detailu.</summary>
+    private readonly Dictionary<ModelItemViewModel, HfFileInfoVm> _hfLinks = new();
+
+    /// <summary>True dokud běží pump fronty — brání spuštění druhé paralelní smyčky.</summary>
+    private bool _pumpRunning;
+
+    /// <summary>
+    /// Fronta stahování — čekající položky + první z nich (právě stahovaná).
+    /// Stahuje se sériově jeden model po druhém. Binduje na ni okno fronty.
+    /// </summary>
+    public ObservableCollection<ModelItemViewModel> DownloadQueue { get; } = new();
+
+    /// <summary>True pokud je ve frontě aspoň jedna položka — pro UI badge / tlačítko fronty.</summary>
+    public bool HasQueuedDownloads => DownloadQueue.Count > 0;
 
     // ── Path resolution ───────────────────────────────────────────────────────
 
@@ -152,6 +167,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         // Notifikace prázdného stavu v tabech Hledat/Stažené — ObservableCollection
         // sám PropertyChanged nefiruje, ale CollectionChanged fíruje při Add/Clear.
         SearchResults.CollectionChanged    += (_, _) => OnPropertyChanged(nameof(HasNoSearchResults));
+        DownloadQueue.CollectionChanged    += (_, _) => OnPropertyChanged(nameof(HasQueuedDownloads));
         DownloadedModels.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasNoDownloadedModels));
@@ -381,14 +397,14 @@ public partial class ModelManagerPageViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private async Task DownloadHfFileAsync(HfFileInfoVm file)
+    private void DownloadHfFile(HfFileInfoVm file)
     {
-        if (file is null || file.IsDownloading || file.IsDownloaded) return;
+        if (file is null || file.IsDownloading || file.IsDownloaded || file.IsQueued) return;
         if (SelectedModel is null) return;
 
-        // Recyklujeme stávající download flow — vyrobíme spec ModelItem pro
-        // konkrétní soubor, spustíme DownloadAsync, a pak ho přidáme do
-        // DownloadedModels (sken adresáře by ho stejně našel).
+        // Vyrobíme ModelItem pro konkrétní HF soubor — projde stejnou frontou
+        // jako běžné modely. Po dokončení ho pump přidá do DownloadedModels
+        // a zrcadlí stav zpět do HfFileInfoVm (přes _hfLinks).
         var displayName = SelectedModel.Name;
         var item = new ModelItemViewModel
         {
@@ -405,21 +421,9 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             VramRequiredGb = (int)Math.Ceiling(file.SizeBytes / 1_073_741_824.0 * 1.3),
         };
 
-        file.IsDownloading = true;
-        try
-        {
-            await DownloadAsync(item);
-            file.IsDownloaded = item.IsDownloaded;
-
-            if (item.IsDownloaded)
-            {
-                Dispatcher.UIThread.Post(() => DownloadedModels.Add(item));
-            }
-        }
-        finally
-        {
-            file.IsDownloading = false;
-        }
+        _hfLinks[item] = file;
+        file.IsQueued  = true;
+        EnqueueDownload(item);
     }
 
     /// <summary>Vytáhne kvantizaci z file name, např. "model-Q4_K_M.gguf" → "Q4_K_M".</summary>
@@ -438,10 +442,24 @@ public partial class ModelManagerPageViewModel : ViewModelBase
 
     // ── Download / Cancel / Set active / Open / Delete ────────────────────────
 
+    /// <summary>
+    /// Klik na „Stáhnout" — zařadí model do fronty. Příkaz se jmenuje
+    /// <c>DownloadCommand</c> (XAML beze změny), ale už nestahuje hned.
+    /// </summary>
     [RelayCommand]
-    private async Task DownloadAsync(ModelItemViewModel model)
+    private void Download(ModelItemViewModel model) => EnqueueDownload(model);
+
+    /// <summary>
+    /// Zařadí model do fronty stahování. Modely se stahují sériově — jeden po
+    /// druhém. Pokud už něco běží, model jen čeká (<see cref="ModelItemViewModel.IsQueued"/>)
+    /// a ostatní tlačítka zůstanou aktivní (žádný globální disable).
+    /// </summary>
+    private void EnqueueDownload(ModelItemViewModel model)
     {
-        if (model.IsDownloading) return;
+        if (model is null) return;
+        // Už stažený / běží / čeká → nic. Blokuje to opakované stažení.
+        if (model.IsDownloaded || model.IsDownloading || model.IsQueued) return;
+
         if (string.IsNullOrEmpty(model.DownloadUrl))
         {
             // HF položky mají prázdný DownloadUrl — uživatel musí vybrat soubor
@@ -449,17 +467,78 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             model.DownloadError = "Vyber konkrétní soubor (kvantizaci) v detailu.";
             return;
         }
-
-        var token = model.Source == ModelSource.Civitai
-            ? _settings.Settings.CivitaiApiKey
-            : _settings.Settings.HuggingFaceToken;
-
-        if (model.Source == ModelSource.Civitai && string.IsNullOrWhiteSpace(token))
+        if (model.Source == ModelSource.Civitai
+            && string.IsNullOrWhiteSpace(_settings.Settings.CivitaiApiKey))
         {
             model.DownloadError =
                 "Civitai vyžaduje API klíč. Nastav ho v Nastavení → Stahování.";
             return;
         }
+
+        model.DownloadError = string.Empty;
+        model.IsQueued      = true;
+        DownloadQueue.Add(model);
+        Log.Information("ModelManager: {Name} zařazen do fronty ({N} položek)",
+                        model.Name, DownloadQueue.Count);
+        _ = PumpQueueAsync();
+    }
+
+    /// <summary>
+    /// Sériový „pump" fronty — vezme první čekající položku, stáhne ji, pak další.
+    /// Běží vždy jen jedna instance (chráněno <see cref="_pumpRunning"/>).
+    /// </summary>
+    private async Task PumpQueueAsync()
+    {
+        if (_pumpRunning) return;
+        _pumpRunning = true;
+        try
+        {
+            while (true)
+            {
+                var next = DownloadQueue.FirstOrDefault(m => m.IsQueued);
+                if (next is null) break;
+
+                next.IsQueued = false;   // přechod „čeká" → „stahuje se"
+                if (_hfLinks.TryGetValue(next, out var hfStart))
+                {
+                    hfStart.IsQueued      = false;
+                    hfStart.IsDownloading = true;
+                }
+
+                await RunDownloadAsync(next);
+
+                // Po dokončení (úspěch i chyba) položku z fronty vyřaď a
+                // u HF variant zrcadli finální stav zpět do detailu.
+                Dispatcher.UIThread.Post(() =>
+                {
+                    DownloadQueue.Remove(next);
+                    if (_hfLinks.TryGetValue(next, out var hfDone))
+                    {
+                        hfDone.IsDownloading = false;
+                        hfDone.IsQueued      = false;
+                        hfDone.IsDownloaded  = next.IsDownloaded;
+                        if (next.IsDownloaded && !DownloadedModels.Contains(next))
+                            DownloadedModels.Add(next);
+                        _hfLinks.Remove(next);
+                    }
+                });
+            }
+        }
+        finally
+        {
+            _pumpRunning = false;
+        }
+    }
+
+    /// <summary>
+    /// Vlastní stažení jedné položky. URL/token kontroly proběhly už v
+    /// <see cref="EnqueueDownload"/> — sem chodí jen validní položky z fronty.
+    /// </summary>
+    private async Task RunDownloadAsync(ModelItemViewModel model)
+    {
+        var token = model.Source == ModelSource.Civitai
+            ? _settings.Settings.CivitaiApiKey
+            : _settings.Settings.HuggingFaceToken;
 
         var destPath = Path.Combine(ModelsDir, model.FileName);
         var cts = new CancellationTokenSource();
@@ -590,8 +669,55 @@ public partial class ModelManagerPageViewModel : ViewModelBase
     [RelayCommand]
     private void CancelDownload(ModelItemViewModel model)
     {
+        if (model is null) return;
+
+        // Běžící stahování → cancel přes CTS (pump pak položku z fronty vyřadí).
         if (_activeDownloads.TryGetValue(model, out var cts))
+        {
             cts.Cancel();
+            return;
+        }
+
+        // Čekající ve frontě (ještě nezačalo) → prostě vyřaď z fronty.
+        if (model.IsQueued)
+        {
+            model.IsQueued = false;
+            DownloadQueue.Remove(model);
+            if (_hfLinks.TryGetValue(model, out var hf))
+            {
+                hf.IsQueued = false;
+                _hfLinks.Remove(model);
+            }
+            Log.Information("ModelManager: {Name} odebrán z fronty", model.Name);
+        }
+    }
+
+    /// <summary>Posune čekající položku ve frontě o jedno místo nahoru (dřív se stáhne).</summary>
+    [RelayCommand]
+    private void MoveUpInQueue(ModelItemViewModel model)
+    {
+        var i = DownloadQueue.IndexOf(model);
+        // i <= 0 nelze; index 0 je právě stahovaná položka — nad ni nelze.
+        // Nelze ani předběhnout běžící download (index 0), takže minimum je 1.
+        if (i < 1) return;
+        // Položku na indexu 0 (běží) nepřeskakuj — když je i==1, cíl je 0 = běžící.
+        if (i == 1 && !DownloadQueue[0].IsQueued)
+        {
+            // index 0 je běžící stahování → nahoru už nelze
+            return;
+        }
+        DownloadQueue.Move(i, i - 1);
+    }
+
+    /// <summary>Posune čekající položku ve frontě o jedno místo dolů (později se stáhne).</summary>
+    [RelayCommand]
+    private void MoveDownInQueue(ModelItemViewModel model)
+    {
+        var i = DownloadQueue.IndexOf(model);
+        if (i < 0 || i >= DownloadQueue.Count - 1) return;
+        // Běžící položku (není IsQueued) nepřesouvej.
+        if (!model.IsQueued) return;
+        DownloadQueue.Move(i, i + 1);
     }
 
     [RelayCommand]
