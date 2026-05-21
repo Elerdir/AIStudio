@@ -37,7 +37,7 @@
                             <TextBlock Text="AI Studio"
                                        FontSize="15"
                                        FontWeight="Bold"
-                                       Foreground="#FFFFFF"/>
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <TextBlock Text="Lokální AI asistent"
                                        FontSize="10"
                                        Foreground="#55555F"/>

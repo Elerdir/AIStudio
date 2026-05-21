@@ -193,7 +193,7 @@
                             <TextBlock Grid.Column="0"
                                        Text="{Binding SelectedConversation.Title}"
                                        FontSize="15" FontWeight="SemiBold"
-                                       Foreground="#FFFFFF"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis"/>
                             <!-- Přejmenovat -->
@@ -258,7 +258,7 @@
                         <TextBox Name="TitleEditBox"
                                  Text="{Binding EditingTitle}"
                                  IsVisible="{Binding IsEditingTitle}"
-                                 Background="{DynamicResource CardBgBrush}" Foreground="#FFFFFF"
+                                 Background="{DynamicResource CardBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                  SelectionBrush="#4C3A7A"
                                  BorderBrush="#7C3AED" BorderThickness="1"
                                  CornerRadius="7" Padding="8,5"

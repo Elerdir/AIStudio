@@ -524,7 +524,7 @@
                         <!-- Název + badges -->
                         <StackPanel Spacing="8">
                             <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold"
-                                       Foreground="#FFFFFF" TextWrapping="Wrap"/>
+                                       Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <Border Background="#172917" BorderBrush="#264726" BorderThickness="1"
                                         CornerRadius="4" Padding="7,2" IsVisible="{Binding IsActive}">

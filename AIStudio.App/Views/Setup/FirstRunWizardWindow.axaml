@@ -33,7 +33,7 @@
                     </Border>
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="AI Studio" FontSize="15" FontWeight="Bold"
-                                   Foreground="#FFFFFF"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock Text="Průvodce nastavením" FontSize="11"
                                    Foreground="{DynamicResource TextWeakBrush}"/>
                     </StackPanel>
@@ -126,7 +126,7 @@
                 <StackPanel Spacing="0">
                     <TextBlock Text="Vítejte v AI Studiu 👋"
                                FontSize="26" FontWeight="Bold"
-                               Foreground="#FFFFFF"/>
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
                     <TextBlock Margin="0,10,0,0"
                                FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                                LineHeight="22" TextWrapping="Wrap"
@@ -186,7 +186,7 @@
                           VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="Kde ukládat modely?" FontSize="22" FontWeight="Bold"
-                           Foreground="#FFFFFF"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            TextWrapping="Wrap" LineHeight="22"
                            Text="Modely GGUF mohou mít 5–40 GB. Zvolte disk s dostatkem místa."/>
@@ -249,7 +249,7 @@
                           VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="Hardware a výkon" FontSize="22" FontWeight="Bold"
-                           Foreground="#FFFFFF"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            Text="AI Studio detekuje GPU a nastaví optimální výkon."/>
 
@@ -404,7 +404,7 @@
                           VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="API tokeny (volitelné)" FontSize="22" FontWeight="Bold"
-                           Foreground="#FFFFFF"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            TextWrapping="Wrap" LineHeight="22"
                            Text="Pro stahování veřejných modelů z HuggingFace token nepotřebujete. Tokeny jsou uloženy pouze lokálně."/>
@@ -485,7 +485,7 @@
                           VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="Generování obrázků" FontSize="22" FontWeight="Bold"
-                           Foreground="#FFFFFF"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            LineHeight="22" TextWrapping="Wrap"
                            Text="AI Studio používá ComfyUI jako engine pro generování obrázků. Můžeme ho stáhnout a nastavit za vás — nebo tento krok přeskočit, pokud vás obrázky nezajímají (ComfyUI lze doinstalovat kdykoliv později v Nastavení)."/>
@@ -626,7 +626,7 @@
                           VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="Doporučené modely" FontSize="22" FontWeight="Bold"
-                           Foreground="#FFFFFF"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            LineHeight="22" TextWrapping="Wrap"
                            Text="Vybereme za vás jeden chat model a jeden generátor obrázků. Po dokončení průvodce se začnou stahovat na pozadí — vidět budou v sekci Modely."/>
@@ -707,7 +707,7 @@
                           VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="0" Spacing="0">
                 <TextBlock Text="Vše je připraveno! 🎉" FontSize="22" FontWeight="Bold"
-                           Foreground="#FFFFFF"/>
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Margin="0,8,0,0" FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                            Text="Nastavení bylo uloženo. Tady je přehled:"/>
 
