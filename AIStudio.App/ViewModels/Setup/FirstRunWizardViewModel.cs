@@ -344,12 +344,18 @@ public partial class FirstRunWizardViewModel : ViewModelBase
 
     // ── Příkazy ───────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Krok dál / dokončení. CommunityToolkit z metody <c>NextAsync</c> generuje
+    /// command <c>NextCommand</c> (odřízne „Async" suffix) — XAML binding se nemění.
+    /// Async kvůli <see cref="FinishAsync"/>, který awaituje uložení nastavení;
+    /// dřívější verze volala async-void <c>Finish()</c> a ztrácela kontext chyb.
+    /// </summary>
     [RelayCommand]
-    private void Next()
+    private async Task NextAsync()
     {
         if (IsLastStep)
         {
-            Finish();
+            await FinishAsync();
             return;
         }
         if (!CanGoNext) return; // ochrana proti kliku během instalace
@@ -442,7 +448,7 @@ public partial class FirstRunWizardViewModel : ViewModelBase
         CurrentStep++;
     }
 
-    private async void Finish()
+    private async Task FinishAsync()
     {
         try
         {
