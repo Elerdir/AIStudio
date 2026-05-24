@@ -150,6 +150,8 @@ public partial class App : Application
         // Hybrid keyword detektor pro chat → image gen flow. Žádná latence,
         // žádné LLM volání — bezpečné registrovat jako singleton.
         services.AddSingleton<IChatImageIntentDetector, ChatImageIntentDetector>();
+        // Orchestrátor pro chat → image: parser → matcher → comfy → galerie.
+        services.AddSingleton<IChatImageOrchestrator, ChatImageOrchestrator>();
         services.AddSingleton<IFluxDependencyService, FluxDependencyService>();
 
         // ViewModels — každý dostane ze DI jen vlastní závislosti
