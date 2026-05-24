@@ -202,34 +202,24 @@ public class HybridImageModelRecommenderTests
             Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task Recommend_HuggingFaceProvider_OfferRequiresHfToken()
+    [Theory]
+    [InlineData("HuggingFace")]
+    [InlineData("Civitai")]
+    public async Task Recommend_LiveOffer_DoesNotRequireHfTokenByDefault(string provider)
     {
+        // Většina image modelů (HF i Civitai) je public — token NENÍ potřeba.
+        // Gated repa jsou výjimka a discovery API nám neřekne, jestli je repo gated.
+        // Defensivní default true by zbytečně blokoval většinu nabídek.
+        // 401 při download se řeší v DownloadService / UI chybové hlášce.
         _curated.RecommendAsync(Arg.Any<ImageIntent>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
                 .Returns(new ImageModelRecommendation(LocalBestMatch: null, Upgrade: null));
-        var hfModel = MakeDiscovered(provider: "HuggingFace");
+        var model = MakeDiscovered(provider: provider);
         _discovery.SearchAsync(Arg.Any<PickProvider>(), Arg.Any<string>(), Arg.Any<PickKind?>(),
                                Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-                  .Returns(new[] { hfModel });
+                  .Returns(new[] { model });
 
         var result = await MakeHybrid().RecommendAsync(
             Intent(ImageKind.Abstract), Array.Empty<string>(), CancellationToken.None);
-
-        result.Upgrade!.RequiresHuggingFaceToken.Should().BeTrue("HF gated repa potřebují token");
-    }
-
-    [Fact]
-    public async Task Recommend_CivitaiProvider_DoesNotRequireHfToken()
-    {
-        _curated.RecommendAsync(Arg.Any<ImageIntent>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
-                .Returns(new ImageModelRecommendation(LocalBestMatch: null, Upgrade: null));
-        var civitai = MakeDiscovered(provider: "Civitai");
-        _discovery.SearchAsync(Arg.Any<PickProvider>(), Arg.Any<string>(), Arg.Any<PickKind?>(),
-                               Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-                  .Returns(new[] { civitai });
-
-        var result = await MakeHybrid().RecommendAsync(
-            Intent(ImageKind.Anime), Array.Empty<string>(), CancellationToken.None);
 
         result.Upgrade!.RequiresHuggingFaceToken.Should().BeFalse();
     }

@@ -72,10 +72,13 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         IProgress<int>?                                                   progress,
         CancellationToken                                                 ct,
         Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>>?  askForUpgrade    = null,
-        IProgress<DownloadStatusUpdate>?                                  downloadProgress = null)
+        IProgress<DownloadStatusUpdate>?                                  downloadProgress = null,
+        IProgress<ChatImageGenStage>?                                     stageProgress    = null)
     {
         try
         {
+            stageProgress?.Report(ChatImageGenStage.Recommending);
+
             // 1) Comfy musí běžet — uživatel může mít startup ještě v progresu
             if (!_comfy.IsRunning)
             {
@@ -93,6 +96,7 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
             var available = await _comfy.GetCheckpointsAsync(ct);
 
             // 3a) Recommender — máme lepší model v katalogu, který uživatel nemá?
+            //     Toto je nejpomalejší krok recommend fáze (live API call).
             var recommendation = await _recommender.RecommendAsync(intent, available, ct);
             var model          = recommendation.LocalBestMatch;
 
@@ -135,6 +139,9 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
 
             if (model is null)
                 return Fail($"Nepodařilo se najít vhodný model pro {intent.Kind}. Stáhni si nějaký v sekci Modely.");
+
+            // Recommend / upgrade fáze hotová — od teď je to čisté generování
+            stageProgress?.Report(ChatImageGenStage.Generating);
 
             // 4) Sestav workflow — txt2img / img2img dle reference
             var (width, height) = AspectToResolution(intent.Aspect, ComfyWorkflowBuilder.IsFluxModel(model));

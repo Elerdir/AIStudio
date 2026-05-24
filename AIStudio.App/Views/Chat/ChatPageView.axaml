@@ -683,6 +683,27 @@
                                                  Klik na obrázek = ImageZoomWindow s plnou velikostí. -->
                                             <Panel IsVisible="{Binding IsImageMessage}">
 
+                                                <!-- Searching placeholder — recommender + live search běží (1-3s) -->
+                                                <Border IsVisible="{Binding IsSearchingForUpgrade}"
+                                                        Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
+                                                        CornerRadius="10" Padding="16,14"
+                                                        MinWidth="280" MinHeight="80">
+                                                    <StackPanel Orientation="Horizontal" Spacing="12"
+                                                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.MagnifyScan}"
+                                                                         Width="20" Height="20" Foreground="#A78BFA"
+                                                                         VerticalAlignment="Center"/>
+                                                        <StackPanel Spacing="3">
+                                                            <TextBlock Text="Hledám nejlepší model pro tento prompt…"
+                                                                       FontSize="13" FontWeight="SemiBold"
+                                                                       Foreground="#C4B5FD"/>
+                                                            <TextBlock Text="Zkoumám stažené modely i online katalog (Civitai, HuggingFace)."
+                                                                       FontSize="11" Foreground="#7c7398"
+                                                                       TextWrapping="Wrap" MaxWidth="320"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+
                                                 <!-- Upgrade prompt panel — recommender našel lepší nesažený model -->
                                                 <Border IsVisible="{Binding IsAwaitingUpgradeChoice}"
                                                         Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"

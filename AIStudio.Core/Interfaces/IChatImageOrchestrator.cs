@@ -51,8 +51,9 @@ public interface IChatImageOrchestrator
         string?                                                      referenceImagePath,
         IProgress<int>?                                              progress,
         CancellationToken                                            ct,
-        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>>? askForUpgrade   = null,
-        IProgress<DownloadStatusUpdate>?                              downloadProgress = null);
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>>? askForUpgrade    = null,
+        IProgress<DownloadStatusUpdate>?                              downloadProgress  = null,
+        IProgress<ChatImageGenStage>?                                 stageProgress     = null);
 }
 
 /// <summary>
@@ -65,3 +66,16 @@ public sealed record DownloadStatusUpdate(
     long    BytesDone,
     long    BytesTotal,
     double  MegabytesPerSecond);
+
+/// <summary>
+/// Hrubá fáze chat → image gen pipeline pro UI placeholder. Orchestrátor
+/// reportuje přechody, aby uživatel věděl, jestli se zrovna hledá lepší model
+/// (recommender + live search může trvat 1-3 s) nebo už běží faktické generování.
+/// </summary>
+public enum ChatImageGenStage
+{
+    /// <summary>Probíhá parser + recommender (curated + live search).</summary>
+    Recommending,
+    /// <summary>Queue do ComfyUI + čekání na výsledek + download bytů.</summary>
+    Generating,
+}

@@ -1073,12 +1073,14 @@ public partial class ChatPageViewModel : ViewModelBase
             ? FindLastAssistantImage(conv)?.ImagePath
             : null;
 
+        // Placeholder startuje ve fázi Recommending — orchestrátor přepne na
+        // Generating, jakmile recommender + případný download jsou hotové.
         var placeholder = new ChatMessage
         {
-            Role               = MessageRole.Assistant,
-            Content            = "",
-            IsImageGenerating  = true,
-            ImageReferencePath = referencePath,
+            Role                  = MessageRole.Assistant,
+            Content               = "",
+            IsSearchingForUpgrade = true,
+            ImageReferencePath    = referencePath,
         };
         conv.Messages.Add(placeholder);
 
@@ -1101,10 +1103,30 @@ public partial class ChatPageViewModel : ViewModelBase
         // progress bar místo dialog panelu.
         var downloadProgress = new Progress<DownloadStatusUpdate>(u => placeholder.UpdateDownloadStatus(u));
 
+        // Stage progress — bublina se přepne ze "Hledám lepší model" na "Generuji obrázek"
+        var stageProgress = new Progress<ChatImageGenStage>(stage =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                switch (stage)
+                {
+                    case ChatImageGenStage.Recommending:
+                        placeholder.IsSearchingForUpgrade = true;
+                        placeholder.IsImageGenerating     = false;
+                        break;
+                    case ChatImageGenStage.Generating:
+                        placeholder.IsSearchingForUpgrade = false;
+                        placeholder.IsImageGenerating     = true;
+                        break;
+                }
+            });
+        });
+
         var result = await _imageOrch.GenerateAsync(
             userText, referencePath, progress, ct,
-            askForUpgrade: askForUpgrade,
-            downloadProgress: downloadProgress);
+            askForUpgrade:    askForUpgrade,
+            downloadProgress: downloadProgress,
+            stageProgress:    stageProgress);
 
         // Po skončení (úspěch / chyba / cancel) vždy vyresetuj upgrade state,
         // ať tam nevisí ducha z předchozí nabídky.

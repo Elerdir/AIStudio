@@ -112,10 +112,11 @@ public sealed class HybridImageModelRecommender : IImageModelRecommender
             DownloadUrl:              top.DownloadUrl,
             FileName:                 top.FileName,
             Sha256:                   top.Sha256,
-            // HuggingFace stahování gated repa potřebují token; Civitai bez tokenu
-            // padne na public API (limitovaně). Konzervativní default — pokud je
-            // to HF, zkusíme token.
-            RequiresHuggingFaceToken: top.Provider.Equals("HuggingFace", StringComparison.OrdinalIgnoreCase));
+            // Většina image modelů na HF i Civitai je public — token není potřeba.
+            // Gated repa (Llama 3, Gemma…) jsou výjimkou a discovery API nám neříká,
+            // jestli je repo gated. Pokud download vrátí 401, DownloadService to
+            // zaloguje a UI ukáže chybu. Default false je správný pro 95 % případů.
+            RequiresHuggingFaceToken: false);
     }
 
     /// <summary>

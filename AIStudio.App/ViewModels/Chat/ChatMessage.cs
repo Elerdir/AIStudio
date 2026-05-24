@@ -88,8 +88,18 @@ public partial class ChatMessage : ObservableObject
     /// </summary>
     public bool IsImageMessage => !string.IsNullOrEmpty(ImagePath)
                                   || IsImageGenerating
+                                  || IsSearchingForUpgrade
                                   || IsAwaitingUpgradeChoice
                                   || IsDownloadingUpgradeModel;
+
+    /// <summary>
+    /// True dokud recommender hledá online lepší model. UI ukáže "Hledám
+    /// lepší model online…" placeholder, aby uživatel netipoval kolik to
+    /// trvá. Toggluje se v PromptUpgradeAsync flow.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    private bool _isSearchingForUpgrade;
 
     // ── Model upgrade flow (chat → image gen recommender) ────────────────────
     //

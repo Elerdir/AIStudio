@@ -497,6 +497,63 @@ public class ChatImageOrchestratorTests : IDisposable
     }
 
     [Fact]
+    public async Task GenerateAsync_DownloadCancelled_ReturnsZruseno()
+    {
+        // Cancel během downloadu — DownloadService propaguje CT, který orchestrátor
+        // chytne v TryDownloadUpgradeAsync a propaguje výš → "Generování zrušeno"
+        SetupHappyPath();
+        var offer = SetupUpgradeOffer();
+
+        _downloader.DownloadFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IProgress<DownloadProgressInfo>?>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<string?>())
+            .Returns<Task>(_ => throw new OperationCanceledException());
+
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> cb =
+            (_, _) => Task.FromResult(UpgradeChoice.DownloadBetter);
+
+        var result = await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None, askForUpgrade: cb);
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("ru");  // "Zrušeno"
+        // ComfyUI queue nesmí proběhnout — bail-out přišel ještě v download fázi
+        await _comfy.DidNotReceive().QueuePromptAsync(Arg.Any<Dictionary<string, object>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateAsync_StageProgress_ReportsRecommendingThenGenerating()
+    {
+        SetupHappyPath();
+        var stages = new List<ChatImageGenStage>();
+        // Synchronní progress impl — Progress<T> posts přes SyncContext a v plné
+        // testovací suite jsme pozorovali doručení v jiném pořadí než byly volány
+        // Report() z orchestrátoru. Test sleduje pořadí volání, ne doručení.
+        var stageProgress = new SynchronousProgress<ChatImageGenStage>(s => stages.Add(s));
+
+        await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None, stageProgress: stageProgress);
+
+        stages.Should().StartWith(ChatImageGenStage.Recommending);
+        stages.Should().Contain(ChatImageGenStage.Generating);
+        var recIdx = stages.IndexOf(ChatImageGenStage.Recommending);
+        var genIdx = stages.IndexOf(ChatImageGenStage.Generating);
+        genIdx.Should().BeGreaterThan(recIdx, "Generating fáze přichází až po Recommending");
+    }
+
+    /// <summary>
+    /// IProgress impl, který okamžitě synchronně zavolá handler. Pro deterministické
+    /// testy pořadí Report() volání. Standardní Progress&lt;T&gt; používá SyncContext
+    /// a v concurrent test runu může doručit eventy v jiném pořadí, než byly volány.
+    /// </summary>
+    private sealed class SynchronousProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _handler;
+        public SynchronousProgress(Action<T> handler) { _handler = handler; }
+        public void Report(T value) => _handler(value);
+    }
+
+    [Fact]
     public async Task GenerateAsync_DownloadFails_ReturnsFailWithRetryHint()
     {
         SetupHappyPath();
