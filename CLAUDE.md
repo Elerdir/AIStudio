@@ -9,8 +9,11 @@ Instrukce pro Claude při práci na tomto projektu.
 - Cesta: `E:\Projects\AIStudio`
 - Spuštění: `dotnet run --project AIStudio.App/AIStudio.App.csproj`
 - Build: `dotnet build AIStudio.App/AIStudio.App.csproj`
-- Testy: `dotnet test AIStudio.Tests/AIStudio.Tests.csproj` (současně 322+ testů)
-- Pozor: `.sln` soubor není v repozitáři — builduj přímo projekt
+- Testy: `dotnet test AIStudio.Tests/AIStudio.Tests.csproj` (současně 322+ testů, vše projde)
+- Solution: `AIStudio.slnx` (nový XML formát; `.sln` v repu není)
+- Lokální NuGet feed: `./lib/` (viz `NuGet.config`) — drží `UpdateHub.Client.X.Y.Z.nupkg`,
+  aby nebyla potřeba sourozenecká cesta na `E:\Projects\updatehub`. Update procedura
+  je v komentáři v `NuGet.config`.
 
 **Cílové platformy:**
 - **Windows 10/11 x64** — production, plně testováno (NVIDIA CUDA, AMD/Intel Vulkan + DirectML)
@@ -27,7 +30,7 @@ Instrukce pro Claude při práci na tomto projektu.
 - **ComfyUI** — Python proces na pozadí; Windows portable build s NVIDIA, AMD/Intel přes `--directml` flag (auto pip install torch-directml), macOS git clone + venv
 - **LibreHardwareMonitorLib 0.9.4** — Windows cross-vendor VRAM monitoring (nahrazuje WMI AdapterRAM UInt32 overflow nad 4 GB)
 - **Markdig 1.1.3** — Markdown rendering v chat bublinách (vlastní MarkdownViewer control)
-- **UpdateHub.Client** — vlastní update server (https://updatehub.niderle.cz, slug `ai-studio`)
+- **UpdateHub.Client** — vlastní update server (https://updatehub.niderle.cz, slug `ai-studio`); knihovna distribuovaná jako lokální NuGet v `./lib/`
 - **SkiaSharp** — generování ikony (tools/IconGen)
 
 ## Struktura solution

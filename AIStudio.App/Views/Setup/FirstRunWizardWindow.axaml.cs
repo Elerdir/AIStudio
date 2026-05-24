@@ -3,6 +3,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using AIStudio.App.ViewModels.Setup;
+using Serilog;
 
 namespace AIStudio.App.Views.Setup;
 
@@ -30,16 +31,26 @@ public partial class FirstRunWizardWindow : Window
 
     // ── Prohlížeč složky (Step 1) ─────────────────────────────────────────────
 
+    // async void je nutný pro event handler, ale veškerý await musí být v try/catch —
+    // jinak by výjimka přistála v UnobservedTaskException až po GC a uživatel by viděl
+    // tlačítko, které nereaguje. Storage picker může selhat (zrušený dialog, IO chyba).
     private async void BrowseBtn_Click(object? sender, RoutedEventArgs e)
     {
-        var result = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        try
         {
-            Title = "Vyberte složku pro uložení modelů",
-            AllowMultiple = false,
-        });
+            var result = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title         = "Vyberte složku pro uložení modelů",
+                AllowMultiple = false,
+            });
 
-        if (result.Count > 0 && DataContext is FirstRunWizardViewModel vm)
-            vm.SetModelsDirectory(result[0].Path.LocalPath);
+            if (result.Count > 0 && DataContext is FirstRunWizardViewModel vm)
+                vm.SetModelsDirectory(result[0].Path.LocalPath);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "FirstRunWizard: BrowseBtn_Click — výběr složky selhal");
+        }
     }
 
     // ── Toggle viditelnost tokenů (Step 3) ────────────────────────────────────

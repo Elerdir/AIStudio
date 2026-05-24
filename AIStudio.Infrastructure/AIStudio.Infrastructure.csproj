@@ -3,9 +3,9 @@
   <ItemGroup>
     <ProjectReference Include="..\AIStudio.Core\AIStudio.Core.csproj" />
     <!-- UpdateHub.Client SDK — kontrola aktualizací přes updatehub.niderle.cz.
-         Než SDK půjde jako NuGet, používáme přímou project referenci.
-         Repo: E:\Projects\updatehub (sibling solution). -->
-    <ProjectReference Include="..\..\updatehub\sdk\UpdateHub.Client\UpdateHub.Client.csproj" />
+         Načítáno z lokálního feedu `./lib` (viz repo-root NuGet.config).
+         Update procedura je v komentáři toho config souboru. -->
+    <PackageReference Include="UpdateHub.Client" Version="1.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,7 +20,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <!-- Pro rozbalení ComfyUI Portable .7z archivu při auto-instalaci -->
-    <PackageReference Include="SharpCompress" Version="0.40.0" />
+    <PackageReference Include="SharpCompress" Version="0.48.1" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.7" />
   </ItemGroup>
 

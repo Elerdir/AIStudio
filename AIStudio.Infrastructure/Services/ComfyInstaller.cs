@@ -5,8 +5,8 @@ using System.Text.RegularExpressions;
 using Serilog;
 using SevenZipExtractor;
 using SharpCompress.Archives;
-using SharpCompress.Archives.SevenZip;
 using SharpCompress.Common;
+using SharpCompress.Factories;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
 
@@ -458,7 +458,11 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
         IProgress<ComfyInstallProgress>?  progress,
         CancellationToken                 ct)
     {
-        using var archive = SevenZipArchive.Open(sevenZipPath);
+        // SharpCompress 0.48+ — nový factory pattern. SevenZipArchive.Open(string)
+        // byl odstraněn (security fix), všechny formáty jdou přes IArchiveFactory.OpenArchive.
+        IArchiveFactory factory = new SevenZipFactory();
+        using var stream  = File.OpenRead(sevenZipPath);
+        using var archive = factory.OpenArchive(stream);
 
         // Spočítáme jen file entries, abychom mohli reportovat smysluplný progress
         var entries        = archive.Entries.Where(e => !e.IsDirectory).ToList();
