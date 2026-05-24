@@ -137,6 +137,14 @@ public partial class ChatMessage : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _dontAskAgainForThisKind;
 
+    /// <summary>
+    /// True pokud nabídka je z Civitai a uživatel nemá nastavený Civitai API
+    /// klíč v Settings. Download by mohl selhat s 401 / rate limit. UI ukáže
+    /// info tip "💡 Pro Civitai modely doporučujeme API klíč v Nastavení".
+    /// Nastavuje ChatPageViewModel přes PromptUpgradeAsync.
+    /// </summary>
+    [ObservableProperty] private bool _civitaiKeyWarningVisible;
+
     public bool HasPendingUpgradeOffer => PendingUpgradeOffer is not null;
 
     /// <summary>
@@ -167,15 +175,22 @@ public partial class ChatMessage : ObservableObject
     /// </summary>
     /// <param name="kindLabel">String reprezentace ImageKind enumu — pro
     /// případnou perzistenci do AppSettings.IgnoredImageUpgradeKinds.</param>
-    public Task<UpgradeChoice> PromptUpgradeAsync(ModelUpgradeOffer offer, string kindLabel, CancellationToken ct)
+    /// <param name="civitaiKeyMissing">True pokud nabídka je z Civitai a uživatel
+    /// nemá API klíč v Settings — UI ukáže tip.</param>
+    public Task<UpgradeChoice> PromptUpgradeAsync(
+        ModelUpgradeOffer offer,
+        string            kindLabel,
+        bool              civitaiKeyMissing,
+        CancellationToken ct)
     {
         _currentKindLabel = kindLabel;
 
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            PendingUpgradeOffer      = offer;
-            IsAwaitingUpgradeChoice  = true;
-            DontAskAgainForThisKind  = false;  // reset z předchozí nabídky
+            PendingUpgradeOffer       = offer;
+            IsAwaitingUpgradeChoice   = true;
+            DontAskAgainForThisKind   = false;  // reset z předchozí nabídky
+            CivitaiKeyWarningVisible  = civitaiKeyMissing && IsCivitaiOffer(offer);
             OnPropertyChanged(nameof(UpgradeOfferSizeLabel));
         });
 
@@ -259,6 +274,16 @@ public partial class ChatMessage : ObservableObject
         if (bytes >= 1_048_576L)     return $"{bytes / 1_048_576.0:F0} MB";
         if (bytes >= 1024L)          return $"{bytes / 1024.0:F0} KB";
         return $"{bytes} B";
+    }
+
+    /// <summary>
+    /// Detekuje, jestli nabídka je z Civitai — podle URL nebo ID prefixu
+    /// (live-Civitai-…). Pro warning o chybějícím API klíči.
+    /// </summary>
+    private static bool IsCivitaiOffer(ModelUpgradeOffer offer)
+    {
+        return offer.DownloadUrl.Contains("civitai.com", StringComparison.OrdinalIgnoreCase)
+            || offer.Id.StartsWith("live-Civitai-",     StringComparison.OrdinalIgnoreCase);
     }
 
     // ── Edit state ────────────────────────────────────────────────────────────

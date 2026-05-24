@@ -1097,8 +1097,14 @@ public partial class ChatPageViewModel : ViewModelBase
         // Callback pro upgrade nabídku — orchestrátor zavolá, pokud najde lepší
         // nesažený model. Vystavíme nabídku v placeholder bublině a čekáme na klik.
         // Kind si vytáhneme přímo z offer.Kind (předaný recommenderem).
+        // CivitaiKeyMissing check — pokud user nemá nastavený API klíč a nabídka
+        // je z Civitai, UI ukáže tip.
         Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> askForUpgrade =
-            (offer, cancellationToken) => placeholder.PromptUpgradeAsync(offer, offer.Kind.ToString(), cancellationToken);
+            (offer, cancellationToken) =>
+            {
+                var civitaiKeyMissing = string.IsNullOrWhiteSpace(_settings.Settings.CivitaiApiKey);
+                return placeholder.PromptUpgradeAsync(offer, offer.Kind.ToString(), civitaiKeyMissing, cancellationToken);
+            };
 
         // Subscribuj se na "už mi to nenabízej" event — zapíše kind do settings.
         // Unsubscribe v finally větvi, ať placeholder nedrží referenci na VM.
