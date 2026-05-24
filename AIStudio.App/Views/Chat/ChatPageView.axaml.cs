@@ -215,19 +215,20 @@ public partial class ChatPageView : UserControl
 
     private void ScrollToBottom()
     {
-        // Auto-scroll na úplný konec poslední bubliny. Robust proti:
-        //   • Conversation switch (mnoho bublin se postupně měří přes MarkdownViewer)
-        //   • IsStreaming → false transition (action buttons row se objeví AŽ POTOM)
-        //   • MarkdownViewer s code blocks / headings (deferred layout)
+        // Použijeme BringIntoView na sentinel element na konci ItemsControl —
+        // ScrollViewer si sám spočítá kam scrollovat tak, aby sentinel byl plně
+        // ve viewport. Tím se vyhneme race condition s ScrollToEnd, kde
+        // ScrollViewer.Extent v okamžiku volání nereflectoval skutečnou výšku
+        // ItemsControl (kvůli deferred MarkdownViewer layout / IsStreaming →
+        // false / action row).
         //
-        // Strategie: BEZPODMÍNĚČNĚ re-scroll po každém layout pass po dobu
-        // ~25 framů (~400 ms při 60 fps). Předchozí verze re-scrollovala jen
-        // při růstu Extent — pokud první ScrollToEnd nedosáhl skutečný konec
-        // (např. action row ještě nebyl rendrován, ale Extent byl spočítán až
-        // do něj), retry se nikdy nespustil.
+        // Sentinel má Margin top 40 → BringIntoView posune scroll tak, aby
+        // 1px sentinel byl vidět = pod poslední bublinou je 40px breathing
+        // space.
 
-        var scroll = this.FindControl<ScrollViewer>("MessagesScroll");
-        if (scroll is null) return;
+        var sentinel = this.FindControl<Border>("ScrollSentinel");
+        var scroll   = this.FindControl<ScrollViewer>("MessagesScroll");
+        if (sentinel is null || scroll is null) return;
 
         // Vstupujeme do programmatic scroll okna — OnScrollChanged nesmí měnit _autoScroll
         // (intermediate layout pass může chybně reportovat atBottom=false).
@@ -235,17 +236,17 @@ public partial class ChatPageView : UserControl
 
         Dispatcher.UIThread.Post(() =>
         {
-            scroll.ScrollToEnd();
+            sentinel.BringIntoView();
 
             var framesSeen = 0;
             EventHandler? handler = null;
             handler = (_, _) =>
             {
                 framesSeen++;
-                // Re-scroll BEZPODMÍNĚČNĚ — _autoScroll guard tu být nesmí, protože by
-                // se vypnul ze stejného důvodu, proč jsme nastavili _programmaticScroll.
-                scroll.ScrollToEnd();
-                // Safety brake: po 25 frames unsubscribe + uvolnit programmatic flag
+                // Re-bring po každém layout pass — pokud bubliny dorůstají
+                // (MarkdownViewer postupně), sentinel posunul a my za ním
+                // dotáhneme scroll.
+                sentinel.BringIntoView();
                 if (framesSeen >= 25)
                 {
                     scroll.LayoutUpdated -= handler!;

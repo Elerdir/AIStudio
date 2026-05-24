@@ -554,13 +554,11 @@
 
                 </StackPanel>
 
-                <!-- Bottom margin 24 = jen vizuální dýchání po posledním bublině.
-                     Vyšší hodnoty (200+) způsobily, že uživatel viděl velký prázdný
-                     prostor pod bublinou a myslel si, že obsah je useknutý —
-                     bublina ve skutečnosti končila výš, ale dead-space pod ní
-                     vypadal jako missing content. -->
+                <!-- Margin bottom 0 — visual breathing space je v ScrollSentinel
+                     níže (Margin top 40), který zaručuje, že BringIntoView posune
+                     viewport tak, aby pod poslední bublinou byl ~40px prostor. -->
                 <ItemsControl ItemsSource="{Binding SelectedConversation.Messages}"
-                              Margin="0,0,0,24">
+                              Margin="0,0,0,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:ChatMessage">
                             <Border Margin="0,6">
@@ -1013,6 +1011,15 @@
                         </Style>
                     </ItemsControl.Styles>
                 </ItemsControl>
+
+                <!-- Sentinel element pro auto-scroll: BringIntoView na něj je
+                     spolehlivější než ScrollToEnd, protože ScrollViewer si sám
+                     spočítá kam scrollovat tak, aby tenhle element byl plně
+                     vidět ve viewport (a tedy i poslední bublina nad ním).
+                     Height 1 = neviditelný; Margin nahoře = drží odstup od
+                     poslední bubliny, takže BringIntoView posune scroll ještě
+                     dál, než kde je sentinel = bublina má visual breathing. -->
+                <Border Name="ScrollSentinel" Height="1" Margin="0,40,0,0"/>
 
               </Panel>
               </ScrollViewer>
