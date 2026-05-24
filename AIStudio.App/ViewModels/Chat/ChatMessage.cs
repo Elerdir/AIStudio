@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using AIStudio.App.Views.Chat;
+using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
 using AIStudio.Infrastructure.Services;
 
@@ -85,7 +86,135 @@ public partial class ChatMessage : ObservableObject
     /// True pokud tahle zpráva nese obrázek (hotový nebo se generuje). UI
     /// podle toho přepíná mezi text bublinou a image bublinou.
     /// </summary>
-    public bool IsImageMessage => !string.IsNullOrEmpty(ImagePath) || IsImageGenerating;
+    public bool IsImageMessage => !string.IsNullOrEmpty(ImagePath)
+                                  || IsImageGenerating
+                                  || IsAwaitingUpgradeChoice
+                                  || IsDownloadingUpgradeModel;
+
+    // ── Model upgrade flow (chat → image gen recommender) ────────────────────
+    //
+    // Orchestrátor může před generováním navrhnout, že má lepší (nesažený)
+    // model. UI to ukáže jako inline panel v bublině — uživatel klikne na
+    // Použít stažené nebo Stáhnout lepší, a callback ho oznámí orchestrátoru.
+    //
+    // Toky:
+    //   1) Orchestrátor invokuje askForUpgrade → vytvoří TCS, nastaví
+    //      PendingUpgradeOffer + IsAwaitingUpgradeChoice = true.
+    //   2) Uživatel klikne tlačítko → command nastaví UpgradeChoice → TCS dokončí.
+    //   3) Pokud DownloadBetter → IsDownloadingUpgradeModel = true,
+    //      progress updaty přes UpdateDownloadStatus().
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    [NotifyPropertyChangedFor(nameof(HasPendingUpgradeOffer))]
+    private ModelUpgradeOffer? _pendingUpgradeOffer;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    private bool _isAwaitingUpgradeChoice;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    private bool _isDownloadingUpgradeModel;
+
+    [ObservableProperty] private int    _upgradeDownloadPercent;
+    [ObservableProperty] private string _upgradeDownloadStatusLabel = string.Empty;
+
+    public bool HasPendingUpgradeOffer => PendingUpgradeOffer is not null;
+
+    /// <summary>Lidsky čitelná velikost pro UI — "6.8 GB".</summary>
+    public string UpgradeOfferSizeLabel => PendingUpgradeOffer is null
+        ? ""
+        : FormatBytes(PendingUpgradeOffer.SizeBytes);
+
+    /// <summary>TCS, který orchestrátor čeká — dokončí se po user kliku.</summary>
+    private TaskCompletionSource<UpgradeChoice>? _upgradeChoiceTcs;
+
+    /// <summary>
+    /// Vystaví nabídku v UI a čeká na uživatelovo rozhodnutí. Volá se z
+    /// callbacku, který orchestrátor dostane v GenerateAsync. Po vyřízení
+    /// uklízí stav (IsAwaitingUpgradeChoice = false, offer = null).
+    /// </summary>
+    public Task<UpgradeChoice> PromptUpgradeAsync(ModelUpgradeOffer offer, CancellationToken ct)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            PendingUpgradeOffer      = offer;
+            IsAwaitingUpgradeChoice  = true;
+            OnPropertyChanged(nameof(UpgradeOfferSizeLabel));
+        });
+
+        _upgradeChoiceTcs = new TaskCompletionSource<UpgradeChoice>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        // Pokud uživatel zruší celou věc Stopem, propagujeme jako Cancel
+        ct.Register(() => _upgradeChoiceTcs?.TrySetResult(UpgradeChoice.Cancel));
+
+        return _upgradeChoiceTcs.Task;
+    }
+
+    [RelayCommand]
+    private void AcceptUpgrade()
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() => IsAwaitingUpgradeChoice = false);
+        _upgradeChoiceTcs?.TrySetResult(UpgradeChoice.DownloadBetter);
+    }
+
+    [RelayCommand]
+    private void RejectUpgrade()
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            IsAwaitingUpgradeChoice = false;
+            PendingUpgradeOffer     = null;
+            OnPropertyChanged(nameof(UpgradeOfferSizeLabel));
+        });
+        _upgradeChoiceTcs?.TrySetResult(UpgradeChoice.UseLocal);
+    }
+
+    /// <summary>
+    /// Push update progress z orchestrátoru během downloadu — vytvoří label
+    /// "FLUX Schnell · 45 % · 12 MB/s · 2.2 GB / 4.9 GB".
+    /// </summary>
+    public void UpdateDownloadStatus(DownloadStatusUpdate update)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            // Pokud orchestrátor začal stahovat, vystoupíme z awaiting (panel se přepne na progress)
+            if (!IsDownloadingUpgradeModel)
+            {
+                IsDownloadingUpgradeModel = true;
+                IsAwaitingUpgradeChoice   = false;
+            }
+            UpgradeDownloadPercent = update.Percent;
+            UpgradeDownloadStatusLabel = string.Format(
+                "{0} · {1} % · {2:F1} MB/s · {3} / {4}",
+                update.ModelName,
+                update.Percent,
+                update.MegabytesPerSecond,
+                FormatBytes(update.BytesDone),
+                FormatBytes(update.BytesTotal));
+        });
+    }
+
+    /// <summary>Reset upgrade state po dokončení / chybě (volá orchestrátor).</summary>
+    public void ClearUpgradeState()
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            IsDownloadingUpgradeModel = false;
+            IsAwaitingUpgradeChoice   = false;
+            PendingUpgradeOffer       = null;
+            OnPropertyChanged(nameof(UpgradeOfferSizeLabel));
+        });
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes >= 1_073_741_824L) return $"{bytes / 1_073_741_824.0:F1} GB";
+        if (bytes >= 1_048_576L)     return $"{bytes / 1_048_576.0:F0} MB";
+        if (bytes >= 1024L)          return $"{bytes / 1024.0:F0} KB";
+        return $"{bytes} B";
+    }
 
     // ── Edit state ────────────────────────────────────────────────────────────
 

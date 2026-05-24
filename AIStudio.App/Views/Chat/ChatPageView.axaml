@@ -683,6 +683,80 @@
                                                  Klik na obrázek = ImageZoomWindow s plnou velikostí. -->
                                             <Panel IsVisible="{Binding IsImageMessage}">
 
+                                                <!-- Upgrade prompt panel — recommender našel lepší nesažený model -->
+                                                <Border IsVisible="{Binding IsAwaitingUpgradeChoice}"
+                                                        Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
+                                                        CornerRadius="10" Padding="16,14"
+                                                        MinWidth="320">
+                                                    <StackPanel Spacing="10">
+                                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.LightbulbOutline}"
+                                                                             Width="18" Height="18" Foreground="#A78BFA"
+                                                                             VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                                            <StackPanel Spacing="4">
+                                                                <TextBlock Text="Mám lepší model pro tento typ scény"
+                                                                           FontSize="13" FontWeight="SemiBold"
+                                                                           Foreground="#C4B5FD"/>
+                                                                <TextBlock FontSize="11" Foreground="#7c7398"
+                                                                           TextWrapping="Wrap" MaxWidth="380"
+                                                                           Text="{Binding PendingUpgradeOffer.Reason}"/>
+                                                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                                                                    <TextBlock Text="{Binding PendingUpgradeOffer.Name}"
+                                                                               FontSize="11" FontWeight="SemiBold"
+                                                                               Foreground="#A78BFA"/>
+                                                                    <TextBlock Text="·" FontSize="11" Foreground="#3a3a4a"/>
+                                                                    <TextBlock Text="{Binding UpgradeOfferSizeLabel}"
+                                                                               FontSize="11" Foreground="#7c7398"/>
+                                                                </StackPanel>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                                            <Button Grid.Column="0"
+                                                                    Classes="secondary"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    Command="{Binding RejectUpgradeCommand}">
+                                                                <TextBlock Text="Použít stažený" FontSize="12"/>
+                                                            </Button>
+                                                            <Button Grid.Column="1"
+                                                                    Classes="primary"
+                                                                    HorizontalAlignment="Stretch"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    Command="{Binding AcceptUpgradeCommand}">
+                                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Download}"
+                                                                                     Width="14" Height="14" VerticalAlignment="Center"/>
+                                                                    <TextBlock Text="Stáhnout lepší" FontSize="12" VerticalAlignment="Center"/>
+                                                                </StackPanel>
+                                                            </Button>
+                                                        </Grid>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <!-- Download progress — viditelný jen pokud uživatel zvolí Stáhnout lepší -->
+                                                <Border IsVisible="{Binding IsDownloadingUpgradeModel}"
+                                                        Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
+                                                        CornerRadius="10" Padding="16,14"
+                                                        MinWidth="320">
+                                                    <StackPanel Spacing="10">
+                                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Download}"
+                                                                             Width="18" Height="18" Foreground="#A78BFA"
+                                                                             VerticalAlignment="Center"/>
+                                                            <TextBlock Text="Stahuju model na pozadí…"
+                                                                       FontSize="13" FontWeight="SemiBold"
+                                                                       Foreground="#C4B5FD" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                        <ProgressBar Value="{Binding UpgradeDownloadPercent}"
+                                                                     Minimum="0" Maximum="100"
+                                                                     Height="4" CornerRadius="2"
+                                                                     Foreground="#7C3AED" Background="#1F1B3D"/>
+                                                        <TextBlock Text="{Binding UpgradeDownloadStatusLabel}"
+                                                                   FontSize="11" Foreground="#7c7398"
+                                                                   TextWrapping="Wrap"/>
+                                                    </StackPanel>
+                                                </Border>
+
                                                 <!-- Loading placeholder dokud běží generování -->
                                                 <Border IsVisible="{Binding IsImageGenerating}"
                                                         Background="#15131C" BorderBrush="#2A2050" BorderThickness="1"

@@ -1091,7 +1091,24 @@ public partial class ChatPageViewModel : ViewModelBase
                         intent, referencePath ?? "(none)");
 
         var progress = new Progress<int>(_ => { /* zatím nevyužíváme — UI bublina má jen typing dots */ });
-        var result   = await _imageOrch.GenerateAsync(userText, referencePath, progress, ct);
+
+        // Callback pro upgrade nabídku — orchestrátor zavolá, pokud najde lepší
+        // nesažený model. Vystavíme nabídku v placeholder bublině a čekáme na klik.
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> askForUpgrade =
+            (offer, cancellationToken) => placeholder.PromptUpgradeAsync(offer, cancellationToken);
+
+        // Download progress (pokud uživatel zvolí DownloadBetter) — bublina ukáže
+        // progress bar místo dialog panelu.
+        var downloadProgress = new Progress<DownloadStatusUpdate>(u => placeholder.UpdateDownloadStatus(u));
+
+        var result = await _imageOrch.GenerateAsync(
+            userText, referencePath, progress, ct,
+            askForUpgrade: askForUpgrade,
+            downloadProgress: downloadProgress);
+
+        // Po skončení (úspěch / chyba / cancel) vždy vyresetuj upgrade state,
+        // ať tam nevisí ducha z předchozí nabídky.
+        placeholder.ClearUpgradeState();
 
         Dispatcher.UIThread.Post(() =>
         {
