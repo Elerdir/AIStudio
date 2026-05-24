@@ -554,9 +554,13 @@
 
                 </StackPanel>
 
-                <!-- Margin bottom 0 — visual breathing space je v ScrollSentinel
-                     níže (Margin top 40), který zaručuje, že BringIntoView posune
-                     viewport tak, aby pod poslední bublinou byl ~40px prostor. -->
+                <!-- StackPanel wrapper kolem ItemsControl + ScrollSentinel:
+                     Raw Panel (parent) je v Avalonii overlay (jako Canvas) —
+                     děti se nestackují vertikálně, jen overlapují v top-left.
+                     ScrollSentinel jako sibling Panelu by visel nahoře, ne
+                     pod ItemsControlem. StackPanel zaručí, že sentinel je
+                     skutečně pod posledním bublinou. -->
+                <StackPanel>
                 <ItemsControl ItemsSource="{Binding SelectedConversation.Messages}"
                               Margin="0,0,0,0">
                     <ItemsControl.ItemTemplate>
@@ -1013,13 +1017,12 @@
                 </ItemsControl>
 
                 <!-- Sentinel element pro auto-scroll: BringIntoView na něj je
-                     spolehlivější než ScrollToEnd, protože ScrollViewer si sám
-                     spočítá kam scrollovat tak, aby tenhle element byl plně
-                     vidět ve viewport (a tedy i poslední bublina nad ním).
-                     Height 1 = neviditelný; Margin nahoře = drží odstup od
-                     poslední bubliny, takže BringIntoView posune scroll ještě
-                     dál, než kde je sentinel = bublina má visual breathing. -->
+                     spolehlivější než ScrollToEnd. Sentinel je uvnitř StackPanelu,
+                     takže se rendruje POD ItemsControlem (StackPanel stack-uje
+                     vertikálně). Height 1 = neviditelný; Margin top 40 =
+                     breathing space pod poslední bublinou. -->
                 <Border Name="ScrollSentinel" Height="1" Margin="0,40,0,0"/>
+                </StackPanel>
 
               </Panel>
               </ScrollViewer>
