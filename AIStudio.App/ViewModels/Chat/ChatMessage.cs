@@ -1,7 +1,6 @@
-using Avalonia.Controls;
-using Avalonia.Input.Platform;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
 
 namespace AIStudio.App.ViewModels.Chat;
@@ -23,6 +22,15 @@ public enum MessageRole { User, Assistant, System }
 /// </summary>
 public partial class ChatMessage : ObservableObject
 {
+    /// <summary>
+    /// Statický accessor k dialog službě. Nastavuje App.axaml.cs po
+    /// BuildServiceProvider(). ChatMessage je vytvářen z DB records (FromRecord),
+    /// ne přes DI container — statický accessor je pragmatic kompromis,
+    /// abychom nemuseli každou instance projíždět DI factory. V testech lze
+    /// nahradit mockem (přiřazením vlastní impl).
+    /// </summary>
+    public static IDialogService? DialogService { get; set; }
+
     public string      Id        { get; init; } = Guid.NewGuid().ToString();
     public MessageRole Role      { get; init; }
     public DateTime    Timestamp { get; init; } = DateTime.UtcNow;   // UTC, konvertuj při zobrazení
@@ -88,14 +96,9 @@ public partial class ChatMessage : ObservableObject
     [RelayCommand]
     private async Task CopyContentAsync()
     {
-        if (Avalonia.Application.Current?.ApplicationLifetime
-            is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime
-            { MainWindow: { } win }) return;
+        if (DialogService is null) return;
 
-        var clipboard = TopLevel.GetTopLevel(win)?.Clipboard;
-        if (clipboard is null) return;
-
-        await clipboard.SetTextAsync(Content);
+        await DialogService.SetClipboardTextAsync(Content);
 
         // Krátká vizuální zpětná vazba ✓
         IsCopied = true;

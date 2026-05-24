@@ -1,9 +1,7 @@
-using Avalonia.Controls;
-using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
-using AIStudio.App.Views.Chat;
+using AIStudio.Core.Interfaces;
 using AIStudio.Infrastructure.Services;
 
 namespace AIStudio.App.ViewModels.Chat;
@@ -69,35 +67,15 @@ public partial class ChatMessage
     // ── Image akce (jen pro IsImageMessage) ───────────────────────────────────
 
     /// <summary>
-    /// Otevře plný náhled obrázku v samostatném okně. Nedělá nic, pokud zpráva
-    /// nenese cestu nebo soubor neexistuje (uživatel ho mohl smazat).
+    /// Otevře plný náhled obrázku v samostatném okně přes <see cref="IDialogService"/>.
+    /// Nedělá nic, pokud zpráva nenese cestu, soubor neexistuje, nebo dialog
+    /// service ještě nebyla nastavena (cold start, edge case).
     /// </summary>
     [RelayCommand]
     private void OpenImageZoom()
     {
         if (string.IsNullOrEmpty(ImagePath) || !File.Exists(ImagePath)) return;
-
-        try
-        {
-            var win = new ImageZoomWindow();
-            win.Load(ImagePath);
-
-            // Owner = MainWindow — aby zoom okno bylo modal-on-top a nezmizelo za hlavním
-            if (Avalonia.Application.Current?.ApplicationLifetime
-                is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime
-                { MainWindow: { } main })
-            {
-                win.Show(main);
-            }
-            else
-            {
-                win.Show();
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "ChatMessage: OpenImageZoom selhal");
-        }
+        DialogService?.ShowImagePreview(ImagePath);
     }
 
     /// <summary>
@@ -108,43 +86,32 @@ public partial class ChatMessage
     private async Task SaveImageAsAsync()
     {
         if (string.IsNullOrEmpty(ImagePath) || !File.Exists(ImagePath)) return;
-        if (Avalonia.Application.Current?.ApplicationLifetime
-            is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime
-            { MainWindow: { } main }) return;
+        if (DialogService is null) return;
 
-        var sp = TopLevel.GetTopLevel(main)?.StorageProvider;
-        if (sp is null) return;
+        var ext = Path.GetExtension(ImagePath).TrimStart('.').ToLowerInvariant();
+        if (string.IsNullOrEmpty(ext)) ext = "png";
+
+        var destPath = await DialogService.SaveFileAsync(
+            title:             "Uložit obrázek jako…",
+            suggestedFileName: Path.GetFileNameWithoutExtension(ImagePath),
+            defaultExtension:  ext,
+            filters: new[]
+            {
+                new FileFilter($"Obrázek ({ext.ToUpperInvariant()})", new[] { $"*.{ext}" })
+            });
+
+        if (string.IsNullOrEmpty(destPath)) return;
 
         try
         {
-            var ext = Path.GetExtension(ImagePath).TrimStart('.').ToLowerInvariant();
-            if (string.IsNullOrEmpty(ext)) ext = "png";
-
-            var picked = await sp.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title             = "Uložit obrázek jako…",
-                SuggestedFileName = Path.GetFileNameWithoutExtension(ImagePath),
-                DefaultExtension  = ext,
-                FileTypeChoices   = new[]
-                {
-                    new FilePickerFileType($"Obrázek ({ext.ToUpperInvariant()})")
-                    {
-                        Patterns = new[] { $"*.{ext}" }
-                    }
-                }
-            });
-
-            if (picked is null) return;
-
             await using var input  = File.OpenRead(ImagePath);
-            await using var output = await picked.OpenWriteAsync();
+            await using var output = File.Create(destPath);
             await input.CopyToAsync(output);
-
-            Log.Information("ChatMessage: obrázek uložen jako {Name}", picked.Name);
+            Log.Information("ChatMessage: obrázek uložen jako {Path}", destPath);
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "ChatMessage: SaveImageAs selhal");
+            Log.Warning(ex, "ChatMessage: SaveImageAs file copy selhalo");
         }
     }
 

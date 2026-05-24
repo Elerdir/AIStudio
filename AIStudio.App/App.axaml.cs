@@ -113,6 +113,9 @@ public partial class App : Application
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<ILocalizationService, LocalizationService>();
         services.AddSingleton<IUpdateService, UpdateService>();
+        // Dialog abstrakce (clipboard / file pickers / image preview) — VMs
+        // díky tomu nepoužívají Avalonia API přímo a jsou unit-testovatelné.
+        services.AddSingleton<IDialogService, AIStudio.App.Services.AvaloniaDialogService>();
 
         // Infrastructure
         services.AddSingleton<ISettingsService, SettingsService>();
@@ -173,6 +176,12 @@ public partial class App : Application
         services.AddSingleton<MainWindowViewModel>();
 
         Services = services.BuildServiceProvider();
+
+        // VMs vytvořené z dat (ChatMessage z DB records) nemají DI ctor; statický
+        // accessor jim umožňuje volat dialog/clipboard přes IDialogService bez
+        // znalosti Avalonia API. Nastavit musíme až po BuildServiceProvider.
+        AIStudio.App.ViewModels.Chat.ChatMessage.DialogService =
+            Services.GetRequiredService<IDialogService>();
 
         // ── Synchronní inicializace — nutně přes Task.Run, jinak deadlock ─────
         // Pozadí: jsme na UI threadu s AvaloniaSynchronizationContextem. Pokud
