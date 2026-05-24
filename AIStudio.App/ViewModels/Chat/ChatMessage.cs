@@ -1,8 +1,12 @@
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
+using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Serilog;
+using AIStudio.App.Views.Chat;
 using AIStudio.Core.Models;
+using AIStudio.Infrastructure.Services;
 
 namespace AIStudio.App.ViewModels.Chat;
 
@@ -121,6 +125,97 @@ public partial class ChatMessage : ObservableObject
         IsCopied = true;
         await Task.Delay(1500);
         IsCopied = false;
+    }
+
+    // ── Image akce (jen pro IsImageMessage) ───────────────────────────────────
+
+    /// <summary>
+    /// Otevře plný náhled obrázku v samostatném okně. Nedělá nic, pokud zpráva
+    /// nenese cestu nebo soubor neexistuje (uživatel ho mohl smazat).
+    /// </summary>
+    [RelayCommand]
+    private void OpenImageZoom()
+    {
+        if (string.IsNullOrEmpty(ImagePath) || !File.Exists(ImagePath)) return;
+
+        try
+        {
+            var win = new ImageZoomWindow();
+            win.Load(ImagePath);
+
+            // Owner = MainWindow — aby zoom okno bylo modal-on-top a nezmizelo za hlavním
+            if (Avalonia.Application.Current?.ApplicationLifetime
+                is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime
+                { MainWindow: { } main })
+            {
+                win.Show(main);
+            }
+            else
+            {
+                win.Show();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ChatMessage: OpenImageZoom selhal");
+        }
+    }
+
+    /// <summary>
+    /// Vyvolá Save As dialog a zkopíruje obrázek na uživatelem zvolené místo.
+    /// Soubor v gallery zůstává — kopírujeme jen kopii.
+    /// </summary>
+    [RelayCommand]
+    private async Task SaveImageAsAsync()
+    {
+        if (string.IsNullOrEmpty(ImagePath) || !File.Exists(ImagePath)) return;
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is not Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime
+            { MainWindow: { } main }) return;
+
+        var sp = TopLevel.GetTopLevel(main)?.StorageProvider;
+        if (sp is null) return;
+
+        try
+        {
+            var ext = Path.GetExtension(ImagePath).TrimStart('.').ToLowerInvariant();
+            if (string.IsNullOrEmpty(ext)) ext = "png";
+
+            var picked = await sp.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title             = "Uložit obrázek jako…",
+                SuggestedFileName = Path.GetFileNameWithoutExtension(ImagePath),
+                DefaultExtension  = ext,
+                FileTypeChoices   = new[]
+                {
+                    new FilePickerFileType($"Obrázek ({ext.ToUpperInvariant()})")
+                    {
+                        Patterns = new[] { $"*.{ext}" }
+                    }
+                }
+            });
+
+            if (picked is null) return;
+
+            await using var input  = File.OpenRead(ImagePath);
+            await using var output = await picked.OpenWriteAsync();
+            await input.CopyToAsync(output);
+
+            Log.Information("ChatMessage: obrázek uložen jako {Name}", picked.Name);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ChatMessage: SaveImageAs selhal");
+        }
+    }
+
+    /// <summary>Otevře obrázek v systémové prohlížečce (asociace dle OS).</summary>
+    [RelayCommand]
+    private void OpenImageExternal()
+    {
+        if (string.IsNullOrEmpty(ImagePath) || !File.Exists(ImagePath)) return;
+        try { PlatformShell.Open(ImagePath); }
+        catch (Exception ex) { Log.Warning(ex, "ChatMessage: OpenImageExternal selhal"); }
     }
 
     // ── DB mapování ───────────────────────────────────────────────────────────

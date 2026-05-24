@@ -676,6 +676,105 @@
                                             Padding="14,10"
                                             IsVisible="{Binding Role, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:MessageRole.Assistant}}">
                                         <StackPanel Spacing="0">
+                                            <!-- ════════════ IMAGE BUBLINA (chat → image gen) ════════════
+                                                 Zobrazena pokud zpráva nese ImagePath (hotový obrázek) NEBO
+                                                 IsImageGenerating (běží Comfy). Stručný subtitle pod obrázkem
+                                                 ukáže model + reasoning od intent parseru.
+                                                 Klik na obrázek = ImageZoomWindow s plnou velikostí. -->
+                                            <Panel IsVisible="{Binding IsImageMessage}">
+
+                                                <!-- Loading placeholder dokud běží generování -->
+                                                <Border IsVisible="{Binding IsImageGenerating}"
+                                                        Background="#15131C" BorderBrush="#2A2050" BorderThickness="1"
+                                                        CornerRadius="10" Padding="16,14"
+                                                        MinWidth="280" MinHeight="100">
+                                                    <StackPanel Orientation="Horizontal" Spacing="12"
+                                                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}"
+                                                                         Width="20" Height="20" Foreground="#A78BFA"
+                                                                         VerticalAlignment="Center"/>
+                                                        <StackPanel Spacing="3">
+                                                            <TextBlock Text="Generuji obrázek…"
+                                                                       FontSize="13" FontWeight="SemiBold"
+                                                                       Foreground="#C4B5FD"/>
+                                                            <TextBlock Text="Může to chvíli trvat. Sleduj pokrok ve stavovém řádku Image Studia."
+                                                                       FontSize="11" Foreground="#7c7398"
+                                                                       TextWrapping="Wrap" MaxWidth="320"/>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <!-- Hotový obrázek (klik = zoom) -->
+                                                <StackPanel Spacing="6" IsVisible="{Binding !IsImageGenerating}">
+                                                    <Border CornerRadius="10" ClipToBounds="True"
+                                                            Cursor="Hand"
+                                                            HorizontalAlignment="Left">
+                                                        <Border.Styles>
+                                                            <Style Selector="Border:pointerover">
+                                                                <Setter Property="Opacity" Value="0.9"/>
+                                                            </Style>
+                                                        </Border.Styles>
+                                                        <Button Command="{Binding OpenImageZoomCommand}"
+                                                                Background="Transparent" BorderThickness="0"
+                                                                Padding="0" Cursor="Hand">
+                                                            <Image Source="{Binding ImagePath, Converter={x:Static vm:ChatImagePathToBitmapConverter.Instance}}"
+                                                                   Stretch="Uniform"
+                                                                   MaxWidth="560" MaxHeight="560"/>
+                                                        </Button>
+                                                    </Border>
+
+                                                    <!-- Hover action bar pod obrázkem -->
+                                                    <StackPanel Orientation="Horizontal" Spacing="2"
+                                                                IsVisible="{Binding ImagePath, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                                        <Button Classes="msgAction"
+                                                                Command="{Binding OpenImageZoomCommand}"
+                                                                ToolTip.Tip="Zvětšit na plnou velikost"
+                                                                Width="22" Height="22" Padding="0"
+                                                                CornerRadius="5"
+                                                                Background="Transparent" BorderThickness="0">
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Magnify}"
+                                                                             Width="12" Height="12"
+                                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Button>
+                                                        <Button Classes="msgAction"
+                                                                Command="{Binding SaveImageAsCommand}"
+                                                                ToolTip.Tip="Uložit jako…"
+                                                                Width="22" Height="22" Padding="0"
+                                                                CornerRadius="5"
+                                                                Background="Transparent" BorderThickness="0">
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Download}"
+                                                                             Width="12" Height="12"
+                                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Button>
+                                                        <Button Classes="msgAction"
+                                                                Command="{Binding OpenImageExternalCommand}"
+                                                                ToolTip.Tip="Otevřít v externí prohlížečce"
+                                                                Width="22" Height="22" Padding="0"
+                                                                CornerRadius="5"
+                                                                Background="Transparent" BorderThickness="0">
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.OpenInNew}"
+                                                                             Width="12" Height="12"
+                                                                             Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Button>
+                                                    </StackPanel>
+
+                                                    <!-- Subtitle (model + reasoning od intent parseru) -->
+                                                    <SelectableTextBlock Text="{Binding Content}"
+                                                                         Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                         FontSize="11" LineHeight="16"
+                                                                         TextWrapping="Wrap"
+                                                                         MaxWidth="560"
+                                                                         IsVisible="{Binding Content, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                </StackPanel>
+                                            </Panel>
+
+                                            <!-- ════════════ TEXT BUBLINA (klasická LLM odpověď) ════════════
+                                                 Skryta pokud je zpráva obrázek (a obráceně), ať se template
+                                                 neperou o stejný prostor. -->
+                                            <Panel IsVisible="{Binding !IsImageMessage}">
                                             <!-- ── Streaming pohled — laciný plain text + typing dots ──
                                                  MarkdownViewer při každé změně Content znovu staví celý
                                                  strom (StackPanel, TextBlocky, code-block bordery…), takže
@@ -683,6 +782,7 @@
                                                  Během streamu proto použijeme jen SelectableTextBlock
                                                  (laciný Avalonia primitive) a teprve po dokončení
                                                  přepneme na plný markdown render — jen jednou. -->
+                                            <StackPanel Spacing="0">
                                             <Panel IsVisible="{Binding IsStreaming}">
                                                 <!-- Typing dots — viditelné dokud nedorazí první token -->
                                                 <StackPanel Classes="typingIndicator"
@@ -753,6 +853,8 @@
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
+                                            </StackPanel>
+                                            </Panel>
                                         </StackPanel>
                                     </Border>
 
@@ -915,8 +1017,8 @@
                         </Grid>
                     </Border>
 
-                    <!-- Input řádek: attach + textbox + regenerate/compare + send/stop -->
-                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
+                    <!-- Input řádek: attach + image-mode toggle + textbox + regenerate/compare + send/stop -->
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
 
                         <!-- Přiložit obrázek -->
                         <Button Grid.Column="0"
@@ -928,7 +1030,35 @@
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Paperclip}" Width="18" Height="18" Foreground="{DynamicResource TextDisabledBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
-                        <Border Grid.Column="1"
+                        <!-- Image-mode toggle: cyklický Auto → ForceImage → ForceChat → Auto.
+                             Vizuál se mění podle ImageMode (palette outline / palette solid /
+                             palette přeškrtnutá), aby uživatel věděl, ve kterém režimu je. -->
+                        <Button Grid.Column="1"
+                                Command="{Binding CycleImageModeCommand}"
+                                Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                Width="46" Height="46" Padding="0" CornerRadius="12"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="{Binding ImageModeTooltip}">
+                            <Panel>
+                                <!-- Auto — outline -->
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.PaletteOutline}" Width="18" Height="18"
+                                                 Foreground="{DynamicResource TextMutedBrush}"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 IsVisible="{Binding IsImageModeAuto}"/>
+                                <!-- ForceImage — solid + akcent -->
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Palette}" Width="18" Height="18"
+                                                 Foreground="#A78BFA"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 IsVisible="{Binding IsImageModeForceImage}"/>
+                                <!-- ForceChat — palette se zákazem -->
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.PaletteSwatchOutline}" Width="18" Height="18"
+                                                 Foreground="#F87171"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 IsVisible="{Binding IsImageModeForceChat}"/>
+                            </Panel>
+                        </Button>
+
+                        <Border Grid.Column="2"
                                 Background="{DynamicResource CardBgBrush}"
                                 BorderBrush="{DynamicResource AppBorderBrush}"
                                 BorderThickness="1"
@@ -950,7 +1080,7 @@
                         </Border>
 
                         <!-- Regenerovat odpověď — kompaktní ikonové tlačítko -->
-                        <Button Grid.Column="2"
+                        <Button Grid.Column="3"
                                 Command="{Binding RegenerateLastResponseCommand}"
                                 IsVisible="{Binding CanRegenerate}"
                                 Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
@@ -961,7 +1091,7 @@
                         </Button>
 
                         <!-- Porovnat s jiným modelem — kompaktní ikonové tlačítko -->
-                        <Button Grid.Column="3"
+                        <Button Grid.Column="4"
                                 Command="{Binding ToggleComparePickerCommand}"
                                 IsVisible="{Binding CanRegenerate}"
                                 Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
@@ -971,7 +1101,7 @@
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Compare}" Width="16" Height="16" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
 
-                        <Panel Grid.Column="4" Width="46" Height="46">
+                        <Panel Grid.Column="5" Width="46" Height="46">
                             <!-- Odeslat -->
                             <Button Classes="primary"
                                     Command="{Binding SendMessageCommand}"

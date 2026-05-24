@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mi="using:Material.Icons.Avalonia"
+        xmlns:miKind="using:Material.Icons"
+        x:Class="AIStudio.App.Views.Chat.ImageZoomWindow"
+        Title="AI Studio — obrázek"
+        Background="#0D0D0D"
+        WindowStartupLocation="CenterScreen"
+        Width="1100" Height="800"
+        MinWidth="400" MinHeight="300">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Toolbar: zavřít, stáhnout, otevřít ve výchozí prohlížečce -->
+        <Border Grid.Row="0"
+                Background="#111113"
+                BorderBrush="#2A2A2E" BorderThickness="0,0,0,1"
+                Padding="14,8">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                <TextBlock Grid.Column="0" Name="FileNameLabel"
+                           VerticalAlignment="Center"
+                           Foreground="#888896" FontSize="12"
+                           TextTrimming="CharacterEllipsis"/>
+
+                <Button Grid.Column="1"
+                        Click="OpenExternal_Click"
+                        Background="Transparent" BorderThickness="0"
+                        Padding="10,6" CornerRadius="6"
+                        ToolTip.Tip="Otevřít ve výchozí prohlížečce">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.OpenInNew}"
+                                         Width="14" Height="14" Foreground="#888896"/>
+                        <TextBlock Text="Otevřít" FontSize="12" Foreground="#888896"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="2"
+                        Click="SaveAs_Click"
+                        Background="#1A1530" BorderBrush="#3D2A6E" BorderThickness="1"
+                        Padding="10,6" CornerRadius="6"
+                        ToolTip.Tip="Uložit kopii… (vyber kam)">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Download}"
+                                         Width="14" Height="14" Foreground="#A78BFA"/>
+                        <TextBlock Text="Uložit jako" FontSize="12" Foreground="#A78BFA"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="3"
+                        Click="Close_Click"
+                        Background="Transparent" BorderThickness="0"
+                        Width="32" Height="32" Padding="0" CornerRadius="6"
+                        ToolTip.Tip="Zavřít (Esc)">
+                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}"
+                                     Width="16" Height="16" Foreground="#888896"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Plocha s obrázkem — fit-to-window, kliknutí kdekoliv zavře -->
+        <Border Grid.Row="1"
+                Background="#0A0A0C"
+                Padding="20"
+                Tapped="Background_Tapped">
+            <Image Name="ImageHost"
+                   Stretch="Uniform"
+                   StretchDirection="DownOnly"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
+        </Border>
+    </Grid>
+
+</Window>

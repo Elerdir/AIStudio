@@ -91,9 +91,38 @@ public partial class ChatPageViewModel : ViewModelBase
     /// <item><c>ForceImage</c> — každá zpráva půjde do image gen</item>
     /// <item><c>ForceChat</c> — image gen vypnut, vše do LLM</item>
     /// </list>
-    /// Nastavuje se v ChatPageView přes toggle button v inputu (fáze 4).
+    /// Cycling tlačítko v ChatPageView ovládá <see cref="CycleImageModeCommand"/>.
     /// </summary>
-    [ObservableProperty] private ChatImageMode _imageMode = ChatImageMode.Auto;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsImageModeAuto))]
+    [NotifyPropertyChangedFor(nameof(IsImageModeForceImage))]
+    [NotifyPropertyChangedFor(nameof(IsImageModeForceChat))]
+    [NotifyPropertyChangedFor(nameof(ImageModeTooltip))]
+    private ChatImageMode _imageMode = ChatImageMode.Auto;
+
+    public bool IsImageModeAuto       => ImageMode == ChatImageMode.Auto;
+    public bool IsImageModeForceImage => ImageMode == ChatImageMode.ForceImage;
+    public bool IsImageModeForceChat  => ImageMode == ChatImageMode.ForceChat;
+
+    /// <summary>Tooltip pro toggle button — vysvětluje aktuální i další krok cyklu.</summary>
+    public string ImageModeTooltip => ImageMode switch
+    {
+        ChatImageMode.ForceImage => "Režim: vždy obrázek\nKlik → vypnout image gen",
+        ChatImageMode.ForceChat  => "Režim: vždy chat (image gen vypnut)\nKlik → automatická detekce",
+        _                        => "Režim: automatická detekce\nKlik → vždy obrázek",
+    };
+
+    /// <summary>Cykluje Auto → ForceImage → ForceChat → Auto.</summary>
+    [RelayCommand]
+    private void CycleImageMode()
+    {
+        ImageMode = ImageMode switch
+        {
+            ChatImageMode.Auto       => ChatImageMode.ForceImage,
+            ChatImageMode.ForceImage => ChatImageMode.ForceChat,
+            _                        => ChatImageMode.Auto,
+        };
+    }
     [ObservableProperty] private bool                   _isSystemPromptVisible;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCpuBackend))]
