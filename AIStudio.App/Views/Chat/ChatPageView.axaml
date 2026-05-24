@@ -473,7 +473,7 @@
 
             <!-- ── Row 2: Zprávy + FAB ── -->
             <Panel Grid.Row="2">
-              <ScrollViewer Padding="28,16,28,120" Name="MessagesScroll">
+              <ScrollViewer Padding="28,16,28,140" Name="MessagesScroll">
               <Panel>
 
                 <!-- Prázdný stav — žádná konverzace vůbec (vše smazáno) -->
@@ -554,8 +554,13 @@
 
                 </StackPanel>
 
+                <!-- Bottom margin 200 zaručí, že i dlouhá poslední bublina je
+                     plně vidět nad input panelem. Combined s ScrollViewer Padding
+                     bottom=140 dává celkem ~340px volného prostoru pod posledním
+                     bublinou — víc než input panel + lišta statusu, takže poslední
+                     řádek bubliny nikdy nezaleze pod ovládací prvky. -->
                 <ItemsControl ItemsSource="{Binding SelectedConversation.Messages}"
-                              Margin="0,0,0,80">
+                              Margin="0,0,0,200">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:ChatMessage">
                             <Border Margin="0,6">
