@@ -11,7 +11,11 @@
              Funguje napříč všemi nested ItemsControly bez StaticResource lookupu
              (kterej v Avalonia 12 uvnitř nested DataTemplate má scoping kvirky). -->
         <DataTemplate DataType="vm:ModelItemViewModel" x:DataType="vm:ModelItemViewModel">
-            <Border Margin="0,0,0,6" CornerRadius="12" Cursor="Hand" Background="{DynamicResource CardBgBrush}">
+            <!-- Right margin 14 zaručí mezeru od scrollbaru bez ohledu na Avalonia
+                 scrollbar rendering (overlay vs. inline). Padding na ScrollVieweru
+                 by se mohl skrýt pod overlay scrollbarem; margin na card border
+                 spolehlivě tlačí border doleva. -->
+            <Border Margin="0,0,14,6" CornerRadius="12" Cursor="Hand" Background="{DynamicResource CardBgBrush}">
                 <Button Background="Transparent" BorderThickness="0" Padding="14"
                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                         Command="{ReflectionBinding $parent[UserControl].DataContext.SelectModelCommand}"
@@ -297,7 +301,7 @@
         <!-- Right padding 28 (vs 20 vlevo) drží mezeru mezi card border a scrollbarem.
              V Avalonia 12 ScrollBar Vertical zabírá ~12px a pokud je content všude
              paddováno stejně, border se s scrollbarem opticky slepí. -->
-        <ScrollViewer Grid.Row="2" Padding="20,12,28,12"
+        <ScrollViewer Grid.Row="2" Padding="20,12,14,12"
                       IsVisible="{Binding IsRecommendedTab}"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
@@ -354,7 +358,7 @@
         </ScrollViewer>
 
         <!-- ═════════════════ TAB 1: HLEDAT ═════════════════ -->
-        <ScrollViewer Grid.Row="2" Padding="20,12,28,12"
+        <ScrollViewer Grid.Row="2" Padding="20,12,14,12"
                       IsVisible="{Binding IsSearchTab}"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
@@ -453,7 +457,7 @@
         </ScrollViewer>
 
         <!-- ═════════════════ TAB 2: STAŽENÉ ═════════════════ -->
-        <ScrollViewer Grid.Row="2" Padding="20,12,28,12"
+        <ScrollViewer Grid.Row="2" Padding="20,12,14,12"
                       IsVisible="{Binding IsDownloadedTab}"
                       HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
