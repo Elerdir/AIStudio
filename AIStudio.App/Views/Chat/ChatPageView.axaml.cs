@@ -203,13 +203,41 @@ public partial class ChatPageView : UserControl
 
     private void ScrollToBottom()
     {
-        // DispatcherPriority.Render zajistí, že layout (včetně MarkdownVieweru
-        // po dokončení streamu) je přepočítaný dřív než ScrollToEnd().
-        // Background priority nestačila — bublina se přerenderovala až po scrollu.
+        // Conversation switch renderuje mnoho bublin přes MarkdownViewer,
+        // jejich finální výška se ustálí až po několika layout pass. ScrollToEnd
+        // zavolaný JEDNOU se trefí jen do Extent v daný moment — pokud potom
+        // bubliny ještě dorůstají, scroll skončí v půlce a uživatel vidí
+        // useknutý text v poslední bublině.
+        //
+        // Řešení: subscribe LayoutUpdated a re-scroll po každém layout pass,
+        // dokud Extent neustálí. Auto-unsubscribe po max 15 frames (~250 ms
+        // při 60 fps) jako safety brake.
+
+        var scroll = this.FindControl<ScrollViewer>("MessagesScroll");
+        if (scroll is null) return;
+
         Dispatcher.UIThread.Post(() =>
         {
-            var scroll = this.FindControl<ScrollViewer>("MessagesScroll");
-            scroll?.ScrollToEnd();
+            scroll.ScrollToEnd();
+
+            var framesSeen = 0;
+            var lastExtent = scroll.Extent.Height;
+            EventHandler? handler = null;
+            handler = (_, _) =>
+            {
+                framesSeen++;
+                var currentExtent = scroll.Extent.Height;
+                if (Math.Abs(currentExtent - lastExtent) > 0.5)
+                {
+                    // Content vyrostl od posledního layout — re-scroll na nový konec
+                    lastExtent = currentExtent;
+                    scroll.ScrollToEnd();
+                }
+                // Safety: po 15 frames bez růstu unsubscribe, ať handler nedrží reference
+                if (framesSeen >= 15)
+                    scroll.LayoutUpdated -= handler!;
+            };
+            scroll.LayoutUpdated += handler;
         }, DispatcherPriority.Render);
     }
 
