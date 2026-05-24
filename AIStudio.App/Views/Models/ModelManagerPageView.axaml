@@ -169,7 +169,7 @@
                                 <TextBlock Text="{Binding DownloadError}" FontSize="10"
                                            Foreground="#F87171" TextWrapping="Wrap"/>
                                 <Button Classes="secondary" Foreground="#F87171" FontSize="11"
-                                        Height="34" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        MinHeight="38" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                         Content="Zkusit znovu"
                                         Command="{ReflectionBinding $parent[UserControl].DataContext.DownloadCommand}"
                                         CommandParameter="{Binding}"/>
@@ -178,14 +178,14 @@
                             <!-- Staženo → Nastavit aktivní -->
                             <Button Classes="secondary" IsVisible="{Binding ShowDownloaded}"
                                     IsEnabled="{Binding !IsActive}"
-                                    Height="34" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    MinHeight="38" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                     Content="Nastavit aktivní"
                                     Command="{ReflectionBinding $parent[UserControl].DataContext.SetActiveCommand}"
                                     CommandParameter="{Binding}"/>
 
                             <!-- Nestaženo → Detail -->
                             <Button Classes="primary" IsVisible="{Binding ShowDownloadButton}"
-                                    Height="34" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    MinHeight="38" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                     Content="Detail"
                                     Command="{ReflectionBinding $parent[UserControl].DataContext.SelectModelCommand}"
                                     CommandParameter="{Binding}"/>
@@ -294,8 +294,13 @@
         </Border>
 
         <!-- ═════════════════ TAB 0: DOPORUČENÉ ═════════════════ -->
-        <ScrollViewer Grid.Row="2" Padding="20,12,20,12"
-                      IsVisible="{Binding IsRecommendedTab}">
+        <!-- Right padding 28 (vs 20 vlevo) drží mezeru mezi card border a scrollbarem.
+             V Avalonia 12 ScrollBar Vertical zabírá ~12px a pokud je content všude
+             paddováno stejně, border se s scrollbarem opticky slepí. -->
+        <ScrollViewer Grid.Row="2" Padding="20,12,28,12"
+                      IsVisible="{Binding IsRecommendedTab}"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="20">
                 <!-- Globální spinner při prvním loadu -->
                 <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
@@ -349,8 +354,10 @@
         </ScrollViewer>
 
         <!-- ═════════════════ TAB 1: HLEDAT ═════════════════ -->
-        <ScrollViewer Grid.Row="2" Padding="20,12,20,12"
-                      IsVisible="{Binding IsSearchTab}">
+        <ScrollViewer Grid.Row="2" Padding="20,12,28,12"
+                      IsVisible="{Binding IsSearchTab}"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="14">
 
                 <!-- Search box -->
@@ -446,8 +453,10 @@
         </ScrollViewer>
 
         <!-- ═════════════════ TAB 2: STAŽENÉ ═════════════════ -->
-        <ScrollViewer Grid.Row="2" Padding="20,12,20,12"
-                      IsVisible="{Binding IsDownloadedTab}">
+        <ScrollViewer Grid.Row="2" Padding="20,12,28,12"
+                      IsVisible="{Binding IsDownloadedTab}"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="14">
                 <!-- Empty state — žádné modely vůbec -->
                 <Border IsVisible="{Binding HasNoDownloadedModels}"
