@@ -6,8 +6,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-  </ItemGroup>
+  <!-- Core záměrně bez závislostí. Pure POCO records (Models), interfaces (Interfaces),
+       enums, malé helpery (Services). MVVM toolkit (ObservableObject, RelayCommand)
+       i Avalonia patří do App vrstvy — Core musí zůstat UI-agnostic, aby šel
+       teoreticky reusable v jiném front-endu (web admin, CLI, …). -->
 
 </Project>
