@@ -203,15 +203,16 @@ public partial class ChatPageView : UserControl
 
     private void ScrollToBottom()
     {
-        // Conversation switch renderuje mnoho bublin přes MarkdownViewer,
-        // jejich finální výška se ustálí až po několika layout pass. ScrollToEnd
-        // zavolaný JEDNOU se trefí jen do Extent v daný moment — pokud potom
-        // bubliny ještě dorůstají, scroll skončí v půlce a uživatel vidí
-        // useknutý text v poslední bublině.
+        // Auto-scroll na úplný konec poslední bubliny. Robust proti:
+        //   • Conversation switch (mnoho bublin se postupně měří přes MarkdownViewer)
+        //   • IsStreaming → false transition (action buttons row se objeví AŽ POTOM)
+        //   • MarkdownViewer s code blocks / headings (deferred layout)
         //
-        // Řešení: subscribe LayoutUpdated a re-scroll po každém layout pass,
-        // dokud Extent neustálí. Auto-unsubscribe po max 15 frames (~250 ms
-        // při 60 fps) jako safety brake.
+        // Strategie: BEZPODMÍNĚČNĚ re-scroll po každém layout pass po dobu
+        // ~25 framů (~400 ms při 60 fps). Předchozí verze re-scrollovala jen
+        // při růstu Extent — pokud první ScrollToEnd nedosáhl skutečný konec
+        // (např. action row ještě nebyl rendrován, ale Extent byl spočítán až
+        // do něj), retry se nikdy nespustil.
 
         var scroll = this.FindControl<ScrollViewer>("MessagesScroll");
         if (scroll is null) return;
@@ -221,20 +222,17 @@ public partial class ChatPageView : UserControl
             scroll.ScrollToEnd();
 
             var framesSeen = 0;
-            var lastExtent = scroll.Extent.Height;
             EventHandler? handler = null;
             handler = (_, _) =>
             {
                 framesSeen++;
-                var currentExtent = scroll.Extent.Height;
-                if (Math.Abs(currentExtent - lastExtent) > 0.5)
-                {
-                    // Content vyrostl od posledního layout — re-scroll na nový konec
-                    lastExtent = currentExtent;
+                // Re-scroll vždy — pokud uživatel mezi tím scrollnul nahoru,
+                // _autoScroll bude false a OnScrollChanged ho vypne; ale když
+                // jsme tady, znamená to že někdo (kód) chce scrollovat na konec.
+                if (_autoScroll)
                     scroll.ScrollToEnd();
-                }
-                // Safety: po 15 frames bez růstu unsubscribe, ať handler nedrží reference
-                if (framesSeen >= 15)
+                // Safety brake: po 25 frames unsubscribe, ať handler nedrží references
+                if (framesSeen >= 25)
                     scroll.LayoutUpdated -= handler!;
             };
             scroll.LayoutUpdated += handler;

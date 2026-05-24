@@ -993,8 +993,12 @@
                                 </Animation>
                             </Style.Animations>
                         </Style>
+                        <!-- Akční tlačítka pod každou bublinou: vždy lehce viditelná (0.45),
+                             na hover bubliny zvýrazněna (0.85), na hover tlačítka samotného plné.
+                             Předtím Opacity=0 default → uživatel netušil, že tam tlačítka jsou
+                             a poslední bublina se zdála "useknutá" bez konce. -->
                         <Style Selector="Border Button.msgAction">
-                            <Setter Property="Opacity" Value="0"/>
+                            <Setter Property="Opacity" Value="0.45"/>
                             <Setter Property="Transitions">
                                 <Transitions>
                                     <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
@@ -1002,7 +1006,7 @@
                             </Setter>
                         </Style>
                         <Style Selector="Border:pointerover Button.msgAction">
-                            <Setter Property="Opacity" Value="0.65"/>
+                            <Setter Property="Opacity" Value="0.85"/>
                         </Style>
                         <Style Selector="Border:pointerover Button.msgAction:pointerover">
                             <Setter Property="Opacity" Value="1"/>
