@@ -7,6 +7,7 @@ using Serilog;
 using AIStudio.App.Views.Chat;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Core.Services;
 using AIStudio.Infrastructure.Services;
 
 namespace AIStudio.App.ViewModels.Chat;
@@ -157,7 +158,7 @@ public partial class ChatMessage : ObservableObject
     /// <summary>Lidsky čitelná velikost pro UI — "6.8 GB".</summary>
     public string UpgradeOfferSizeLabel => PendingUpgradeOffer is null
         ? ""
-        : FormatBytes(PendingUpgradeOffer.SizeBytes);
+        : ByteFormatter.Format(PendingUpgradeOffer.SizeBytes);
 
     /// <summary>TCS, který orchestrátor čeká — dokončí se po user kliku.</summary>
     private TaskCompletionSource<UpgradeChoice>? _upgradeChoiceTcs;
@@ -251,8 +252,8 @@ public partial class ChatMessage : ObservableObject
                 update.ModelName,
                 update.Percent,
                 update.MegabytesPerSecond,
-                FormatBytes(update.BytesDone),
-                FormatBytes(update.BytesTotal));
+                ByteFormatter.Format(update.BytesDone),
+                ByteFormatter.Format(update.BytesTotal));
         });
     }
 
@@ -266,14 +267,6 @@ public partial class ChatMessage : ObservableObject
             PendingUpgradeOffer       = null;
             OnPropertyChanged(nameof(UpgradeOfferSizeLabel));
         });
-    }
-
-    private static string FormatBytes(long bytes)
-    {
-        if (bytes >= 1_073_741_824L) return $"{bytes / 1_073_741_824.0:F1} GB";
-        if (bytes >= 1_048_576L)     return $"{bytes / 1_048_576.0:F0} MB";
-        if (bytes >= 1024L)          return $"{bytes / 1024.0:F0} KB";
-        return $"{bytes} B";
     }
 
     /// <summary>

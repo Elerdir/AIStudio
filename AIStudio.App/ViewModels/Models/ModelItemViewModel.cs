@@ -4,6 +4,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
+using AIStudio.Core.Services;
 
 namespace AIStudio.App.ViewModels.Models;
 
@@ -208,8 +209,8 @@ public partial class ModelItemViewModel : ViewModelBase
 
     public string DownloadedLabel =>
         TotalBytes > 0
-            ? $"{FormatBytes(DownloadedBytes)} / {FormatBytes(TotalBytes)}"
-            : FormatBytes(DownloadedBytes);
+            ? $"{ByteFormatter.Format(DownloadedBytes)} / {ByteFormatter.Format(TotalBytes)}"
+            : ByteFormatter.Format(DownloadedBytes);
 
     public string DownloadSpeedLabel =>
         DownloadSpeedBytesPerSec < 1
@@ -296,12 +297,5 @@ public partial class ModelItemViewModel : ViewModelBase
         }
     }
 
-    // ── Helper ────────────────────────────────────────────────────────────────
-    private static string FormatBytes(long bytes) => bytes switch
-    {
-        < 1_024                     => $"{bytes} B",
-        < 1_048_576                 => $"{bytes / 1_024.0:F0} KB",
-        < 1_073_741_824             => $"{bytes / 1_048_576.0:F1} MB",
-        _                           => $"{bytes / 1_073_741_824.0:F2} GB"
-    };
+    // Pro formátování byte velikostí používáme sdílený AIStudio.Core.Services.ByteFormatter.
 }
