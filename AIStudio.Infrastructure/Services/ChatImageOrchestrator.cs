@@ -24,6 +24,7 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
     private readonly IComfyService       _comfy;
     private readonly IImageRepository    _repo;
     private readonly ISettingsService    _settings;
+    private readonly string?             _outputDirOverride;
 
     public ChatImageOrchestrator(
         IImageIntentParser parser,
@@ -31,12 +32,26 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         IComfyService      comfy,
         IImageRepository   repo,
         ISettingsService   settings)
+        : this(parser, matcher, comfy, repo, settings, outputDirOverride: null) { }
+
+    /// <summary>
+    /// Test-only overload — umožňuje přesměrovat výstupní složku mimo
+    /// %AppData% (nechceme aby unit testy zaplňovaly uživatelskou galerii).
+    /// </summary>
+    internal ChatImageOrchestrator(
+        IImageIntentParser parser,
+        IImageModelMatcher matcher,
+        IComfyService      comfy,
+        IImageRepository   repo,
+        ISettingsService   settings,
+        string?            outputDirOverride)
     {
-        _parser   = parser;
-        _matcher  = matcher;
-        _comfy    = comfy;
-        _repo     = repo;
-        _settings = settings;
+        _parser            = parser;
+        _matcher           = matcher;
+        _comfy             = comfy;
+        _repo              = repo;
+        _settings          = settings;
+        _outputDirOverride = outputDirOverride;
     }
 
     public async Task<ChatImageGenerationResult> GenerateAsync(
@@ -195,6 +210,8 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
     /// </summary>
     private string GetOutputDirectory()
     {
+        if (!string.IsNullOrEmpty(_outputDirOverride)) return _outputDirOverride;
+
         // Použijeme stejnou konvenci jako ImageGeneratorViewModel — pevně v %AppData%.
         // Settings.ImagesDirectory by se hodilo, ale zatím neexistuje (chat
         // obrázky se ukládají vedle ImageStudio obrázků).
