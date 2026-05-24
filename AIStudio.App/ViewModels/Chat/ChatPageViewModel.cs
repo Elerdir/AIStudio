@@ -24,6 +24,11 @@ public partial class ChatPageViewModel : ViewModelBase
     private readonly INavigationService         _nav;
     private readonly ISystemPromptPresetService _presetService;
     private readonly ISystemMonitorService?     _monitor;
+    // Chat → image gen pipeline. Nullable kvůli starým testovacím konstruktorům
+    // a degradaci na chat-only chování, pokud DI tyto služby z nějakého důvodu
+    // neposkytne (např. early bootstrap selhání ComfyServices).
+    private readonly IChatImageIntentDetector?  _imageIntent;
+    private readonly IChatImageOrchestrator?    _imageOrch;
 
     [ObservableProperty] private string                 _inputText            = string.Empty;
     [ObservableProperty] private ConversationViewModel? _selectedConversation;
@@ -78,6 +83,17 @@ public partial class ChatPageViewModel : ViewModelBase
     [ObservableProperty] private bool                   _isLoadingModel;
     [ObservableProperty] private string                 _modelStatusText      = string.Empty;
     [ObservableProperty] private bool                   _canRegenerate;
+
+    /// <summary>
+    /// Override pro detekci image intentu z UI toggle ikonky 🎨:
+    /// <list type="bullet">
+    /// <item><c>Auto</c> — keyword-based detektor rozhodne (default)</item>
+    /// <item><c>ForceImage</c> — každá zpráva půjde do image gen</item>
+    /// <item><c>ForceChat</c> — image gen vypnut, vše do LLM</item>
+    /// </list>
+    /// Nastavuje se v ChatPageView přes toggle button v inputu (fáze 4).
+    /// </summary>
+    [ObservableProperty] private ChatImageMode _imageMode = ChatImageMode.Auto;
     [ObservableProperty] private bool                   _isSystemPromptVisible;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCpuBackend))]
@@ -254,7 +270,9 @@ public partial class ChatPageViewModel : ViewModelBase
 
     public ChatPageViewModel(ILlamaService llama, IChatRepository repo, ISettingsService settings,
                              INavigationService nav, ISystemPromptPresetService presetService,
-                             ISystemMonitorService? monitor = null)
+                             ISystemMonitorService?    monitor      = null,
+                             IChatImageIntentDetector? imageIntent  = null,
+                             IChatImageOrchestrator?   imageOrch    = null)
     {
         _llama         = llama;
         _repo          = repo;
@@ -262,6 +280,8 @@ public partial class ChatPageViewModel : ViewModelBase
         _nav           = nav;
         _presetService = presetService;
         _monitor       = monitor;
+        _imageIntent   = imageIntent;
+        _imageOrch     = imageOrch;
 
         // Builtin presety jsou immediate-available bez I/O; uživatelské se
         // doplní asynchronně přes LoadPresetsAsync (volá se např. po Load()).
@@ -888,6 +908,20 @@ public partial class ChatPageViewModel : ViewModelBase
         // (F2 nebo ikonkou tužky v hlavičce). UpdatedAt se aktualizuje po dokončení
         // streamu níž přes TrySaveConversationAsync.
 
+        // ── Klasifikace: chat vs image gen ────────────────────────────────────
+        // Před LLM voláním zkusíme, jestli uživatel nechce vygenerovat obrázek.
+        // Pokud ano, větvíme do image flow (Comfy + galerie); jinak standardní
+        // LLM stream. UI override (ImageMode) přebije auto detekci.
+        var classifiedIntent = ClassifyIntent(conv, text);
+        if (classifiedIntent != ChatImageIntent.Chat && _imageOrch is not null)
+        {
+            await RunImageGenerationAsync(conv, text, classifiedIntent, cts.Token);
+            _sendCts  = null;
+            IsSending = false;
+            UpdateEstimatedTokens();
+            return;
+        }
+
         var assistantMsg = new ChatMessage { Role = MessageRole.Assistant, Content = "", IsStreaming = true };
         conv.Messages.Add(assistantMsg);
 
@@ -944,6 +978,115 @@ public partial class ChatPageViewModel : ViewModelBase
             IsSending = false;
             UpdateEstimatedTokens();
         }
+    }
+
+    // ── Image generation flow ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Rozhodne podle ImageMode + detektoru, jestli zpráva má jít do image gen
+    /// nebo do LLM. Pokud nemáme detektor (DI neposkytl), vrací vždy Chat.
+    ///
+    /// <para>EditPreviousImage se vrátí jen pokud opravdu existuje předchozí
+    /// assistant zpráva s obrázkem — jinak se downgradne na GenerateImage
+    /// (kdyby detektor zachytil edit-keywords ale není co editovat).</para>
+    /// </summary>
+    private ChatImageIntent ClassifyIntent(ConversationViewModel conv, string userText)
+    {
+        if (_imageIntent is null || _imageOrch is null)
+            return ChatImageIntent.Chat;
+
+        var lastHadImage = FindLastAssistantImage(conv) is not null;
+
+        return ImageMode switch
+        {
+            ChatImageMode.ForceChat  => ChatImageIntent.Chat,
+            ChatImageMode.ForceImage => lastHadImage
+                ? ChatImageIntent.EditPreviousImage
+                : ChatImageIntent.GenerateImage,
+            _ /* Auto */             => _imageIntent.Detect(userText, lastHadImage),
+        };
+    }
+
+    /// <summary>
+    /// Najde nejnovější assistantskou zprávu, která má vyplněný ImagePath
+    /// (a soubor pořád existuje na disku). Slouží jako reference pro
+    /// img2img follow-up generování.
+    /// </summary>
+    private static ChatMessage? FindLastAssistantImage(ConversationViewModel conv)
+    {
+        for (var i = conv.Messages.Count - 1; i >= 0; i--)
+        {
+            var m = conv.Messages[i];
+            if (m.Role == MessageRole.Assistant &&
+                !string.IsNullOrEmpty(m.ImagePath) &&
+                File.Exists(m.ImagePath))
+                return m;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Image gen variant of SendMessageAsync — předpokládá, že user message
+    /// už je v conv.Messages (přidaná před voláním). Vytvoří placeholder
+    /// assistant message, zavolá orchestrátor a aktualizuje placeholder
+    /// s výsledkem (úspěch / chyba). Vše perzistuje do DB.
+    /// </summary>
+    private async Task RunImageGenerationAsync(
+        ConversationViewModel conv,
+        string                userText,
+        ChatImageIntent       intent,
+        CancellationToken     ct)
+    {
+        if (_imageOrch is null) return;  // sanity check, klasifikátor by sem neměl pustit
+
+        // Reference pro img2img — null pokud GenerateImage
+        var referencePath = intent == ChatImageIntent.EditPreviousImage
+            ? FindLastAssistantImage(conv)?.ImagePath
+            : null;
+
+        var placeholder = new ChatMessage
+        {
+            Role               = MessageRole.Assistant,
+            Content            = "",
+            IsImageGenerating  = true,
+            ImageReferencePath = referencePath,
+        };
+        conv.Messages.Add(placeholder);
+
+        // Persistujeme placeholder, ať se neztratí při crashi mezi orchestrátorem
+        // a finální aktualizací. ImagePath je null, ImageReferencePath může být set.
+        try { await _repo.SaveMessageAsync(placeholder.ToRecord(conv.Id, conv.Messages.Count - 1)); }
+        catch (Exception ex) { Log.Warning(ex, "Image gen: ulození placeholder selhalo"); }
+
+        Log.Information("Image gen: intent={Intent} ref={Ref}",
+                        intent, referencePath ?? "(none)");
+
+        var progress = new Progress<int>(_ => { /* zatím nevyužíváme — UI bublina má jen typing dots */ });
+        var result   = await _imageOrch.GenerateAsync(userText, referencePath, progress, ct);
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            placeholder.IsImageGenerating = false;
+
+            if (result.Success && !string.IsNullOrEmpty(result.ImagePath))
+            {
+                placeholder.ImagePath = result.ImagePath;
+                // Krátký podtitul — model + reasoning od parseru, ne plný EN prompt
+                placeholder.Content = $"_{result.ModelUsed}_ · {result.Reasoning}".Trim();
+            }
+            else
+            {
+                placeholder.IsImageFailed = true;
+                placeholder.IsError       = true;
+                placeholder.Content       = $"❌ {result.ErrorMessage ?? "Generování selhalo"}";
+            }
+        });
+
+        try { await TrySaveMessageAsync(placeholder, conv); }
+        catch (Exception ex) { Log.Warning(ex, "Image gen: finalní save selhalo"); }
+
+        _ = TrySaveConversationAsync(conv);
+        _ = MaybeAutoRenameAsync(conv);
     }
 
     [RelayCommand]
