@@ -147,7 +147,15 @@ public partial class App : Application
         services.AddSingleton<IModelDiscoveryService, ModelDiscoveryService>();
         services.AddSingleton<IImageIntentParser, ImageIntentParser>();
         services.AddSingleton<IImageModelMatcher, ImageModelMatcher>();
-        services.AddSingleton<IImageModelRecommender, CuratedImageModelRecommender>();
+        // Recommender — hybrid wrapper kombinuje curated (rychlé, deterministické)
+        // s live Civitai/HF search jako fallback. Curated je registrován jako
+        // concrete singleton, hybrid ho dostane ručně v lambdě (vyhneme se
+        // konfliktu dvou implementací IImageModelRecommender v DI).
+        services.AddSingleton<CuratedImageModelRecommender>();
+        services.AddSingleton<IImageModelRecommender>(sp =>
+            new HybridImageModelRecommender(
+                sp.GetRequiredService<CuratedImageModelRecommender>(),
+                sp.GetRequiredService<IModelDiscoveryService>()));
         // Hybrid keyword detektor pro chat → image gen flow. Žádná latence,
         // žádné LLM volání — bezpečné registrovat jako singleton.
         services.AddSingleton<IChatImageIntentDetector, ChatImageIntentDetector>();
