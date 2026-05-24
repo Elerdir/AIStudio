@@ -153,4 +153,37 @@ public static class RecommendedModels
     /// <summary>Najde model podle <see cref="RecommendedModel.Id"/>. Vrací null pokud neexistuje.</summary>
     public static RecommendedModel? FindById(string id) =>
         All.FirstOrDefault(m => m.Id == id);
+
+    // ── Doporučení podle ImageKind (pro chat → image gen recommender) ──────────
+    //
+    // Pro každý ImageKind máme jeden "ideální" curated model — typicky FLUX
+    // Schnell (univerzální vysoká kvalita) nebo DreamShaper (lightweight).
+    // Pokud uživatel tento model nemá lokálně, recommender uživateli nabídne
+    // upgrade.
+    //
+    // Mapování je záměrně konzervativní (FLUX Schnell pro většinu) — katalog
+    // se rozšíří, jakmile přidáme více modelů (Pony XL pro Anime, SDXL Realistic
+    // pro Realistic atd.).
+
+    /// <summary>
+    /// Vrátí ideální curated image model pro daný kind. Vrací null pokud
+    /// pro tento kind nemáme nic v katalogu (zatím Anime nemá specific picky —
+    /// padá se na Auto branch).
+    /// </summary>
+    public static RecommendedModel? BestImageForKind(ImageKind kind) => kind switch
+    {
+        // Realistic, Abstract, Auto, Stylized → FLUX Schnell (nejvyšší kvalita
+        // co máme v katalogu, vejde se i do 8 GB VRAM). Stylized by ideálně chtěl
+        // DreamShaper XL, ale ten v katalogu zatím není.
+        ImageKind.Realistic => FluxSchnell_Q4,
+        ImageKind.Abstract  => FluxSchnell_Q4,
+        ImageKind.Auto      => FluxSchnell_Q4,
+        // Stylized → DreamShaper SD 1.5 (lehčí varianta, vhodná pro slabší
+        // železo a kreslířský/digital-paint styl).
+        ImageKind.Stylized  => DreamShaper8_Sd15,
+        // Anime — v katalogu zatím nemáme curated anime checkpoint (Pony / Illustrious
+        // jsou na Civitai s API klíčem). Recommender vrátí null = bez upgrade nabídky.
+        ImageKind.Anime     => null,
+        _                   => null,
+    };
 }

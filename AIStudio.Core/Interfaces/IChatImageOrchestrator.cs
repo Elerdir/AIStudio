@@ -33,10 +33,35 @@ public interface IChatImageOrchestrator
     /// předchozího obrázku v chatu). null = txt2img od nuly.
     /// </param>
     /// <param name="progress">Progress 0–100 pro UI.</param>
+    /// <param name="askForUpgrade">
+    /// Optional callback — orchestrátor ho zavolá, pokud recommender najde
+    /// lepší online model, který uživatel nemá. UI by mělo zobrazit dialog
+    /// a vrátit <see cref="UpgradeChoice"/>. Pokud callback není zadán
+    /// (null), orchestrátor použije lokální model bez ptaní.
+    /// </param>
+    /// <param name="downloadProgress">
+    /// Optional progress pro samostatné fáze: stahování modelu (pokud uživatel
+    /// zvolil DownloadBetter) a načítání modelu. UI to typicky napojí na
+    /// jiný indicator než main progress (aby uživatel viděl "stahuju 45 %"
+    /// a později "generuju 30 %").
+    /// </param>
     /// <param name="ct">Cancellation pro Stop tlačítko v chatu.</param>
     Task<ChatImageGenerationResult> GenerateAsync(
-        string             czechPrompt,
-        string?            referenceImagePath,
-        IProgress<int>?    progress,
-        CancellationToken  ct);
+        string                                                       czechPrompt,
+        string?                                                      referenceImagePath,
+        IProgress<int>?                                              progress,
+        CancellationToken                                            ct,
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>>? askForUpgrade   = null,
+        IProgress<DownloadStatusUpdate>?                              downloadProgress = null);
 }
+
+/// <summary>
+/// Update z download fáze — orchestrátor reportuje stahování lepšího modelu,
+/// ať UI uživateli ukáže "stahuju Llama 3.1 8B 45 % (2.2 GB / 4.9 GB) · 12 MB/s".
+/// </summary>
+public sealed record DownloadStatusUpdate(
+    string  ModelName,
+    int     Percent,          // 0..100
+    long    BytesDone,
+    long    BytesTotal,
+    double  MegabytesPerSecond);

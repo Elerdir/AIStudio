@@ -147,10 +147,11 @@ public partial class App : Application
         services.AddSingleton<IModelDiscoveryService, ModelDiscoveryService>();
         services.AddSingleton<IImageIntentParser, ImageIntentParser>();
         services.AddSingleton<IImageModelMatcher, ImageModelMatcher>();
+        services.AddSingleton<IImageModelRecommender, CuratedImageModelRecommender>();
         // Hybrid keyword detektor pro chat → image gen flow. Žádná latence,
         // žádné LLM volání — bezpečné registrovat jako singleton.
         services.AddSingleton<IChatImageIntentDetector, ChatImageIntentDetector>();
-        // Orchestrátor pro chat → image: parser → matcher → comfy → galerie.
+        // Orchestrátor pro chat → image: parser → recommender → matcher → comfy → galerie.
         services.AddSingleton<IChatImageOrchestrator, ChatImageOrchestrator>();
         services.AddSingleton<IFluxDependencyService, FluxDependencyService>();
 

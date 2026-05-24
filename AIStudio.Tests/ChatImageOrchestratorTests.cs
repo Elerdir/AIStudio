@@ -19,25 +19,39 @@ namespace AIStudio.Tests;
 public class ChatImageOrchestratorTests : IDisposable
 {
     private readonly string                     _tmpDir;
-    private readonly IImageIntentParser         _parser   = Substitute.For<IImageIntentParser>();
-    private readonly IImageModelMatcher         _matcher  = Substitute.For<IImageModelMatcher>();
-    private readonly IComfyService              _comfy    = Substitute.For<IComfyService>();
-    private readonly IImageRepository           _repo     = Substitute.For<IImageRepository>();
-    private readonly ISettingsService           _settings = Substitute.For<ISettingsService>();
+    private readonly string                     _modelsDir;
+    private readonly IImageIntentParser         _parser      = Substitute.For<IImageIntentParser>();
+    private readonly IImageModelMatcher         _matcher     = Substitute.For<IImageModelMatcher>();
+    private readonly IImageModelRecommender     _recommender = Substitute.For<IImageModelRecommender>();
+    private readonly IComfyService              _comfy       = Substitute.For<IComfyService>();
+    private readonly IImageRepository           _repo        = Substitute.For<IImageRepository>();
+    private readonly ISettingsService           _settings    = Substitute.For<ISettingsService>();
+    private readonly IDownloadService           _downloader  = Substitute.For<IDownloadService>();
 
     public ChatImageOrchestratorTests()
     {
-        _tmpDir = Path.Combine(Path.GetTempPath(), "AIStudio.Tests.Orch", Guid.NewGuid().ToString());
+        _tmpDir    = Path.Combine(Path.GetTempPath(), "AIStudio.Tests.Orch",        Guid.NewGuid().ToString());
+        _modelsDir = Path.Combine(Path.GetTempPath(), "AIStudio.Tests.Orch.Models", Guid.NewGuid().ToString());
         Directory.CreateDirectory(_tmpDir);
+        Directory.CreateDirectory(_modelsDir);
+
+        // Default recommender behavior: no upgrade (just returns local match).
+        // Konkrétní testy si mohou tohle přemapovat.
+        _recommender.RecommendAsync(Arg.Any<ImageIntent>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+                    .Returns(ci => new ImageModelRecommendation(
+                        LocalBestMatch: _matcher.Match(ci.Arg<ImageIntent>().Kind, ci.Arg<IReadOnlyList<string>>()),
+                        Upgrade:        null));
     }
 
     public void Dispose()
     {
-        try { Directory.Delete(_tmpDir, recursive: true); } catch { }
+        try { Directory.Delete(_tmpDir,    recursive: true); } catch { }
+        try { Directory.Delete(_modelsDir, recursive: true); } catch { }
     }
 
     private ChatImageOrchestrator MakeOrchestrator() =>
-        new(_parser, _matcher, _comfy, _repo, _settings, outputDirOverride: _tmpDir);
+        new(_parser, _matcher, _recommender, _comfy, _repo, _settings, _downloader,
+            outputDirOverride: _tmpDir, modelsDirOverride: _modelsDir);
 
     /// <summary>
     /// Připraví "rozumný" happy-path mock: ComfyUI běží, intent parser vrátí
@@ -352,5 +366,211 @@ public class ChatImageOrchestratorTests : IDisposable
         var result = await MakeOrchestrator().GenerateAsync("něco", null, null, CancellationToken.None);
 
         Path.GetFileName(result.ImagePath!).Should().Contain("chat");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //   Upgrade flow (recommender callback → UseLocal / DownloadBetter / Cancel)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Pozn.: záměrně .safetensors (ne .gguf), aby download-and-use flow neselhal
+    // na GGUF bail-outu v orchestrátoru. Reálný katalog používá .gguf, ale tady
+    // testujeme orchestrátor, ne mapping recommenderu.
+    private ModelUpgradeOffer MakeOffer(string fileName = "test_upgrade_model.safetensors") => new(
+        Id:                       "test-upgrade-model",
+        Name:                     "Test Upgrade Model",
+        Reason:                   "lepší kvalita pro tento typ scény",
+        SizeBytes:                6_810_000_000L,
+        DownloadUrl:              "https://huggingface.co/example/file.safetensors",
+        FileName:                 fileName,
+        Sha256:                   null,
+        RequiresHuggingFaceToken: false);
+
+    [Fact]
+    public async Task GenerateAsync_NoUpgradeOffered_CallbackNotInvoked()
+    {
+        // Recommender vrátí no upgrade → callback se nezavolá
+        SetupHappyPath();
+        var callbackCalls = 0;
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> cb =
+            (_, _) => { callbackCalls++; return Task.FromResult(UpgradeChoice.UseLocal); };
+
+        var result = await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None, askForUpgrade: cb);
+
+        callbackCalls.Should().Be(0);
+        result.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GenerateAsync_UpgradeOffered_NoCallback_UsesLocalSilently()
+    {
+        // Recommender nabídne upgrade, ale callback není dán → orchestrátor
+        // se neptá a tiše pokračuje s lokálním modelem.
+        SetupHappyPath();
+        SetupUpgradeOffer();
+
+        var result = await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None, askForUpgrade: null);
+
+        result.Success.Should().BeTrue();
+        result.ModelUsed.Should().Be("sd_xl_base_1.0.safetensors", "měl použít lokální model bez ptaní");
+        await _downloader.DidNotReceive().DownloadFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IProgress<DownloadProgressInfo>?>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<string?>());
+    }
+
+    [Fact]
+    public async Task GenerateAsync_UpgradeOffered_UserChoosesUseLocal_ContinuesWithLocal()
+    {
+        SetupHappyPath();
+        var offer = SetupUpgradeOffer();
+        ModelUpgradeOffer? receivedOffer = null;
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> cb =
+            (o, _) => { receivedOffer = o; return Task.FromResult(UpgradeChoice.UseLocal); };
+
+        var result = await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None, askForUpgrade: cb);
+
+        receivedOffer.Should().BeSameAs(offer, "callback dostane stejnou offer instanci, kterou vrátil recommender");
+        result.Success.Should().BeTrue();
+        result.ModelUsed.Should().Be("sd_xl_base_1.0.safetensors");
+        await _downloader.DidNotReceive().DownloadFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IProgress<DownloadProgressInfo>?>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<string?>());
+    }
+
+    [Fact]
+    public async Task GenerateAsync_UpgradeOffered_UserChoosesCancel_ReturnsFail()
+    {
+        SetupHappyPath();
+        SetupUpgradeOffer();
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> cb =
+            (_, _) => Task.FromResult(UpgradeChoice.Cancel);
+
+        var result = await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None, askForUpgrade: cb);
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("zrušeno");
+        // Comfy queue se nezavolá — zrušeno před tím
+        await _comfy.DidNotReceive().QueuePromptAsync(Arg.Any<Dictionary<string, object>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GenerateAsync_UpgradeOffered_UserChoosesDownload_DownloadsAndUsesNew()
+    {
+        SetupHappyPath();
+        var offer = SetupUpgradeOffer();
+
+        // Po downloadu Comfy uvidí nový soubor v checkpoints listu (mock).
+        // První GetCheckpointsAsync vrátí stávající; po download je předmluvíme.
+        _comfy.GetCheckpointsAsync(Arg.Any<CancellationToken>())
+              .Returns(
+                  _ => new[] { "sd_xl_base_1.0.safetensors" },
+                  _ => new[] { "sd_xl_base_1.0.safetensors", offer.FileName });
+
+        // Download "uspěje" — vytvoří fyzicky soubor na disku
+        _downloader.DownloadFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IProgress<DownloadProgressInfo>?>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<string?>())
+            .Returns(ci =>
+            {
+                File.WriteAllBytes(ci.ArgAt<string>(1), new byte[] { 0, 1, 2 });
+                return Task.CompletedTask;
+            });
+
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> cb =
+            (_, _) => Task.FromResult(UpgradeChoice.DownloadBetter);
+
+        var result = await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None, askForUpgrade: cb);
+
+        result.Success.Should().BeTrue();
+        result.ModelUsed.Should().Be(offer.FileName, "po downloadu má orchestrátor přepnout na nový model");
+        await _downloader.Received(1).DownloadFileAsync(
+            Arg.Is<string>(s => s == offer.DownloadUrl),
+            Arg.Is<string>(s => s.EndsWith(offer.FileName)),
+            Arg.Any<IProgress<DownloadProgressInfo>?>(),
+            Arg.Any<string?>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<string?>());
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DownloadFails_ReturnsFailWithRetryHint()
+    {
+        SetupHappyPath();
+        var offer = SetupUpgradeOffer();
+
+        _downloader.DownloadFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IProgress<DownloadProgressInfo>?>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<string?>())
+            .Returns<Task>(_ => throw new HttpRequestException("network"));
+
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> cb =
+            (_, _) => Task.FromResult(UpgradeChoice.DownloadBetter);
+
+        var result = await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None, askForUpgrade: cb);
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("Stažení");
+    }
+
+    [Fact]
+    public async Task GenerateAsync_DownloadProgress_ReportedToCallback()
+    {
+        SetupHappyPath();
+        var offer = SetupUpgradeOffer();
+
+        _comfy.GetCheckpointsAsync(Arg.Any<CancellationToken>())
+              .Returns(
+                  _ => new[] { "sd_xl_base_1.0.safetensors" },
+                  _ => new[] { "sd_xl_base_1.0.safetensors", offer.FileName });
+
+        // Downloader bude reportovat progress přes IProgress
+        _downloader.DownloadFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IProgress<DownloadProgressInfo>?>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<string?>())
+            .Returns(ci =>
+            {
+                var progress = ci.ArgAt<IProgress<DownloadProgressInfo>?>(2);
+                progress?.Report(new DownloadProgressInfo(1_000_000, 10_000_000, 500_000));
+                progress?.Report(new DownloadProgressInfo(10_000_000, 10_000_000, 500_000));
+                File.WriteAllBytes(ci.ArgAt<string>(1), new byte[] { 0, 1, 2 });
+                return Task.CompletedTask;
+            });
+
+        var collected = new List<DownloadStatusUpdate>();
+        var downloadProgress = new Progress<DownloadStatusUpdate>(u => collected.Add(u));
+
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> cb =
+            (_, _) => Task.FromResult(UpgradeChoice.DownloadBetter);
+
+        await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None,
+            askForUpgrade: cb, downloadProgress: downloadProgress);
+
+        // Progress<T> Reportuje async přes SynchronizationContext (kapturováno
+        // při konstrukci v testovacím vlákně) — handler je posted, ne invokován
+        // hned. Aktivně počkáme, dokud doraží oba reporty nebo timeout.
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (collected.Count < 2 && DateTime.UtcNow < deadline)
+            await Task.Delay(20);
+
+        collected.Should().NotBeEmpty("orchestrátor má bridge mezi DownloadProgressInfo a DownloadStatusUpdate");
+        collected.Should().Contain(u => u.Percent == 100, "100 % event by měl dorazit");
+        collected.Should().OnlyContain(u => u.ModelName == offer.Name);
+    }
+
+    /// <summary>Nastaví recommender, aby vrátil upgrade offer pro happy path.</summary>
+    private ModelUpgradeOffer SetupUpgradeOffer()
+    {
+        var offer = MakeOffer();
+        _recommender.RecommendAsync(Arg.Any<ImageIntent>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+                    .Returns(new ImageModelRecommendation(
+                        LocalBestMatch: "sd_xl_base_1.0.safetensors",
+                        Upgrade:        offer));
+        return offer;
     }
 }

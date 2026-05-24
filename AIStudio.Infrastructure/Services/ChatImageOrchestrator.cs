@@ -19,46 +19,60 @@ namespace AIStudio.Infrastructure.Services;
 /// </summary>
 public sealed class ChatImageOrchestrator : IChatImageOrchestrator
 {
-    private readonly IImageIntentParser  _parser;
-    private readonly IImageModelMatcher  _matcher;
-    private readonly IComfyService       _comfy;
-    private readonly IImageRepository    _repo;
-    private readonly ISettingsService    _settings;
-    private readonly string?             _outputDirOverride;
+    private readonly IImageIntentParser       _parser;
+    private readonly IImageModelMatcher       _matcher;
+    private readonly IImageModelRecommender   _recommender;
+    private readonly IComfyService            _comfy;
+    private readonly IImageRepository         _repo;
+    private readonly ISettingsService         _settings;
+    private readonly IDownloadService         _downloader;
+    private readonly string?                  _outputDirOverride;
+    private readonly string?                  _modelsDirOverride;
 
     public ChatImageOrchestrator(
-        IImageIntentParser parser,
-        IImageModelMatcher matcher,
-        IComfyService      comfy,
-        IImageRepository   repo,
-        ISettingsService   settings)
-        : this(parser, matcher, comfy, repo, settings, outputDirOverride: null) { }
+        IImageIntentParser     parser,
+        IImageModelMatcher     matcher,
+        IImageModelRecommender recommender,
+        IComfyService          comfy,
+        IImageRepository       repo,
+        ISettingsService       settings,
+        IDownloadService       downloader)
+        : this(parser, matcher, recommender, comfy, repo, settings, downloader, outputDirOverride: null, modelsDirOverride: null) { }
 
     /// <summary>
     /// Test-only overload — umožňuje přesměrovat výstupní složku mimo
-    /// %AppData% (nechceme aby unit testy zaplňovaly uživatelskou galerii).
+    /// %AppData% (nechceme aby unit testy zaplňovaly uživatelskou galerii)
+    /// a modelsDir pro download flow.
     /// </summary>
     internal ChatImageOrchestrator(
-        IImageIntentParser parser,
-        IImageModelMatcher matcher,
-        IComfyService      comfy,
-        IImageRepository   repo,
-        ISettingsService   settings,
-        string?            outputDirOverride)
+        IImageIntentParser     parser,
+        IImageModelMatcher     matcher,
+        IImageModelRecommender recommender,
+        IComfyService          comfy,
+        IImageRepository       repo,
+        ISettingsService       settings,
+        IDownloadService       downloader,
+        string?                outputDirOverride,
+        string?                modelsDirOverride)
     {
         _parser            = parser;
         _matcher           = matcher;
+        _recommender       = recommender;
         _comfy             = comfy;
         _repo              = repo;
         _settings          = settings;
+        _downloader        = downloader;
         _outputDirOverride = outputDirOverride;
+        _modelsDirOverride = modelsDirOverride;
     }
 
     public async Task<ChatImageGenerationResult> GenerateAsync(
-        string             czechPrompt,
-        string?            referenceImagePath,
-        IProgress<int>?    progress,
-        CancellationToken  ct)
+        string                                                            czechPrompt,
+        string?                                                           referenceImagePath,
+        IProgress<int>?                                                   progress,
+        CancellationToken                                                 ct,
+        Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>>?  askForUpgrade    = null,
+        IProgress<DownloadStatusUpdate>?                                  downloadProgress = null)
     {
         try
         {
@@ -75,12 +89,50 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
             Log.Information("ChatImageOrchestrator: parsing intent pro: {Prompt}", Truncate(czechPrompt, 80));
             var intent = await _parser.ParseAsync(czechPrompt, ct);
 
-            // 3) Match model — z dostupných checkpointů vybereme nejvhodnější
+            // 3) Match model — z dostupných checkpointů vybereme nejvhodnější + zkusíme upgrade
             var available = await _comfy.GetCheckpointsAsync(ct);
+
+            // 3a) Recommender — máme lepší model v katalogu, který uživatel nemá?
+            var recommendation = await _recommender.RecommendAsync(intent, available, ct);
+            var model          = recommendation.LocalBestMatch;
+
+            if (recommendation.Upgrade is not null && askForUpgrade is not null)
+            {
+                Log.Information("ChatImageOrchestrator: nabízím upgrade na {Model} ({Size} MB)",
+                                recommendation.Upgrade.Name, recommendation.Upgrade.SizeBytes / 1_048_576);
+
+                var choice = await askForUpgrade(recommendation.Upgrade, ct);
+
+                switch (choice)
+                {
+                    case UpgradeChoice.Cancel:
+                        return Fail("Generování zrušeno uživatelem.");
+
+                    case UpgradeChoice.DownloadBetter:
+                        var downloaded = await TryDownloadUpgradeAsync(recommendation.Upgrade, downloadProgress, ct);
+                        if (!downloaded)
+                            return Fail($"Stažení modelu {recommendation.Upgrade.Name} selhalo — zkus jiný model nebo to opakuj později.");
+
+                        // Refresh checkpointů — po download by tam měl být. Pokud Comfy
+                        // model ještě nevidí (cache, indexer delay), padáme zpátky na původní lokální.
+                        available = await _comfy.GetCheckpointsAsync(ct);
+                        model     = available.FirstOrDefault(c =>
+                                        c.Equals(recommendation.Upgrade.FileName, StringComparison.OrdinalIgnoreCase))
+                                    ?? recommendation.LocalBestMatch;
+                        if (model is null)
+                            return Fail("Model byl stažen, ale ComfyUI ho ještě nevidí. Restartuj aplikaci a zkus to znovu.");
+                        break;
+
+                    case UpgradeChoice.UseLocal:
+                    default:
+                        // model = recommendation.LocalBestMatch (už nastaveno)
+                        break;
+                }
+            }
+
             if (available.Count == 0)
                 return Fail("V ComfyUI nejsou žádné checkpoint modely. Stáhni si nějaký v sekci Modely.");
 
-            var model = _matcher.Match(intent.Kind, available);
             if (model is null)
                 return Fail($"Nepodařilo se najít vhodný model pro {intent.Kind}. Stáhni si nějaký v sekci Modely.");
 
@@ -218,6 +270,77 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "AIStudio", "Images");
+    }
+
+    /// <summary>
+    /// Stáhne nabídnutý upgrade model do Models složky. Vrátí true pokud OK.
+    /// Nikdy nehází — chyba se zaloguje + vrátí false (orchestrátor pak
+    /// uživateli ukáže "stažení selhalo, zkus to znovu").
+    /// </summary>
+    private async Task<bool> TryDownloadUpgradeAsync(
+        ModelUpgradeOffer                 offer,
+        IProgress<DownloadStatusUpdate>?  downloadProgress,
+        CancellationToken                 ct)
+    {
+        try
+        {
+            var modelsDir = !string.IsNullOrEmpty(_modelsDirOverride)
+                ? _modelsDirOverride
+                : (!string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
+                   ? _settings.Settings.ModelsDirectory
+                   : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                                  "AIStudio", "Models"));
+
+            Directory.CreateDirectory(modelsDir);
+            var destPath = Path.Combine(modelsDir, offer.FileName);
+
+            // Pokud už soubor existuje (uživatel ho mezi tím stáhl jinde), skip
+            if (File.Exists(destPath))
+            {
+                Log.Information("ChatImageOrchestrator: model {File} už existuje, přeskakuji download", offer.FileName);
+                return true;
+            }
+
+            var apiToken = offer.RequiresHuggingFaceToken
+                ? _settings.Settings.HuggingFaceToken
+                : null;
+
+            // DownloadProgressInfo (bytes-based) → DownloadStatusUpdate (percent + speed)
+            var progressBridge = downloadProgress is null
+                ? null
+                : new Progress<DownloadProgressInfo>(p =>
+                  {
+                      downloadProgress.Report(new DownloadStatusUpdate(
+                          ModelName:          offer.Name,
+                          Percent:            (int)p.Percent,
+                          BytesDone:          p.Downloaded,
+                          BytesTotal:         p.Total,
+                          MegabytesPerSecond: p.BytesPerSecond / 1_048_576.0));
+                  });
+
+            Log.Information("ChatImageOrchestrator: stahuji {Name} → {Dest} ({Size} MB)",
+                            offer.Name, destPath, offer.SizeBytes / 1_048_576);
+
+            await _downloader.DownloadFileAsync(
+                url:            offer.DownloadUrl,
+                destPath:       destPath,
+                progress:       progressBridge,
+                apiToken:       apiToken,
+                ct:             ct,
+                expectedSha256: offer.Sha256);
+
+            Log.Information("ChatImageOrchestrator: stažení {Name} hotovo", offer.Name);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;  // propagujeme, vnější handler v GenerateAsync to chytne jako "Zrušeno"
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ChatImageOrchestrator: stažení upgrade modelu {Name} selhalo", offer.Name);
+            return false;
+        }
     }
 
     private static ChatImageGenerationResult Fail(string msg) =>
