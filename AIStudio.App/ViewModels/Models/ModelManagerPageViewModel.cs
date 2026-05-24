@@ -138,6 +138,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
 
     /// <summary>Otevřené okno fronty — držíme referenci, aby se neotvíralo víckrát.</summary>
     private AIStudio.App.Views.Models.DownloadQueueWindow? _queueWindow;
+    private AIStudio.App.Views.Models.ModelDetailWindow?    _detailWindow;
 
     // ── Path resolution ───────────────────────────────────────────────────────
 
@@ -381,6 +382,32 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             await LoadHfFilesAsync(model.ProviderRef);
         }
         OnPropertyChanged(nameof(HasHfFiles));
+
+        // Detail se otevírá v samostatném okně — uvolnili jsme tím pravý
+        // splitter panel v Modely stránce, aby seznam zabíral plnou šířku.
+        OpenDetailWindow();
+    }
+
+    /// <summary>
+    /// Otevře (nebo aktivuje) okno s detailem aktuálně vybraného modelu.
+    /// Singleton — druhé volání jen aktivuje existující okno místo nového.
+    /// Bindings jdou na DataContext = tento VM, takže SelectedModel.* a
+    /// commands fungují stejně jako v původním pravém panelu.
+    /// </summary>
+    private void OpenDetailWindow()
+    {
+        if (_detailWindow is not null)
+        {
+            _detailWindow.Activate();
+            return;
+        }
+
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } main }) return;
+
+        _detailWindow = new AIStudio.App.Views.Models.ModelDetailWindow { DataContext = this };
+        _detailWindow.Closed += (_, _) => _detailWindow = null;
+        _detailWindow.Show(main);
     }
 
     private async Task LoadHfFilesAsync(string repoId)

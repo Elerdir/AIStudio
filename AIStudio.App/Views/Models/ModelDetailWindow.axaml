@@ -1,0 +1,327 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:AIStudio.App.ViewModels.Models"
+        xmlns:mi="using:Material.Icons.Avalonia"
+        x:Class="AIStudio.App.Views.Models.ModelDetailWindow"
+        x:DataType="vm:ModelManagerPageViewModel"
+        Title="Detail modelu — AI Studio"
+        Width="540" Height="780"
+        MinWidth="420" MinHeight="500"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource AppBgBrush}">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Header s názvem aktivního modelu + zavřít -->
+        <Border Grid.Row="0" Background="{DynamicResource DeepPanelBgBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1"
+                Padding="20,14,14,14">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                    <TextBlock Text="DETAIL MODELU" Classes="sectionHeader"/>
+                    <TextBlock Text="{Binding SelectedModel.Name, FallbackValue=''}"
+                               FontSize="14" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Click="Close_Click"
+                        Background="Transparent" BorderThickness="0"
+                        Width="32" Height="32" Padding="0" CornerRadius="6"
+                        VerticalAlignment="Center"
+                        ToolTip.Tip="Zavřít (Esc)">
+                    <mi:MaterialIcon Kind="Close" Width="16" Height="16"
+                                     Foreground="{DynamicResource TextMutedBrush}"
+                                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Obsah detailu — naprosto identický jako byl v right panelu -->
+        <ScrollViewer Grid.Row="1" Padding="20,20,20,0"
+                      IsVisible="{Binding SelectedModel, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <StackPanel Spacing="16" DataContext="{Binding SelectedModel}">
+
+                <!-- Thumbnail -->
+                <Border IsVisible="{Binding HasThumbnail}" CornerRadius="10" ClipToBounds="True"
+                        MaxHeight="260" Background="#1A1A2E"
+                        BorderBrush="#2A2A3E" BorderThickness="1">
+                    <Panel>
+                        <Image Source="{Binding ThumbnailBitmap}"
+                               Stretch="UniformToFill" MaxHeight="260"
+                               IsVisible="{Binding HasLoadedThumbnail}"/>
+                        <StackPanel IsVisible="{Binding !HasLoadedThumbnail}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Spacing="6" Margin="0,24">
+                            <mi:MaterialIcon Kind="ImageOutline" Width="32" Height="32" Foreground="#5B6EAE" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Načítám náhled…" FontSize="10"
+                                       Foreground="#5B6EAE" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Panel>
+                </Border>
+
+                <!-- Název + badges -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Border Background="#172917" BorderBrush="#264726" BorderThickness="1"
+                                CornerRadius="4" Padding="7,2" IsVisible="{Binding IsActive}">
+                            <TextBlock Text="● Aktivní" FontSize="10" Foreground="#4ADE80"/>
+                        </Border>
+                        <Border Background="#151524" BorderBrush="#252540" BorderThickness="1"
+                                CornerRadius="4" Padding="7,2" IsVisible="{Binding IsDownloaded}">
+                            <TextBlock Text="Staženo" FontSize="10" Foreground="#818CF8"/>
+                        </Border>
+                        <Border Background="#2A0E1A" BorderBrush="#5A1A30" BorderThickness="1"
+                                CornerRadius="4" Padding="7,2" IsVisible="{Binding IsNsfw}">
+                            <TextBlock Text="NSFW" FontSize="10" Foreground="#F87171"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Description}" FontSize="12"
+                               Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- Download progress -->
+                <Border IsVisible="{Binding ShowDownloading}"
+                        Background="{DynamicResource DeepPanelBgBrush}" CornerRadius="10" Padding="14">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Stahování…" FontSize="12"
+                                       FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding DownloadProgressLabel}"
+                                       FontSize="12" Foreground="#A78BFA" FontWeight="SemiBold"/>
+                        </Grid>
+                        <ProgressBar Value="{Binding DownloadProgress}" Minimum="0" Maximum="100"
+                                     Height="6" CornerRadius="3"
+                                     Foreground="#7C3AED" Background="{DynamicResource AppBorderBrush}"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding DownloadedLabel}" FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding DownloadSpeedLabel}" FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
+                                    <TextBlock Text="{Binding EtaLabel}" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
+                                               IsVisible="{Binding EtaLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <Button Grid.Column="1" Classes="secondary" Padding="12,7" Foreground="#F87171"
+                                    Content="Zrušit"
+                                    Command="{ReflectionBinding $parent[Window].DataContext.CancelDownloadCommand}"
+                                    CommandParameter="{Binding}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Chyba stahování -->
+                <Border IsVisible="{Binding ShowDownloadError}"
+                        Background="#1A0E0E" BorderBrush="#3D1515" BorderThickness="1"
+                        CornerRadius="10" Padding="14">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Chyba stahování" FontSize="12"
+                                   FontWeight="SemiBold" Foreground="#F87171"/>
+                        <TextBlock Text="{Binding DownloadError}" FontSize="11"
+                                   Foreground="#CC5C5C" TextWrapping="Wrap"/>
+                        <Button Classes="secondary" Foreground="#F87171" HorizontalAlignment="Left"
+                                Content="Zkusit znovu"
+                                Command="{ReflectionBinding $parent[Window].DataContext.DownloadCommand}"
+                                CommandParameter="{Binding}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- HF file picker -->
+                <StackPanel Spacing="8" IsVisible="{Binding ShowHfFilePicker}">
+                    <TextBlock Text="DOSTUPNÉ VARIANTY (KVANTIZACE)" Classes="sectionHeader"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
+                                IsVisible="{ReflectionBinding $parent[Window].DataContext.IsLoadingHfFiles}">
+                        <ProgressBar IsIndeterminate="True" Width="120" Height="3"
+                                     Foreground="#7C3AED" Background="{DynamicResource HoverBgBrush}"/>
+                        <TextBlock Text="Načítám…" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{ReflectionBinding $parent[Window].DataContext.HfFiles}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:HfFileInfoVm">
+                                <Border Margin="0,0,0,6" CornerRadius="8"
+                                        Background="{DynamicResource SubtlePanelBgBrush}" BorderBrush="{DynamicResource HoverBgBrush}" BorderThickness="1"
+                                        Padding="12,9">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Path}" FontSize="12"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip.Tip="{Binding Path}"/>
+                                            <TextBlock Text="{Binding SizeLabel}" FontSize="10.5"
+                                                       Foreground="{DynamicResource TextHintBrush}"/>
+                                        </StackPanel>
+                                        <Panel Grid.Column="1" VerticalAlignment="Center" MinWidth="106">
+                                            <Button Classes="primary" Padding="12,6"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    IsVisible="{Binding CanDownload}"
+                                                    Command="{ReflectionBinding $parent[Window].DataContext.DownloadHfFileCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <mi:MaterialIcon Kind="Download" Width="13" Height="13" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Stáhnout" FontSize="11" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Border IsVisible="{Binding IsQueued}"
+                                                    Background="#1A1830" BorderBrush="#2A2450" BorderThickness="1"
+                                                    CornerRadius="6" Padding="8,5">
+                                                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+                                                    <mi:MaterialIcon Kind="TrayFull" Width="12" Height="12" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Ve frontě" FontSize="10.5" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border IsVisible="{Binding IsDownloading}"
+                                                    Background="#1A1024" BorderBrush="#3A2450" BorderThickness="1"
+                                                    CornerRadius="6" Padding="8,5">
+                                                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+                                                    <mi:MaterialIcon Kind="DownloadCircleOutline" Width="12" Height="12" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Stahuje se…" FontSize="10.5" Foreground="#A78BFA" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border IsVisible="{Binding IsDownloaded}"
+                                                    Background="#151524" BorderBrush="#252540" BorderThickness="1"
+                                                    CornerRadius="6" Padding="8,5">
+                                                <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
+                                                    <mi:MaterialIcon Kind="CheckCircle" Width="12" Height="12" Foreground="#818CF8" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Staženo" FontSize="10.5" Foreground="#818CF8" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Panel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Stats tabulka -->
+                <Border Classes="card">
+                    <StackPanel Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto"
+                              IsVisible="{Binding Size, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Grid.Column="0" Text="Velikost" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <TextBlock FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"
+                                           Text="{Binding SizeOnDisk}"
+                                           IsVisible="{Binding SizeOnDisk, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                <TextBlock FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"
+                                           Text="{Binding Size}"
+                                           IsVisible="{Binding SizeOnDisk, Converter={x:Static StringConverters.IsNullOrEmpty}}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource HoverBgBrush}" IsVisible="{Binding HasBaseModel}"/>
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasBaseModel}">
+                            <TextBlock Grid.Column="0" Text="Base model" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding BaseModel}"
+                                       FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource HoverBgBrush}"
+                                IsVisible="{Binding Quantization, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        <Grid ColumnDefinitions="*,Auto"
+                              IsVisible="{Binding Quantization, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Grid.Column="0" Text="Formát / kvantizace" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding Quantization}"
+                                       FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Stažení" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding DownloadCountLabel}"
+                                       FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource HoverBgBrush}" IsVisible="{Binding HasRating}"/>
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding HasRating}">
+                            <TextBlock Grid.Column="0" Text="Hodnocení" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding RatingLabel}"
+                                       FontSize="12" Foreground="#FBBF24" FontWeight="SemiBold"/>
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource HoverBgBrush}"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="Zdroj" FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding SourceLabel}"
+                                       FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Akční tlačítka -->
+                <StackPanel Spacing="8">
+                    <Button Classes="primary"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            IsVisible="{Binding ShowDirectDownloadButton}"
+                            Command="{ReflectionBinding $parent[Window].DataContext.DownloadCommand}"
+                            CommandParameter="{Binding}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <mi:MaterialIcon Kind="Download" Width="16" Height="16" VerticalAlignment="Center"/>
+                            <TextBlock Text="Stáhnout model" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Classes="primary" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center" IsVisible="{Binding ShowDownloaded}"
+                            IsEnabled="{Binding !IsActive}" Content="Nastavit jako aktivní"
+                            Command="{ReflectionBinding $parent[Window].DataContext.SetActiveCommand}"
+                            CommandParameter="{Binding}"/>
+
+                    <Button Classes="secondary" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            IsVisible="{Binding ModelPageUrl, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            Command="{ReflectionBinding $parent[Window].DataContext.OpenModelPageCommand}"
+                            CommandParameter="{Binding}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <mi:MaterialIcon Kind="OpenInNew" Width="16" Height="16" VerticalAlignment="Center"/>
+                            <TextBlock Text="Otevřít stránku modelu" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Classes="secondary" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center" Foreground="#F87171"
+                            Command="{Binding BeginDeleteConfirmationCommand}"
+                            Content="Odebrat model ze složky">
+                        <Button.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="IsDownloaded"/>
+                                <Binding Path="!IsConfirmingDelete"/>
+                            </MultiBinding>
+                        </Button.IsVisible>
+                    </Button>
+
+                    <Border IsVisible="{Binding IsConfirmingDelete}"
+                            Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
+                            CornerRadius="10" Padding="14,12">
+                        <StackPanel Spacing="10">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <mi:MaterialIcon Kind="AlertOutline" Width="16" Height="16" Foreground="#F87171"
+                                           VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                <StackPanel Spacing="3">
+                                    <TextBlock Text="Opravdu smazat tento model?" FontSize="13"
+                                               FontWeight="SemiBold" Foreground="#F87171"/>
+                                    <TextBlock FontSize="11" Foreground="#9c6a6a" TextWrapping="Wrap"
+                                               Text="Soubor se smaže ze složky modelů. Pokud byl výchozí v chatu, výchozí volba se vyresetuje. Stažení můžeš kdykoliv opakovat."/>
+                                </StackPanel>
+                            </StackPanel>
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Grid.Column="0" Classes="secondary"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Command="{Binding CancelDeleteConfirmationCommand}"
+                                        Content="Zrušit"/>
+                                <Button Grid.Column="1" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Center"
+                                        Background="#3A1515" BorderBrush="#6B2020" BorderThickness="1"
+                                        Foreground="#F87171" CornerRadius="8" Padding="0,8"
+                                        Command="{ReflectionBinding $parent[Window].DataContext.DeleteModelCommand}"
+                                        CommandParameter="{Binding}"
+                                        Content="Ano, smazat"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <Border Height="60"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
