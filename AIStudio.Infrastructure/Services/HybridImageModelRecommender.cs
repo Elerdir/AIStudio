@@ -26,11 +26,16 @@ public sealed class HybridImageModelRecommender : IImageModelRecommender
 {
     private readonly IImageModelRecommender _curated;
     private readonly IModelDiscoveryService _discovery;
+    private readonly ISettingsService       _settings;
 
-    public HybridImageModelRecommender(IImageModelRecommender curated, IModelDiscoveryService discovery)
+    public HybridImageModelRecommender(
+        IImageModelRecommender curated,
+        IModelDiscoveryService discovery,
+        ISettingsService       settings)
     {
         _curated   = curated;
         _discovery = discovery;
+        _settings  = settings;
     }
 
     public async Task<ImageModelRecommendation> RecommendAsync(
@@ -38,6 +43,15 @@ public sealed class HybridImageModelRecommender : IImageModelRecommender
         IReadOnlyList<string> localCheckpoints,
         CancellationToken     ct)
     {
+        // 0) Uživatel řekl "už mě neptej pro tento kind"? Vrátíme jen lokální
+        // match z curated bez upgrade nabídky. Settings.IgnoredImageUpgradeKinds
+        // se naplní z UI checkboxu "Už mi to nenavrhuj pro tento typ".
+        if (_settings.Settings.IgnoredImageUpgradeKinds.Contains(intent.Kind.ToString()))
+        {
+            var curatedSilent = await _curated.RecommendAsync(intent, localCheckpoints, ct);
+            return new ImageModelRecommendation(curatedSilent.LocalBestMatch, Upgrade: null);
+        }
+
         // 1) Curated má prioritu — když najde, vracíme rovnou.
         var curated = await _curated.RecommendAsync(intent, localCheckpoints, ct);
         if (curated.Upgrade is not null)
@@ -50,7 +64,7 @@ public sealed class HybridImageModelRecommender : IImageModelRecommender
         // 3) Nemá nic lokální → zkusíme live search.
         try
         {
-            var liveOffer = await TrySearchLiveAsync(intent.Kind, localCheckpoints, ct);
+            var liveOffer = await TrySearchLiveAsync(intent, localCheckpoints, ct);
             if (liveOffer is not null)
             {
                 Log.Information("HybridImageModelRecommender: live found {Name} ({Source})",
@@ -77,11 +91,11 @@ public sealed class HybridImageModelRecommender : IImageModelRecommender
     /// to ještě nemá lokálně.
     /// </summary>
     private async Task<ModelUpgradeOffer?> TrySearchLiveAsync(
-        ImageKind             kind,
+        ImageIntent           intent,
         IReadOnlyList<string> localCheckpoints,
         CancellationToken     ct)
     {
-        var (provider, query) = MapKindToSearch(kind);
+        var (provider, query) = MapKindToSearch(intent.Kind);
 
         var results = await _discovery.SearchAsync(
             provider:    provider,
@@ -107,7 +121,7 @@ public sealed class HybridImageModelRecommender : IImageModelRecommender
         return new ModelUpgradeOffer(
             Id:                       $"live-{top.Provider}-{top.ProviderRef}",
             Name:                     top.Name,
-            Reason:                   BuildLiveReason(kind, top),
+            Reason:                   BuildLiveReason(intent.Kind, top),
             SizeBytes:                top.SizeBytes,
             DownloadUrl:              top.DownloadUrl,
             FileName:                 top.FileName,
@@ -116,7 +130,8 @@ public sealed class HybridImageModelRecommender : IImageModelRecommender
             // Gated repa (Llama 3, Gemma…) jsou výjimkou a discovery API nám neříká,
             // jestli je repo gated. Pokud download vrátí 401, DownloadService to
             // zaloguje a UI ukáže chybu. Default false je správný pro 95 % případů.
-            RequiresHuggingFaceToken: false);
+            RequiresHuggingFaceToken: false,
+            Kind:                     intent.Kind);
     }
 
     /// <summary>

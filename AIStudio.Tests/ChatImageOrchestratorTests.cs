@@ -383,7 +383,8 @@ public class ChatImageOrchestratorTests : IDisposable
         DownloadUrl:              "https://huggingface.co/example/file.safetensors",
         FileName:                 fileName,
         Sha256:                   null,
-        RequiresHuggingFaceToken: false);
+        RequiresHuggingFaceToken: false,
+        Kind:                     ImageKind.Realistic);
 
     [Fact]
     public async Task GenerateAsync_NoUpgradeOffered_CallbackNotInvoked()

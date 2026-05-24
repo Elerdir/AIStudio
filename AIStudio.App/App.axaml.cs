@@ -155,7 +155,8 @@ public partial class App : Application
         services.AddSingleton<IImageModelRecommender>(sp =>
             new HybridImageModelRecommender(
                 sp.GetRequiredService<CuratedImageModelRecommender>(),
-                sp.GetRequiredService<IModelDiscoveryService>()));
+                sp.GetRequiredService<IModelDiscoveryService>(),
+                sp.GetRequiredService<ISettingsService>()));
         // Hybrid keyword detektor pro chat → image gen flow. Žádná latence,
         // žádné LLM volání — bezpečné registrovat jako singleton.
         services.AddSingleton<IChatImageIntentDetector, ChatImageIntentDetector>();

@@ -751,6 +751,12 @@
                                                                 </StackPanel>
                                                             </Button>
                                                         </Grid>
+                                                        <!-- "Už mi to nenabízej pro tento typ" — perzistuje do Settings, když uživatel klikne Použít stažený -->
+                                                        <CheckBox IsChecked="{Binding DontAskAgainForThisKind}"
+                                                                  Content="Už mi to nenabízej pro tento typ"
+                                                                  FontSize="11"
+                                                                  Foreground="#7c7398"
+                                                                  Margin="0,2,0,0"/>
                                                     </StackPanel>
                                                 </Border>
 

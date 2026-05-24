@@ -130,7 +130,21 @@ public partial class ChatMessage : ObservableObject
     [ObservableProperty] private int    _upgradeDownloadPercent;
     [ObservableProperty] private string _upgradeDownloadStatusLabel = string.Empty;
 
+    /// <summary>
+    /// UI checkbox "Už mi to nenavrhuj pro tento typ". Pokud zaškrtnuto a uživatel
+    /// klikne Použít stažený → kind se persistuje do <c>AppSettings.IgnoredImageUpgradeKinds</c>
+    /// (event vystaví ChatPageViewModel přes <c>UpgradeDismissalRequested</c>).
+    /// </summary>
+    [ObservableProperty] private bool _dontAskAgainForThisKind;
+
     public bool HasPendingUpgradeOffer => PendingUpgradeOffer is not null;
+
+    /// <summary>
+    /// Notifikuje listenera (ChatPageViewModel), že uživatel zvolil "Použít stažený"
+    /// + zaškrtl "už mi to nenabízej". Argument = string reprezentace <c>ImageKind</c>
+    /// (pro zápis do <c>AppSettings.IgnoredImageUpgradeKinds</c>).
+    /// </summary>
+    public event Action<string>? UpgradeDismissalRequested;
 
     /// <summary>Lidsky čitelná velikost pro UI — "6.8 GB".</summary>
     public string UpgradeOfferSizeLabel => PendingUpgradeOffer is null
@@ -141,16 +155,27 @@ public partial class ChatMessage : ObservableObject
     private TaskCompletionSource<UpgradeChoice>? _upgradeChoiceTcs;
 
     /// <summary>
+    /// Kind label (string ImageKind enumu) aktuální nabídky — uloženo
+    /// pro RejectUpgrade, který emit UpgradeDismissalRequested s kindem.
+    /// </summary>
+    private string? _currentKindLabel;
+
+    /// <summary>
     /// Vystaví nabídku v UI a čeká na uživatelovo rozhodnutí. Volá se z
     /// callbacku, který orchestrátor dostane v GenerateAsync. Po vyřízení
     /// uklízí stav (IsAwaitingUpgradeChoice = false, offer = null).
     /// </summary>
-    public Task<UpgradeChoice> PromptUpgradeAsync(ModelUpgradeOffer offer, CancellationToken ct)
+    /// <param name="kindLabel">String reprezentace ImageKind enumu — pro
+    /// případnou perzistenci do AppSettings.IgnoredImageUpgradeKinds.</param>
+    public Task<UpgradeChoice> PromptUpgradeAsync(ModelUpgradeOffer offer, string kindLabel, CancellationToken ct)
     {
+        _currentKindLabel = kindLabel;
+
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             PendingUpgradeOffer      = offer;
             IsAwaitingUpgradeChoice  = true;
+            DontAskAgainForThisKind  = false;  // reset z předchozí nabídky
             OnPropertyChanged(nameof(UpgradeOfferSizeLabel));
         });
 
@@ -172,10 +197,20 @@ public partial class ChatMessage : ObservableObject
     [RelayCommand]
     private void RejectUpgrade()
     {
+        // Pokud uživatel zaškrtl "už mi to nenabízej", emit event s kindem
+        // — ChatPageViewModel ho zapíše do AppSettings.IgnoredImageUpgradeKinds.
+        // Kind si vytáhneme z PendingUpgradeOffer.Id... actually nemáme tam přímo
+        // kind. Místo toho dispatcher dostane signál a sám z aktivního intentu
+        // vytáhne kind — to už zařídí ChatPageViewModel přes _imageOrch context.
+        // Pro jednoduchost emit jen "true/false" signál — VM si kind dohledá.
+        if (DontAskAgainForThisKind)
+            UpgradeDismissalRequested?.Invoke(_currentKindLabel ?? string.Empty);
+
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             IsAwaitingUpgradeChoice = false;
             PendingUpgradeOffer     = null;
+            DontAskAgainForThisKind = false;
             OnPropertyChanged(nameof(UpgradeOfferSizeLabel));
         });
         _upgradeChoiceTcs?.TrySetResult(UpgradeChoice.UseLocal);

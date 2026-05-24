@@ -11,8 +11,16 @@ public class HybridImageModelRecommenderTests
 {
     private readonly IImageModelRecommender _curated   = Substitute.For<IImageModelRecommender>();
     private readonly IModelDiscoveryService _discovery = Substitute.For<IModelDiscoveryService>();
+    private readonly ISettingsService       _settings  = Substitute.For<ISettingsService>();
+    private readonly AppSettings            _appSettings = new();
 
-    private HybridImageModelRecommender MakeHybrid() => new(_curated, _discovery);
+    public HybridImageModelRecommenderTests()
+    {
+        // Default: žádné ignored kindy (recommender nabízí všechno)
+        _settings.Settings.Returns(_appSettings);
+    }
+
+    private HybridImageModelRecommender MakeHybrid() => new(_curated, _discovery, _settings);
 
     private static ImageIntent Intent(ImageKind kind) => new(
         Kind:           kind,
@@ -50,7 +58,7 @@ public class HybridImageModelRecommenderTests
     {
         var curatedOffer = new ModelUpgradeOffer(
             "curated-id", "Curated Model", "curated reason", 1_000_000_000,
-            "https://hf/x", "curated.safetensors", null, false);
+            "https://hf/x", "curated.safetensors", null, false, ImageKind.Realistic);
         _curated.RecommendAsync(Arg.Any<ImageIntent>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
                 .Returns(new ImageModelRecommendation("local.safetensors", curatedOffer));
 
@@ -200,6 +208,49 @@ public class HybridImageModelRecommenderTests
             includeNsfw: false,
             Arg.Any<int>(),
             Arg.Any<CancellationToken>());
+    }
+
+    // ── Ignored kind preference (Settings.IgnoredImageUpgradeKinds) ───────────
+
+    [Fact]
+    public async Task Recommend_IgnoredKind_SkipsUpgradeEvenIfCuratedHasOne()
+    {
+        // User dříve řekl "už mě neptej pro Anime" — i když curated má nabídku, recommender ji potlačí
+        _appSettings.IgnoredImageUpgradeKinds.Add(ImageKind.Anime.ToString());
+
+        var curatedOffer = new ModelUpgradeOffer(
+            "x", "Animagine XL", "anime ideal", 7_000_000_000,
+            "https://hf/x", "anime.safetensors", null, false, ImageKind.Anime);
+        _curated.RecommendAsync(Arg.Any<ImageIntent>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+                .Returns(new ImageModelRecommendation("local-anime.safetensors", curatedOffer));
+
+        var result = await MakeHybrid().RecommendAsync(
+            Intent(ImageKind.Anime), new[] { "local-anime.safetensors" }, CancellationToken.None);
+
+        result.Upgrade.Should().BeNull("kind je v ignored listu");
+        result.LocalBestMatch.Should().Be("local-anime.safetensors");
+        // Live search se taky nesmí zavolat (early bail-out)
+        await _discovery.DidNotReceive().SearchAsync(
+            Arg.Any<PickProvider>(), Arg.Any<string>(), Arg.Any<PickKind?>(),
+            Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Recommend_IgnoredKindList_DoesNotAffectOtherKinds()
+    {
+        // Anime v ignored listu — ale uživatel chce Realistic, nabídka má pokračovat
+        _appSettings.IgnoredImageUpgradeKinds.Add(ImageKind.Anime.ToString());
+
+        var curatedOffer = new ModelUpgradeOffer(
+            "x", "SDXL Base", "realistic ideal", 7_000_000_000,
+            "https://hf/x", "sdxl.safetensors", null, false, ImageKind.Realistic);
+        _curated.RecommendAsync(Arg.Any<ImageIntent>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
+                .Returns(new ImageModelRecommendation(null, curatedOffer));
+
+        var result = await MakeHybrid().RecommendAsync(
+            Intent(ImageKind.Realistic), Array.Empty<string>(), CancellationToken.None);
+
+        result.Upgrade.Should().NotBeNull("Realistic není v ignored listu");
     }
 
     [Theory]

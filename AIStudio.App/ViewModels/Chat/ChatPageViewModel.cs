@@ -1096,8 +1096,24 @@ public partial class ChatPageViewModel : ViewModelBase
 
         // Callback pro upgrade nabídku — orchestrátor zavolá, pokud najde lepší
         // nesažený model. Vystavíme nabídku v placeholder bublině a čekáme na klik.
+        // Kind si vytáhneme přímo z offer.Kind (předaný recommenderem).
         Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> askForUpgrade =
-            (offer, cancellationToken) => placeholder.PromptUpgradeAsync(offer, cancellationToken);
+            (offer, cancellationToken) => placeholder.PromptUpgradeAsync(offer, offer.Kind.ToString(), cancellationToken);
+
+        // Subscribuj se na "už mi to nenabízej" event — zapíše kind do settings.
+        // Unsubscribe v finally větvi, ať placeholder nedrží referenci na VM.
+        Action<string> onDismissalRequested = kindLabel =>
+        {
+            if (string.IsNullOrEmpty(kindLabel)) return;
+            var settings = _settings.Settings;
+            if (!settings.IgnoredImageUpgradeKinds.Contains(kindLabel))
+            {
+                settings.IgnoredImageUpgradeKinds.Add(kindLabel);
+                _ = _settings.SaveAsync();
+                Log.Information("Image gen: user dismissed upgrade prompts for kind={Kind}", kindLabel);
+            }
+        };
+        placeholder.UpgradeDismissalRequested += onDismissalRequested;
 
         // Download progress (pokud uživatel zvolí DownloadBetter) — bublina ukáže
         // progress bar místo dialog panelu.
@@ -1129,8 +1145,9 @@ public partial class ChatPageViewModel : ViewModelBase
             stageProgress:    stageProgress);
 
         // Po skončení (úspěch / chyba / cancel) vždy vyresetuj upgrade state,
-        // ať tam nevisí ducha z předchozí nabídky.
+        // ať tam nevisí ducha z předchozí nabídky + odpojí event handler.
         placeholder.ClearUpgradeState();
+        placeholder.UpgradeDismissalRequested -= onDismissalRequested;
 
         Dispatcher.UIThread.Post(() =>
         {

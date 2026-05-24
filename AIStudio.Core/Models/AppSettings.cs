@@ -69,4 +69,13 @@ public class AppSettings
     /// IDs odpovídají <c>RecommendedModels.All[i].Id</c>.
     /// </summary>
     public List<string> PendingModelDownloads { get; set; } = new();
+
+    // ── Chat → image gen preference ───────────────────────────────────────────
+
+    /// <summary>
+    /// String reprezentace <c>ImageKind</c> enumu — kindy, pro které uživatel
+    /// označil "Už mi tu nabídku neukazuj" v chat → image gen recommender flow.
+    /// Recommender tyto kindy přeskočí a tiše vrátí lokální match.
+    /// </summary>
+    public List<string> IgnoredImageUpgradeKinds { get; set; } = new();
 }

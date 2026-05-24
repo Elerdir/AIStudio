@@ -25,7 +25,10 @@ public sealed record ModelUpgradeOffer(
     /// <summary>SHA-256 hex string pro verifikaci (null = bez kontroly).</summary>
     string? Sha256,
     /// <summary>True pokud download vyžaduje HuggingFace token (gated repo).</summary>
-    bool    RequiresHuggingFaceToken);
+    bool    RequiresHuggingFaceToken,
+    /// <summary>Pro který <see cref="ImageKind"/> byla nabídka vystavena.
+    /// UI to potřebuje pro "už mi to nenavrhuj pro tento typ" volbu.</summary>
+    ImageKind Kind);
 
 /// <summary>Volba uživatele v reakci na <see cref="ModelUpgradeOffer"/>.</summary>
 public enum UpgradeChoice

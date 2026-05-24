@@ -64,7 +64,8 @@ public sealed class CuratedImageModelRecommender : IImageModelRecommender
             DownloadUrl:              ideal.DownloadUrl,
             FileName:                 ideal.FileName,
             Sha256:                   ideal.Sha256,
-            RequiresHuggingFaceToken: ideal.RequiresHuggingFaceToken);
+            RequiresHuggingFaceToken: ideal.RequiresHuggingFaceToken,
+            Kind:                     intent.Kind);
 
         return Task.FromResult(new ImageModelRecommendation(localMatch, offer));
     }
