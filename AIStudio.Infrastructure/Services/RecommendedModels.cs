@@ -93,15 +93,70 @@ public static class RecommendedModels
         Sha256:                   null,
         RequiresHuggingFaceToken: false);
 
+    // ── SDXL tier (rozšíření katalogu — fáze 2 chat → image recommender) ─────
+
+    /// <summary>
+    /// Stable Diffusion XL Base 1.0 — oficiální SDXL od Stability AI.
+    /// Univerzální realistický model, hostovaný přímo Stability AI na HF.
+    /// 6.9 GB, public (žádný token nutný), 1024×1024 nativně.
+    /// Lepší fotorealismus než SD 1.5 DreamShaper.
+    /// </summary>
+    public static readonly RecommendedModel SdxlBase10 = new(
+        Id:                       "sdxl-base-1.0",
+        Name:                     "Stable Diffusion XL Base 1.0",
+        Description:              "Oficiální SDXL pro fotorealistické scény a portréty. 1024×1024 nativně, výrazně lepší než SD 1.5.",
+        Kind:                     RecommendedModelKind.Image,
+        SizeBytes:                6_938_000_000L,
+        DownloadUrl:              "https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0/resolve/main/sd_xl_base_1.0.safetensors",
+        FileName:                 "sd_xl_base_1.0.safetensors",
+        Sha256:                   null,
+        RequiresHuggingFaceToken: false);
+
+    /// <summary>
+    /// DreamShaper XL Lightning — SDXL fine-tune od Lykon, optimalizovaný pro
+    /// stylizovaný digital paint / cinematic look. Lightning varianta běží
+    /// na ~4-8 krocích (vs 25 standard SDXL), tedy rychlá.
+    /// 6.7 GB, public, hostovaná na HF.
+    /// </summary>
+    public static readonly RecommendedModel DreamShaperXl_Lightning = new(
+        Id:                       "dreamshaper-xl-lightning",
+        Name:                     "DreamShaper XL Lightning",
+        Description:              "Stylizovaný SDXL — cinematic, fantasy, digital paint. Lightning = 4-8 kroků (rychlejší než klasický SDXL).",
+        Kind:                     RecommendedModelKind.Image,
+        SizeBytes:                6_700_000_000L,
+        DownloadUrl:              "https://huggingface.co/Lykon/dreamshaper-xl-lightning/resolve/main/DreamShaperXL_Lightning.safetensors",
+        FileName:                 "DreamShaperXL_Lightning.safetensors",
+        Sha256:                   null,
+        RequiresHuggingFaceToken: false);
+
+    /// <summary>
+    /// Animagine XL 3.1 — SDXL fine-tune zaměřený na anime / manga / ilustrace.
+    /// Od cagliostrolab, hostovaný na HF (public). 6.9 GB.
+    /// Pro Anime kind nejlepší public alternativa k Pony (které je jen na Civitai).
+    /// </summary>
+    public static readonly RecommendedModel AnimagineXl31 = new(
+        Id:                       "animagine-xl-3.1",
+        Name:                     "Animagine XL 3.1",
+        Description:              "SDXL pro anime, manga, ilustrace — vyladěný na 8M+ anime obrázků. Lepší výsledky než SDXL Base pro anime styl.",
+        Kind:                     RecommendedModelKind.Image,
+        SizeBytes:                6_938_000_000L,
+        DownloadUrl:              "https://huggingface.co/cagliostrolab/animagine-xl-3.1/resolve/main/animagine-xl-3.1.safetensors",
+        FileName:                 "animagine-xl-3.1.safetensors",
+        Sha256:                   null,
+        RequiresHuggingFaceToken: false);
+
     // ── Veřejné kolekce + výběr podle hardwaru ───────────────────────────────
 
-    /// <summary>Kompletní seznam VŠECH modelů (default + low tier) — pro debug / unit tests.</summary>
+    /// <summary>Kompletní seznam VŠECH modelů (default + low tier + SDXL) — pro debug / unit tests.</summary>
     public static readonly IReadOnlyList<RecommendedModel> All = new[]
     {
         Llama31_8B_Instruct,
         FluxSchnell_Q4,
         Llama32_3B_Instruct,
         DreamShaper8_Sd15,
+        SdxlBase10,
+        DreamShaperXl_Lightning,
+        AnimagineXl31,
     };
 
     /// <summary>Default tier — pro 8 GB+ VRAM nebo NVIDIA karty.</summary>
@@ -166,24 +221,23 @@ public static class RecommendedModels
     // pro Realistic atd.).
 
     /// <summary>
-    /// Vrátí ideální curated image model pro daný kind. Vrací null pokud
-    /// pro tento kind nemáme nic v katalogu (zatím Anime nemá specific picky —
-    /// padá se na Auto branch).
+    /// Vrátí ideální curated image model pro daný kind po rozšíření katalogu
+    /// o SDXL tier. Každý kind má teď specific picky:
+    /// <list type="bullet">
+    /// <item><c>Realistic</c> → SDXL Base 1.0 (oficiální fotorealistický)</item>
+    /// <item><c>Stylized</c> → DreamShaper XL Lightning (cinematic / digital paint)</item>
+    /// <item><c>Anime</c> → Animagine XL 3.1 (anime SDXL fine-tune)</item>
+    /// <item><c>Abstract</c> → FLUX Schnell (nejkreativnější pro abstraktní scény)</item>
+    /// <item><c>Auto</c> → SDXL Base 1.0 (univerzální, lepší poměr kvalita/velikost než FLUX)</item>
+    /// </list>
     /// </summary>
     public static RecommendedModel? BestImageForKind(ImageKind kind) => kind switch
     {
-        // Realistic, Abstract, Auto, Stylized → FLUX Schnell (nejvyšší kvalita
-        // co máme v katalogu, vejde se i do 8 GB VRAM). Stylized by ideálně chtěl
-        // DreamShaper XL, ale ten v katalogu zatím není.
-        ImageKind.Realistic => FluxSchnell_Q4,
+        ImageKind.Realistic => SdxlBase10,
+        ImageKind.Stylized  => DreamShaperXl_Lightning,
+        ImageKind.Anime     => AnimagineXl31,
         ImageKind.Abstract  => FluxSchnell_Q4,
-        ImageKind.Auto      => FluxSchnell_Q4,
-        // Stylized → DreamShaper SD 1.5 (lehčí varianta, vhodná pro slabší
-        // železo a kreslířský/digital-paint styl).
-        ImageKind.Stylized  => DreamShaper8_Sd15,
-        // Anime — v katalogu zatím nemáme curated anime checkpoint (Pony / Illustrious
-        // jsou na Civitai s API klíčem). Recommender vrátí null = bez upgrade nabídky.
-        ImageKind.Anime     => null,
+        ImageKind.Auto      => SdxlBase10,
         _                   => null,
     };
 }
