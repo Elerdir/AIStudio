@@ -380,6 +380,14 @@ public partial class ChatPageViewModel : ViewModelBase
                                 record.Title, record.Id, messages.Count);
             }
 
+            // Naskenuj dostupné modely PŘED nastavením SelectedConversation —
+            // jinak má ComboBox prázdné ItemsSource v okamžiku property change
+            // a SelectedModelName binding "ztratí" hodnotu (vidí item, který
+            // ještě není v kolekci). Uživatelsky to vypadalo, že první chat
+            // po startu nemá vybraný model — opravilo se to až přepnutím
+            // konverzace a zpět (kdy byl už scan dotypujícího se thread pool dokončen).
+            await RefreshAvailableModelsAsync();
+
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
                 Conversations.Clear();
@@ -411,14 +419,23 @@ public partial class ChatPageViewModel : ViewModelBase
                 IsLoading = false;
             });
         }
-
-        RefreshAvailableModels();
     }
 
-    public void RefreshAvailableModels()
+    /// <summary>
+    /// Fire-and-forget verze pro callers, kteří nepotřebují čekat
+    /// (např. event handler pro ModelLibraryChanged).
+    /// </summary>
+    public void RefreshAvailableModels() => _ = RefreshAvailableModelsAsync();
+
+    /// <summary>
+    /// Awaitable scan modelů — InitializeAsync čeká, aby ComboBox měl
+    /// populated ItemsSource před nastavením SelectedConversation. Bez await
+    /// se občas stalo, že první chat po startu vypadal bez modelu.
+    /// </summary>
+    public async Task RefreshAvailableModelsAsync()
     {
         // Skenování souborového systému v background vlákně — nesmí blokovat UI
-        _ = Task.Run(() =>
+        await Task.Run(() =>
         {
             var custom    = _settings.Settings.ModelsDirectory;
             var modelsDir = string.IsNullOrWhiteSpace(custom)
@@ -463,7 +480,10 @@ public partial class ChatPageViewModel : ViewModelBase
             // s tlačítkem do sekce Modely.
             var list = found.Distinct().OrderBy(x => x).ToList();
 
-            Dispatcher.UIThread.Post(() =>
+            // InvokeAsync místo Post — Post je fire-and-forget a InitializeAsync
+            // by mohlo pokračovat dřív, než AvailableModels.Add() doběhne. InvokeAsync
+            // vrací Task, který await čeká na dokončení UI update.
+            Dispatcher.UIThread.InvokeAsync(() =>
             {
                 HasDownloadedModels = hasReal;
 
@@ -487,7 +507,7 @@ public partial class ChatPageViewModel : ViewModelBase
                         conv.SelectedModelName, conv.Title, replacement);
                     conv.SelectedModelName = replacement;
                 }
-            });
+            }).GetAwaiter().GetResult();   // Task.Run kontext: bezpečné sync wait, není UI thread
         });
     }
 
