@@ -113,6 +113,12 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
                         return Fail("Generování zrušeno uživatelem.");
 
                     case UpgradeChoice.DownloadBetter:
+                        // Pre-flight disk check — předejít situaci kdy se začne
+                        // stahovat 7 GB model a v polovině dojde místo na disku.
+                        var diskCheck = CheckDiskSpace(recommendation.Upgrade.SizeBytes);
+                        if (diskCheck is not null)
+                            return Fail(diskCheck);
+
                         var downloaded = await TryDownloadUpgradeAsync(recommendation.Upgrade, downloadProgress, ct);
                         if (!downloaded)
                             return Fail($"Stažení modelu {recommendation.Upgrade.Name} selhalo — zkus jiný model nebo to opakuj později.");
@@ -277,6 +283,55 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "AIStudio", "Images");
+    }
+
+    /// <summary>
+    /// Ověří, jestli na disku zbývá dost místa pro stažení modelu velikosti
+    /// <paramref name="requiredBytes"/> + 500 MB safety margin.
+    /// Vrátí null pokud OK, jinak user-friendly error message pro UI.
+    ///
+    /// <para>Defenzivní — pokud disk info nejde získat (UNC path, dropbox, …),
+    /// vrátíme null a důvěřujeme, že download projde.</para>
+    /// </summary>
+    private string? CheckDiskSpace(long requiredBytes)
+    {
+        try
+        {
+            var modelsDir = !string.IsNullOrEmpty(_modelsDirOverride)
+                ? _modelsDirOverride
+                : (!string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
+                   ? _settings.Settings.ModelsDirectory
+                   : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                                  "AIStudio", "Models"));
+
+            // GetPathRoot vrátí "C:\" nebo "/" — DriveInfo to akceptuje
+            var root = Path.GetPathRoot(Path.GetFullPath(modelsDir));
+            if (string.IsNullOrEmpty(root)) return null;
+
+            var drive = new DriveInfo(root);
+            if (!drive.IsReady) return null;
+
+            const long SafetyMargin = 500L * 1024 * 1024;  // 500 MB rezerva pro tmp + checksum
+            var available = drive.AvailableFreeSpace;
+            var needed    = requiredBytes + SafetyMargin;
+
+            if (available < needed)
+            {
+                var availableGb = available / 1_073_741_824.0;
+                var neededGb    = needed    / 1_073_741_824.0;
+                Log.Warning("ChatImageOrchestrator: disk full check failed — need {Need:F1} GB, available {Avail:F1} GB on {Drive}",
+                            neededGb, availableGb, drive.Name);
+                return $"Nedostatek místa na disku {drive.Name} — potřeba {neededGb:F1} GB, " +
+                       $"k dispozici {availableGb:F1} GB. Uvolni místo nebo přesměruj Models složku v Nastavení.";
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ChatImageOrchestrator: disk space check selhal — pokračujeme bez kontroly");
+            return null;
+        }
     }
 
     /// <summary>
