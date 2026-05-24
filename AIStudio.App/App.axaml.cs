@@ -147,6 +147,9 @@ public partial class App : Application
         services.AddSingleton<IModelDiscoveryService, ModelDiscoveryService>();
         services.AddSingleton<IImageIntentParser, ImageIntentParser>();
         services.AddSingleton<IImageModelMatcher, ImageModelMatcher>();
+        // Hybrid keyword detektor pro chat → image gen flow. Žádná latence,
+        // žádné LLM volání — bezpečné registrovat jako singleton.
+        services.AddSingleton<IChatImageIntentDetector, ChatImageIntentDetector>();
         services.AddSingleton<IFluxDependencyService, FluxDependencyService>();
 
         // ViewModels — každý dostane ze DI jen vlastní závislosti

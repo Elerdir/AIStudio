@@ -50,6 +50,39 @@ public partial class ChatMessage : ObservableObject
     /// <summary>True pokud generování skončilo chybou — zobrazí tlačítko Zkusit znovu.</summary>
     [ObservableProperty] private bool _isError;
 
+    // ── Image generation state ────────────────────────────────────────────────
+    //
+    // Tahle zpráva může reprezentovat vygenerovaný obrázek (assistant role,
+    // chat → image gen flow). Pokud ImagePath != null, UI vykreslí <Image>
+    // místo Markdownu; pokud IsImageGenerating == true, UI ukáže "Generuju
+    // obrázek…" placeholder místo typing dots.
+    //
+    // ImageReferencePath je cesta k obrázku, který byl vstupem do img2img
+    // follow-up generace (pokud uživatel řekl "udělej to v noci" na poslední
+    // obrázek). Slouží hlavně pro audit / regenerování konverzace.
+
+    /// <summary>Cesta k vygenerovanému obrázku (null = klasická text zpráva).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    private string? _imagePath;
+
+    /// <summary>Reference obrázek pro img2img follow-up (null = txt2img od nuly).</summary>
+    [ObservableProperty] private string? _imageReferencePath;
+
+    /// <summary>True dokud běží Comfy generování — UI ukáže placeholder.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    private bool _isImageGenerating;
+
+    /// <summary>True pokud generování obrázku selhalo — UI ukáže Zkusit znovu.</summary>
+    [ObservableProperty] private bool _isImageFailed;
+
+    /// <summary>
+    /// True pokud tahle zpráva nese obrázek (hotový nebo se generuje). UI
+    /// podle toho přepíná mezi text bublinou a image bublinou.
+    /// </summary>
+    public bool IsImageMessage => !string.IsNullOrEmpty(ImagePath) || IsImageGenerating;
+
     // ── Edit state ────────────────────────────────────────────────────────────
 
     [ObservableProperty] private bool   _isEditing;
@@ -103,12 +136,17 @@ public partial class ChatMessage : ObservableObject
 
         return new ChatMessage
         {
-            Id        = r.Id,
-            Role      = role,
-            Timestamp = r.Timestamp,
-            Content   = r.Content,
+            Id                 = r.Id,
+            Role               = role,
+            Timestamp          = r.Timestamp,
+            Content            = r.Content,
+            ImagePath          = r.ImagePath,
+            ImageReferencePath = r.ImageReferencePath,
+            // Pokud po load existuje ImagePath ale soubor zmizel (uživatel ho smazal
+            // mimo aplikaci), UI ukáže "obrázek nenalezen". Stav IsImageGenerating
+            // nikdy nenačítáme z DB — v okamžiku načtení už nic neběží.
             // Obnov příznak chyby podle obsahu (pro zprávy uložené v předchozích sezeních)
-            IsError   = r.Content.StartsWith("❌") || r.Content.StartsWith("⚠️"),
+            IsError            = r.Content.StartsWith("❌") || r.Content.StartsWith("⚠️"),
         };
     }
 
@@ -118,5 +156,7 @@ public partial class ChatMessage : ObservableObject
         Role.ToString().ToLowerInvariant(),
         Content,
         Timestamp,
-        orderIndex);
+        orderIndex,
+        ImagePath,
+        ImageReferencePath);
 }

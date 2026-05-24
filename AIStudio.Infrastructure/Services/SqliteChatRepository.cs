@@ -89,6 +89,17 @@ public sealed class SqliteChatRepository : SqliteRepositoryBase, IChatRepository
             mig5.CommandText = "ALTER TABLE Conversations ADD COLUMN Draft TEXT NOT NULL DEFAULT '';";
             try { await mig5.ExecuteNonQueryAsync(); } catch { /* existuje */ }
 
+            // ── Migrace pro chat → image gen (vygenerované obrázky inline v chatu) ──
+            // ImagePath = cesta k vygenerovanému obrázku (NULL = klasická text zpráva).
+            // ImageReferencePath = vstupní obrázek pro img2img follow-up (NULL = txt2img).
+            await using var mig6 = conn.CreateCommand();
+            mig6.CommandText = "ALTER TABLE Messages ADD COLUMN ImagePath TEXT NULL;";
+            try { await mig6.ExecuteNonQueryAsync(); } catch { /* existuje */ }
+
+            await using var mig7 = conn.CreateCommand();
+            mig7.CommandText = "ALTER TABLE Messages ADD COLUMN ImageReferencePath TEXT NULL;";
+            try { await mig7.ExecuteNonQueryAsync(); } catch { /* existuje */ }
+
             Log.Information("SQLite initialized at {DbPath}", DbPath);
         }
         catch (Exception ex)
@@ -144,7 +155,7 @@ public sealed class SqliteChatRepository : SqliteRepositoryBase, IChatRepository
             await using var conn = await OpenAsync();
             await using var cmd  = conn.CreateCommand();
             cmd.CommandText =
-                "SELECT Id, ConversationId, Role, Content, Timestamp, OrderIndex " +
+                "SELECT Id, ConversationId, Role, Content, Timestamp, OrderIndex, ImagePath, ImageReferencePath " +
                 "FROM Messages WHERE ConversationId = $cid ORDER BY OrderIndex";
             cmd.Parameters.AddWithValue("$cid", conversationId);
 
@@ -158,7 +169,9 @@ public sealed class SqliteChatRepository : SqliteRepositoryBase, IChatRepository
                     reader.GetString(2),
                     reader.GetString(3),
                     DateTime.Parse(reader.GetString(4)),
-                    reader.GetInt32(5)));
+                    reader.GetInt32(5),
+                    reader.IsDBNull(6) ? null : reader.GetString(6),
+                    reader.IsDBNull(7) ? null : reader.GetString(7)));
             }
             Log.Information("LoadMessages: conv={ConvId} → {Count} zpráv", conversationId, list.Count);
             return list;
@@ -227,9 +240,9 @@ public sealed class SqliteChatRepository : SqliteRepositoryBase, IChatRepository
             await using var cmd  = conn.CreateCommand();
             cmd.CommandText = """
                 INSERT OR REPLACE INTO Messages
-                    (Id, ConversationId, Role, Content, Timestamp, OrderIndex)
+                    (Id, ConversationId, Role, Content, Timestamp, OrderIndex, ImagePath, ImageReferencePath)
                 VALUES
-                    ($id, $cid, $role, $content, $ts, $order)
+                    ($id, $cid, $role, $content, $ts, $order, $img, $imgref)
                 """;
             cmd.Parameters.AddWithValue("$id",      message.Id);
             cmd.Parameters.AddWithValue("$cid",     message.ConversationId);
@@ -237,6 +250,8 @@ public sealed class SqliteChatRepository : SqliteRepositoryBase, IChatRepository
             cmd.Parameters.AddWithValue("$content", message.Content);
             cmd.Parameters.AddWithValue("$ts",      message.Timestamp.ToString("o"));
             cmd.Parameters.AddWithValue("$order",   message.OrderIndex);
+            cmd.Parameters.AddWithValue("$img",     (object?)message.ImagePath          ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("$imgref",  (object?)message.ImageReferencePath ?? DBNull.Value);
             var rows = await cmd.ExecuteNonQueryAsync();
 
             // Read-back verify ve stejné connection: ihned se zeptáme, jestli
