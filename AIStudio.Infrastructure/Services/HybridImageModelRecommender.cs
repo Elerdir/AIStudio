@@ -137,14 +137,28 @@ public sealed class HybridImageModelRecommender : IImageModelRecommender
     /// <summary>
     /// Mapuje image kind na search query + provider. Cíl: pro každý kind
     /// najít realistický top-1 model, který by uživatel pravděpodobně chtěl.
+    ///
+    /// <para>Query string je vyladěný tak, aby Civitai/HF top-1 odpověď byla
+    /// reprezentativní state-of-the-art model pro daný styl:</para>
+    /// <list type="bullet">
+    /// <item><c>Realistic</c> → "realistic XL" cílí na SDXL realistic checkpointy
+    ///   (Juggernaut, RealVisXL, …) místo SD 1.5 vintage modelů</item>
+    /// <item><c>Anime</c> → "pony anime XL" cílí na Pony Diffusion XL family —
+    ///   industry standard pro anime gen v 2025</item>
+    /// <item><c>Stylized</c> → "SDXL lightning cinematic" — Lightning varianty
+    ///   jsou rychlé (4-8 kroků) a vhodné pro digital paint look</item>
+    /// <item><c>Abstract</c> → HF "flux dev" — FLUX dev je king pro kreativní
+    ///   abstraktní scény, schnell variant je rychlejší ale méně detailní</item>
+    /// <item><c>Auto</c> → HF "flux schnell" — univerzální + rychlý</item>
+    /// </list>
     /// </summary>
     private static (PickProvider Provider, string Query) MapKindToSearch(ImageKind kind) => kind switch
     {
-        ImageKind.Realistic => (PickProvider.Civitai,     "realistic photorealistic"),
-        ImageKind.Anime     => (PickProvider.Civitai,     "anime"),
-        ImageKind.Stylized  => (PickProvider.Civitai,     "stylized digital art"),
-        ImageKind.Abstract  => (PickProvider.HuggingFace, "flux"),
-        _                   => (PickProvider.HuggingFace, "flux"),
+        ImageKind.Realistic => (PickProvider.Civitai,     "realistic XL"),
+        ImageKind.Anime     => (PickProvider.Civitai,     "pony anime XL"),
+        ImageKind.Stylized  => (PickProvider.Civitai,     "SDXL lightning cinematic"),
+        ImageKind.Abstract  => (PickProvider.HuggingFace, "flux dev"),
+        _                   => (PickProvider.HuggingFace, "flux schnell"),
     };
 
     private static string BuildLiveReason(ImageKind kind, DiscoveredModel top)

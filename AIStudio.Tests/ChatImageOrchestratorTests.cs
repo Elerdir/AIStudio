@@ -600,7 +600,9 @@ public class ChatImageOrchestratorTests : IDisposable
             });
 
         var collected = new List<DownloadStatusUpdate>();
-        var downloadProgress = new Progress<DownloadStatusUpdate>(u => collected.Add(u));
+        // Synchronní progress impl — vyhneme se Progress<T> race v parallel test run
+        // (viz SynchronousProgress<T> helper definovaný níže)
+        var downloadProgress = new SynchronousProgress<DownloadStatusUpdate>(u => collected.Add(u));
 
         Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>> cb =
             (_, _) => Task.FromResult(UpgradeChoice.DownloadBetter);
@@ -608,13 +610,6 @@ public class ChatImageOrchestratorTests : IDisposable
         await MakeOrchestrator().GenerateAsync(
             "něco", null, null, CancellationToken.None,
             askForUpgrade: cb, downloadProgress: downloadProgress);
-
-        // Progress<T> Reportuje async přes SynchronizationContext (kapturováno
-        // při konstrukci v testovacím vlákně) — handler je posted, ne invokován
-        // hned. Aktivně počkáme, dokud doraží oba reporty nebo timeout.
-        var deadline = DateTime.UtcNow.AddSeconds(2);
-        while (collected.Count < 2 && DateTime.UtcNow < deadline)
-            await Task.Delay(20);
 
         collected.Should().NotBeEmpty("orchestrátor má bridge mezi DownloadProgressInfo a DownloadStatusUpdate");
         collected.Should().Contain(u => u.Percent == 100, "100 % event by měl dorazit");
