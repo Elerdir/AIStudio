@@ -1,6 +1,7 @@
 using Serilog;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Core.Services;
 
 namespace AIStudio.Infrastructure.Services;
 
@@ -276,14 +277,19 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
     private string GetOutputDirectory()
     {
         if (!string.IsNullOrEmpty(_outputDirOverride)) return _outputDirOverride;
-
-        // Použijeme stejnou konvenci jako ImageGeneratorViewModel — pevně v %AppData%.
         // Settings.ImagesDirectory by se hodilo, ale zatím neexistuje (chat
         // obrázky se ukládají vedle ImageStudio obrázků).
-        return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "AIStudio", "Images");
+        return AppPaths.DefaultImagesDirectory;
     }
+
+    /// <summary>
+    /// Resolve modelů adresáře — preferuje test override → user settings → default.
+    /// Sdílená logika pro CheckDiskSpace a TryDownloadUpgradeAsync.
+    /// </summary>
+    private string ResolveModelsDirectory() =>
+        !string.IsNullOrEmpty(_modelsDirOverride)
+            ? _modelsDirOverride
+            : AppPaths.ResolveModelsDirectory(_settings.Settings.ModelsDirectory);
 
     /// <summary>
     /// Ověří, jestli na disku zbývá dost místa pro stažení modelu velikosti
@@ -297,12 +303,7 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
     {
         try
         {
-            var modelsDir = !string.IsNullOrEmpty(_modelsDirOverride)
-                ? _modelsDirOverride
-                : (!string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
-                   ? _settings.Settings.ModelsDirectory
-                   : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                                  "AIStudio", "Models"));
+            var modelsDir = ResolveModelsDirectory();
 
             // GetPathRoot vrátí "C:\" nebo "/" — DriveInfo to akceptuje
             var root = Path.GetPathRoot(Path.GetFullPath(modelsDir));
@@ -346,13 +347,7 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
     {
         try
         {
-            var modelsDir = !string.IsNullOrEmpty(_modelsDirOverride)
-                ? _modelsDirOverride
-                : (!string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
-                   ? _settings.Settings.ModelsDirectory
-                   : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                                  "AIStudio", "Models"));
-
+            var modelsDir = ResolveModelsDirectory();
             Directory.CreateDirectory(modelsDir);
             var destPath = Path.Combine(modelsDir, offer.FileName);
 

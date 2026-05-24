@@ -31,10 +31,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
     /// Cesta k PID souboru — zapisujeme PID spuštěného ComfyUI procesu,
     /// aby ho při startu i pádu šlo spolehlivě dohledat a ukončit.
     /// </summary>
-    private static string PidFilePath =>
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "AIStudio", "comfy.pid");
+    private static string PidFilePath => AIStudio.Core.Services.AppPaths.ComfyPidFile;
 
     public ComfyService(ISettingsService settings, IComfyInstaller installer,
                          IComfyHttpClient httpClient, IGpuDetector? gpuDetector = null)
@@ -621,10 +618,8 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
     /// </summary>
     private void WriteExtraModelPathsYaml(string comfyUiDir)
     {
-        var modelsDir = string.IsNullOrWhiteSpace(_settings.Settings.ModelsDirectory)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                           "AIStudio", "Models")
-            : _settings.Settings.ModelsDirectory;
+        var modelsDir = AIStudio.Core.Services.AppPaths.ResolveModelsDirectory(
+            _settings.Settings.ModelsDirectory);
 
         if (!Directory.Exists(modelsDir))
         {

@@ -93,12 +93,6 @@ public sealed class LoraLibraryService : ILoraLibraryService
     }
 
     /// <summary>Resolve Models adresáře — uživatelská cesta nebo default AppData.</summary>
-    private string ResolveModelsRoot()
-    {
-        var custom = _settings.Settings.ModelsDirectory;
-        return string.IsNullOrWhiteSpace(custom)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                           "AIStudio", "Models")
-            : custom;
-    }
+    private string ResolveModelsRoot() =>
+        AIStudio.Core.Services.AppPaths.ResolveModelsDirectory(_settings.Settings.ModelsDirectory);
 }

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Core.Services;
 using Serilog;
 
 namespace AIStudio.Infrastructure.Services;
@@ -19,9 +20,7 @@ namespace AIStudio.Infrastructure.Services;
 /// </summary>
 public class SettingsService : ISettingsService
 {
-    private static readonly string DefaultSettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "AIStudio", "settings.json");
+    private static readonly string DefaultSettingsPath = AppPaths.SettingsFile;
 
     private readonly string SettingsPath;
     private readonly string TempPath;

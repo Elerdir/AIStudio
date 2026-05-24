@@ -71,9 +71,7 @@ sealed class Program
 
         try
         {
-            var dir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "AIStudio", "logs");
+            var dir = AIStudio.Core.Services.AppPaths.LogsDirectory;
             Directory.CreateDirectory(dir);
             File.AppendAllText(Path.Combine(dir, "STARTUP_CRASH.log"), report);
         }

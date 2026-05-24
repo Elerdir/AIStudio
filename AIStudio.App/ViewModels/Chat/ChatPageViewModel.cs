@@ -437,11 +437,8 @@ public partial class ChatPageViewModel : ViewModelBase
         // Skenování souborového systému v background vlákně — nesmí blokovat UI
         await Task.Run(() =>
         {
-            var custom    = _settings.Settings.ModelsDirectory;
-            var modelsDir = string.IsNullOrWhiteSpace(custom)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                               "AIStudio", "Models")
-                : custom;
+            var modelsDir = AIStudio.Core.Services.AppPaths.ResolveModelsDirectory(
+                _settings.Settings.ModelsDirectory);
 
             var fileToName = ModelFileNames.ToDictionary(
                 kv => kv.Value.ToLowerInvariant(), kv => kv.Key);

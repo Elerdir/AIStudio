@@ -23,9 +23,7 @@ public partial class App : Application
     public override void Initialize()
     {
         // Serilog — soubor %AppData%\AIStudio\logs\app-YYYY-MM-DD.log (7 dní)
-        var logDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "AIStudio", "logs");
+        var logDir = AIStudio.Core.Services.AppPaths.LogsDirectory;
         Directory.CreateDirectory(logDir);
 
         Log.Logger = new LoggerConfiguration()
@@ -366,10 +364,7 @@ public partial class App : Application
         try
         {
             var settings = sp.GetRequiredService<ISettingsService>().Settings;
-            var modelsDir = string.IsNullOrWhiteSpace(settings.ModelsDirectory)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                               "AIStudio", "Models")
-                : settings.ModelsDirectory;
+            var modelsDir = AIStudio.Core.Services.AppPaths.ResolveModelsDirectory(settings.ModelsDirectory);
 
             var fluxSvc = sp.GetRequiredService<IFluxDependencyService>();
 
@@ -416,10 +411,7 @@ public partial class App : Application
             }
 
             var downloader = sp.GetRequiredService<IDownloadService>();
-            var modelsDir  = string.IsNullOrWhiteSpace(settingsSvc.Settings.ModelsDirectory)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                               "AIStudio", "Models")
-                : settingsSvc.Settings.ModelsDirectory;
+            var modelsDir  = AIStudio.Core.Services.AppPaths.ResolveModelsDirectory(settingsSvc.Settings.ModelsDirectory);
             Directory.CreateDirectory(modelsDir);
 
             Log.Information("TriggerPendingDownloads: zahajuji stahování {N} modelů do {Dir}",

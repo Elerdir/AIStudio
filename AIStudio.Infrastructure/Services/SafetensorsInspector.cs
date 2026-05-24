@@ -125,9 +125,7 @@ public static class SafetensorsInspector
         }
 
         // 2) Výchozí složka AIStudio
-        var defaultDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "AIStudio", "Models");
+        var defaultDir = AIStudio.Core.Services.AppPaths.DefaultModelsDirectory;
         candidates.Add(Path.Combine(defaultDir, modelFileName));
         candidates.Add(Path.Combine(defaultDir, "checkpoints", modelFileName));
 

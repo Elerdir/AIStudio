@@ -15,9 +15,7 @@ namespace AIStudio.Infrastructure.Services;
 /// </summary>
 public sealed class SystemPromptPresetService : ISystemPromptPresetService
 {
-    private static readonly string DefaultPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "AIStudio", "prompt-presets.json");
+    private static readonly string DefaultPath = AIStudio.Core.Services.AppPaths.SystemPromptPresetsFile;
 
     private readonly string _filePath;
     private readonly SemaphoreSlim _ioLock = new(1, 1);

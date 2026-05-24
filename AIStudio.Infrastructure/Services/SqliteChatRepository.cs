@@ -2,14 +2,13 @@ using Microsoft.Data.Sqlite;
 using Serilog;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Core.Services;
 
 namespace AIStudio.Infrastructure.Services;
 
 public sealed class SqliteChatRepository : SqliteRepositoryBase, IChatRepository
 {
-    private static readonly string DbPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "AIStudio", "conversations.db");
+    private static readonly string DbPath = AppPaths.ConversationsDbPath;
 
     public SqliteChatRepository()
         : base($"Data Source={DbPath};Mode=ReadWriteCreate;Pooling=False") { }
