@@ -14,6 +14,13 @@ public partial class ChatPageView : UserControl
     private ConversationViewModel? _subscribedConv;
     private bool                   _autoScroll = true;
 
+    /// <summary>
+    /// True když právě programmaticky scrollujeme na konec (uvnitř ScrollToBottom retry
+    /// okna). OnScrollChanged tehdy NESMÍ přepočítat _autoScroll, protože by ho mohl
+    /// chybně vypnout uprostřed sekvence (intermediate layout state kde atBottom != true).
+    /// </summary>
+    private bool                   _programmaticScroll;
+
     public ChatPageView()
     {
         InitializeComponent();
@@ -192,6 +199,11 @@ public partial class ChatPageView : UserControl
 
         if (e.OffsetDelta.Y != 0)
         {
+            // Během programmatic scroll (ScrollToBottom retry okno) NESMÍME
+            // přepočítávat _autoScroll — intermediate layout stavy mohou hlásit
+            // atBottom=false a tím by se vypnul auto-scroll uprostřed sekvence.
+            if (_programmaticScroll) return;
+
             // Uživatel scrolloval — zjisti, jestli je na konci
             // B6: relativní práh — min 40 px nebo 10 % výšky viewportu (pro krátké/vysoké okno)
             var threshold = Math.Max(40, scroll.Viewport.Height * 0.1);
@@ -217,6 +229,10 @@ public partial class ChatPageView : UserControl
         var scroll = this.FindControl<ScrollViewer>("MessagesScroll");
         if (scroll is null) return;
 
+        // Vstupujeme do programmatic scroll okna — OnScrollChanged nesmí měnit _autoScroll
+        // (intermediate layout pass může chybně reportovat atBottom=false).
+        _programmaticScroll = true;
+
         Dispatcher.UIThread.Post(() =>
         {
             scroll.ScrollToEnd();
@@ -226,14 +242,15 @@ public partial class ChatPageView : UserControl
             handler = (_, _) =>
             {
                 framesSeen++;
-                // Re-scroll vždy — pokud uživatel mezi tím scrollnul nahoru,
-                // _autoScroll bude false a OnScrollChanged ho vypne; ale když
-                // jsme tady, znamená to že někdo (kód) chce scrollovat na konec.
-                if (_autoScroll)
-                    scroll.ScrollToEnd();
-                // Safety brake: po 25 frames unsubscribe, ať handler nedrží references
+                // Re-scroll BEZPODMÍNĚČNĚ — _autoScroll guard tu být nesmí, protože by
+                // se vypnul ze stejného důvodu, proč jsme nastavili _programmaticScroll.
+                scroll.ScrollToEnd();
+                // Safety brake: po 25 frames unsubscribe + uvolnit programmatic flag
                 if (framesSeen >= 25)
+                {
                     scroll.LayoutUpdated -= handler!;
+                    _programmaticScroll = false;
+                }
             };
             scroll.LayoutUpdated += handler;
         }, DispatcherPriority.Render);
