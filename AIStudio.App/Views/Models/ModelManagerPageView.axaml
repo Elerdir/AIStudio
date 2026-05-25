@@ -221,7 +221,7 @@
                             <mi:MaterialIcon Kind="TrayFull" Width="16" Height="16" VerticalAlignment="Center"/>
                             <TextBlock Text="Fronta" VerticalAlignment="Center"/>
                             <Border IsVisible="{Binding HasQueuedDownloads}"
-                                    Background="#7C3AED" CornerRadius="9" MinWidth="18" Height="18"
+                                    Background="#7C3AED" CornerRadius="8" MinWidth="18" Height="18"
                                     Padding="5,0" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding DownloadQueueCount}" FontSize="10" FontWeight="SemiBold"
                                            Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>

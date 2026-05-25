@@ -261,7 +261,7 @@
                                  Background="{DynamicResource CardBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                  SelectionBrush="#4C3A7A"
                                  BorderBrush="#7C3AED" BorderThickness="1"
-                                 CornerRadius="7" Padding="8,5"
+                                 CornerRadius="8" Padding="8,5"
                                  FontSize="14" FontWeight="SemiBold"
                                  LostFocus="TitleEditBox_LostFocus"
                                  KeyDown="TitleEditBox_KeyDown"/>
@@ -285,14 +285,14 @@
                                   Background="{DynamicResource CardBgBrush}"
                                   Foreground="{DynamicResource TextLightBrush}"
                                   BorderBrush="{DynamicResource AppBorderBrush}"
-                                  CornerRadius="7"
+                                  CornerRadius="8"
                                   FontSize="12"
                                   MinWidth="190"
                                   IsEnabled="{Binding !IsSending}"/>
                         <!-- GPU badge — zelený, viditelný pouze pokud model jede na GPU -->
                         <Border IsVisible="{Binding IsGpuBackend}"
                                 Background="#0A2010"
-                                CornerRadius="5" Padding="6,3"
+                                CornerRadius="6" Padding="6,3"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="{Binding BackendTooltip}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
@@ -306,7 +306,7 @@
                         <!-- CPU badge — jantarový, viditelný pokud model jede přes CPU (ne GPU) -->
                         <Border IsVisible="{Binding IsCpuBackend}"
                                 Background="#1A1008"
-                                CornerRadius="5" Padding="6,3"
+                                CornerRadius="6" Padding="6,3"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="{Binding BackendTooltip}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
@@ -322,7 +322,7 @@
                              Aktualizováno každé 2,5 s ze SystemMonitorService. -->
                         <Border IsVisible="{Binding IsModelLoaded}"
                                 Background="{DynamicResource HoverBgBrush}"
-                                CornerRadius="5" Padding="6,3"
+                                CornerRadius="6" Padding="6,3"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="{Binding MemoryUsageTooltip}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
@@ -342,7 +342,7 @@
                                 Command="{Binding UnloadModelCommand}"
                                 Background="#1A1210"
                                 BorderBrush="#3A2010" BorderThickness="1"
-                                CornerRadius="7"
+                                CornerRadius="8"
                                 Width="28" Height="28" Padding="0"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="{Binding LoadedModelName, StringFormat='Uvolnit &quot;{0}&quot; z VRAM'}">
@@ -351,7 +351,7 @@
                         <!-- Thinking mode toggle — pouze pro Qwen3 modely -->
                         <Button IsVisible="{Binding SelectedConversation.IsQwen3Selected}"
                                 Command="{Binding ToggleThinkingModeCommand}"
-                                BorderThickness="1" CornerRadius="7"
+                                BorderThickness="1" CornerRadius="8"
                                 Width="28" Height="28" Padding="0"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="Thinking mode (Qwen3) — interní přemýšlení před odpovědí">
@@ -447,7 +447,7 @@
                         </StackPanel>
                         <Button Grid.Column="1"
                                 Background="Transparent" BorderThickness="0"
-                                Padding="4" Width="22" Height="22" CornerRadius="5"
+                                Padding="4" Width="22" Height="22" CornerRadius="6"
                                 Command="{Binding ToggleSystemPromptCommand}"
                                 ToolTip.Tip="Skrýt panel">
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="{DynamicResource TextDisabledBrush}"/>
@@ -602,7 +602,7 @@
                                                                 Command="{Binding CopyContentCommand}"
                                                                 ToolTip.Tip="Kopírovat"
                                                                 Width="22" Height="22" Padding="0"
-                                                                CornerRadius="5"
+                                                                CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <Panel>
                                                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
@@ -613,7 +613,7 @@
                                                                 Command="{Binding BeginEditCommand}"
                                                                 ToolTip.Tip="Upravit zprávu"
                                                                 Width="22" Height="22" Padding="0"
-                                                                CornerRadius="5"
+                                                                CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
@@ -623,7 +623,7 @@
                                                                 CommandParameter="{Binding}"
                                                                 ToolTip.Tip="Větev od této zprávy"
                                                                 Width="22" Height="22" Padding="0"
-                                                                CornerRadius="5"
+                                                                CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
@@ -656,7 +656,7 @@
                                                     <Button Command="{Binding CancelEditCommand}"
                                                             Content="Zrušit"
                                                             FontSize="12" Padding="10,5"
-                                                            CornerRadius="7"
+                                                            CornerRadius="8"
                                                             Background="#2A1515"
                                                             BorderBrush="#3D2020" BorderThickness="1"
                                                             Foreground="{DynamicResource ErrorBrush}"/>
@@ -664,7 +664,7 @@
                                                             CommandParameter="{Binding}"
                                                             Content="Potvrdit"
                                                             FontSize="12" Padding="10,5"
-                                                            CornerRadius="7"
+                                                            CornerRadius="8"
                                                             Background="#3A1F6A"
                                                             BorderBrush="#7C3AED" BorderThickness="1"
                                                             Foreground="{DynamicResource AccentLighterBrush}"/>
@@ -851,7 +851,7 @@
                                                                 Command="{Binding OpenImageZoomCommand}"
                                                                 ToolTip.Tip="Zvětšit na plnou velikost"
                                                                 Width="22" Height="22" Padding="0"
-                                                                CornerRadius="5"
+                                                                CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Magnify}"
                                                                              Width="12" Height="12"
@@ -862,7 +862,7 @@
                                                                 Command="{Binding SaveImageAsCommand}"
                                                                 ToolTip.Tip="Uložit jako…"
                                                                 Width="22" Height="22" Padding="0"
-                                                                CornerRadius="5"
+                                                                CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Download}"
                                                                              Width="12" Height="12"
@@ -873,7 +873,7 @@
                                                                 Command="{Binding OpenImageExternalCommand}"
                                                                 ToolTip.Tip="Otevřít v externí prohlížečce"
                                                                 Width="22" Height="22" Padding="0"
-                                                                CornerRadius="5"
+                                                                CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.OpenInNew}"
                                                                              Width="12" Height="12"
@@ -946,7 +946,7 @@
                                                             Command="{ReflectionBinding $parent[UserControl].DataContext.RegenerateLastResponseCommand}"
                                                             ToolTip.Tip="Zkusit znovu"
                                                             Width="22" Height="22" Padding="0"
-                                                            CornerRadius="5"
+                                                            CornerRadius="6"
                                                             Background="Transparent" BorderThickness="0">
                                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="12" Height="12" Foreground="{DynamicResource WarningBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
@@ -956,7 +956,7 @@
                                                             CommandParameter="{Binding}"
                                                             ToolTip.Tip="Větev od této zprávy"
                                                             Width="22" Height="22" Padding="0"
-                                                            CornerRadius="5"
+                                                            CornerRadius="6"
                                                             Background="Transparent" BorderThickness="0">
                                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
@@ -965,7 +965,7 @@
                                                             Command="{Binding CopyContentCommand}"
                                                             ToolTip.Tip="Kopírovat"
                                                             Width="22" Height="22" Padding="0"
-                                                            CornerRadius="5"
+                                                            CornerRadius="6"
                                                             Background="Transparent" BorderThickness="0">
                                                         <Panel>
                                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
@@ -1094,11 +1094,11 @@
                                   ItemsSource="{Binding AvailableModels}"
                                   SelectedItem="{Binding CompareModelName}"
                                   Background="{DynamicResource CardBgBrush}" Foreground="{DynamicResource TextLightBrush}"
-                                  BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="7" FontSize="12"/>
+                                  BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8" FontSize="12"/>
                         <Button Grid.Column="2"
                                 Command="{Binding CompareWithModelCommand}"
                                 Background="#1A1A3A" BorderBrush="#3A3A6A" BorderThickness="1"
-                                CornerRadius="7" Padding="12,5"
+                                CornerRadius="8" Padding="12,5"
                                 ToolTip.Tip="Vytvořit větev a vygenerovat odpověď zvoleným modelem">
                             <TextBlock Text="Spustit" FontSize="12" Foreground="#818CF8"/>
                         </Button>

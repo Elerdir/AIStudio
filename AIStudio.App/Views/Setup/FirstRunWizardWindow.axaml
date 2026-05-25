@@ -197,7 +197,7 @@
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Border Grid.Column="0"
                             Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
-                            BorderThickness="1" CornerRadius="9">
+                            BorderThickness="1" CornerRadius="8">
                         <TextBox Text="{Binding ModelsDirectory}"
                                  Background="Transparent"
                                  BorderThickness="0"
@@ -212,7 +212,7 @@
                             Click="BrowseBtn_Click"
                             Background="{DynamicResource CardBgBrush}"
                             BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
-                            CornerRadius="9" Padding="14,10"
+                            CornerRadius="8" Padding="14,10"
                             FontSize="13" Foreground="{DynamicResource TextLightBrush}">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderSearch}" Width="16" Height="16" Foreground="{DynamicResource TextMutedBrush}"
@@ -340,7 +340,7 @@
                                     PointerPressed="GpuOption_Pressed">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                                     <Border Grid.Column="0" Width="18" Height="18"
-                                            CornerRadius="9"
+                                            CornerRadius="8"
                                             BorderBrush="#7C3AED" BorderThickness="2"
                                             Background="#7C3AED">
                                         <Border Width="6" Height="6" CornerRadius="3"
@@ -372,7 +372,7 @@
                                     PointerPressed="CpuOption_Pressed">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                                     <Border Grid.Column="0" Width="18" Height="18"
-                                            CornerRadius="9"
+                                            CornerRadius="8"
                                             BorderBrush="{DynamicResource CardHoverBgBrush}" BorderThickness="2"
                                             Background="Transparent">
                                         <Border Width="6" Height="6" CornerRadius="3"
@@ -415,7 +415,7 @@
                     <Run Text="— hf_..." Foreground="{DynamicResource CardHoverBgBrush}"/>
                 </TextBlock>
                 <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
-                        BorderThickness="1" CornerRadius="9">
+                        BorderThickness="1" CornerRadius="8">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBox Grid.Column="0"
                                  Text="{Binding HuggingFaceToken}"
@@ -448,7 +448,7 @@
                     <Run Text="— pro SDXL modely" Foreground="{DynamicResource CardHoverBgBrush}"/>
                 </TextBlock>
                 <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
-                        BorderThickness="1" CornerRadius="9">
+                        BorderThickness="1" CornerRadius="8">
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBox Grid.Column="0"
                                  Text="{Binding CivitaiApiKey}"
@@ -535,7 +535,7 @@
                                     Command="{Binding StartComfyInstallCommand}"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Center"
-                                    Padding="0,12" CornerRadius="9" FontSize="13">
+                                    Padding="0,12" CornerRadius="8" FontSize="13">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Download}"
                                                      Width="16" Height="16" VerticalAlignment="Center"/>
@@ -841,7 +841,7 @@
                         IsVisible="{Binding CanGoBack}"
                         Background="{DynamicResource CardBgBrush}"
                         BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
-                        CornerRadius="9" Padding="18,10"
+                        CornerRadius="8" Padding="18,10"
                         FontSize="13" Foreground="{DynamicResource TextMutedBrush}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ChevronLeft}" Width="14" Height="14" VerticalAlignment="Center"/>
@@ -865,7 +865,7 @@
                         Classes="primary"
                         Command="{Binding NextCommand}"
                         IsEnabled="{Binding CanGoNext}"
-                        Padding="22,10" CornerRadius="9" FontSize="13">
+                        Padding="22,10" CornerRadius="8" FontSize="13">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="{Binding NextButtonText}"
                                    VerticalAlignment="Center"/>
