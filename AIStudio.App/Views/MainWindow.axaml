@@ -137,7 +137,7 @@
                                      Minimum="0" Maximum="100"
                                      Height="3"
                                      CornerRadius="2"
-                                     Foreground="#F59E0B"
+                                     Foreground="{DynamicResource WarningBrush}"
                                      Background="{DynamicResource HoverBgBrush}"/>
                         <!-- Model / stav -->
                         <TextBlock Text="{Binding StatusText}"
@@ -156,7 +156,7 @@
                                 Command="{Binding Updates.InstallCommand}"
                                 ToolTip.Tip="{Binding Updates.StatusMessage}">
                             <TextBlock Text="{Binding Updates.UpdateLabel}"
-                                       Foreground="#F59E0B"/>
+                                       Foreground="{DynamicResource WarningBrush}"/>
                         </Button>
                     </StackPanel>
                 </Border>

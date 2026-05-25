@@ -50,14 +50,14 @@
                                            Text="{Binding CpuLabel}"
                                            FontSize="22"
                                            FontWeight="Bold"
-                                           Foreground="#A78BFA"
+                                           Foreground="{DynamicResource AccentLightBrush}"
                                            VerticalAlignment="Center"/>
                             </Grid>
                             <ProgressBar Value="{Binding CpuPercent}"
                                          Minimum="0" Maximum="100"
                                          Height="4"
                                          CornerRadius="2"
-                                         Foreground="#7C3AED"
+                                         Foreground="{DynamicResource AccentBrush}"
                                          Background="{DynamicResource AppBorderBrush}"/>
                         </StackPanel>
                     </Border>
@@ -142,7 +142,7 @@
                                        Text="{Binding VramLabel}"
                                        FontSize="20"
                                        FontWeight="Bold"
-                                       Foreground="#F59E0B"
+                                       Foreground="{DynamicResource WarningBrush}"
                                        VerticalAlignment="Center"/>
                         </Grid>
 
@@ -153,7 +153,7 @@
                                          Minimum="0" Maximum="100"
                                          Height="10"
                                          CornerRadius="5"
-                                         Foreground="#F59E0B"
+                                         Foreground="{DynamicResource WarningBrush}"
                                          Background="{DynamicResource AppBorderBrush}"/>
                             <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
                                 <TextBlock Grid.Column="0"
@@ -190,7 +190,7 @@
                                         VerticalAlignment="Center"
                                         Padding="10,6"
                                         Content="Uvolnit"
-                                        Foreground="#F87171"/>
+                                        Foreground="{DynamicResource ErrorBrush}"/>
                             </Grid>
                         </Border>
 
@@ -242,7 +242,7 @@
                                                         BorderThickness="1"
                                                         CornerRadius="4"
                                                         Padding="6,1">
-                                                    <TextBlock Text="Tato aplikace" FontSize="10" Foreground="#4ADE80"/>
+                                                    <TextBlock Text="Tato aplikace" FontSize="10" Foreground="{DynamicResource SuccessBrush}"/>
                                                 </Border>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Pid, StringFormat={}PID: {0}}"
@@ -255,7 +255,7 @@
                                                    Text="{Binding VramLabel}"
                                                    FontSize="13"
                                                    FontWeight="SemiBold"
-                                                   Foreground="#F59E0B"
+                                                   Foreground="{DynamicResource WarningBrush}"
                                                    VerticalAlignment="Center"/>
 
                                         <!-- Kill button (not for own process) -->
@@ -266,7 +266,7 @@
                                                 CommandParameter="{Binding}"
                                                 VerticalAlignment="Center"
                                                 Padding="10,6"
-                                                Foreground="#F87171"
+                                                Foreground="{DynamicResource ErrorBrush}"
                                                 Content="Ukončit"/>
                                     </Grid>
                                 </Border>

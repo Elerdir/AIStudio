@@ -41,8 +41,8 @@
                         ToolTip.Tip="Uložit kopii… (vyber kam)">
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Download}"
-                                         Width="14" Height="14" Foreground="#A78BFA"/>
-                        <TextBlock Text="Uložit jako" FontSize="12" Foreground="#A78BFA"/>
+                                         Width="14" Height="14" Foreground="{DynamicResource AccentLightBrush}"/>
+                        <TextBlock Text="Uložit jako" FontSize="12" Foreground="{DynamicResource AccentLightBrush}"/>
                     </StackPanel>
                 </Button>
 

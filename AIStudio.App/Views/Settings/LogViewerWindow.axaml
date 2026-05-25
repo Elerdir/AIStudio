@@ -106,9 +106,9 @@
                         <TextBlock Text="Kopírovat" FontSize="12" VerticalAlignment="Center"
                                    IsVisible="{Binding !IsCopied}"/>
                         <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
-                                   FontSize="12" Foreground="#4ADE80" VerticalAlignment="Center"
+                                   FontSize="12" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"
                                    IsVisible="{Binding IsCopied}"/>
-                        <TextBlock Text="Zkopírováno" FontSize="12" Foreground="#4ADE80"
+                        <TextBlock Text="Zkopírováno" FontSize="12" Foreground="{DynamicResource SuccessBrush}"
                                    VerticalAlignment="Center"
                                    IsVisible="{Binding IsCopied}"/>
                     </StackPanel>
@@ -124,7 +124,7 @@
                         Background="#88000000" ZIndex="2">
                     <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
                         <ProgressBar IsIndeterminate="True" Width="200" Height="3"
-                                     Foreground="#7C3AED" Background="{DynamicResource HoverBgBrush}"/>
+                                     Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource HoverBgBrush}"/>
                         <TextBlock Text="Načítám…" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
                                    HorizontalAlignment="Center"/>
                     </StackPanel>

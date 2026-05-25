@@ -25,8 +25,8 @@
                         CornerRadius="8" Padding="12,6"
                         VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
-                        <TextBlock Text="Uloženo" FontSize="12" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Uloženo" FontSize="12" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -100,7 +100,7 @@
                                     Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10" Margin="0,12,0,0">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="#F59E0B" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                     <TextBlock FontSize="11" Foreground="#7A6A40" TextWrapping="Wrap"
                                                Text="CPU inference je řádově pomalejší než GPU. Pro použitelné výsledky doporučujeme modely do 7B a trpělivost."/>
                                 </StackPanel>
@@ -223,7 +223,7 @@
                                               ToolTip.Tip="Zobrazit / skrýt token">
                                     <Panel>
                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eye}" Width="18" Height="18" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !ShowHfToken}"/>
-                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="18" Height="18" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowHfToken}"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="18" Height="18" Foreground="{DynamicResource AccentLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowHfToken}"/>
                                     </Panel>
                                 </ToggleButton>
 
@@ -238,7 +238,7 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Smazat token">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="16" Height="16" Foreground="#F87171" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="16" Height="16" Foreground="{DynamicResource ErrorBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
 
@@ -246,7 +246,7 @@
                             <Border Background="{DynamicResource SubtlePanelBgBrush}" CornerRadius="6" Padding="10,6"
                                     IsVisible="{Binding HuggingFaceToken, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
                                     <TextBlock Text="Token nastaven — privátní modely jsou dostupné"
                                                FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                 </StackPanel>
@@ -306,7 +306,7 @@
                                               ToolTip.Tip="Zobrazit / skrýt klíč">
                                     <Panel>
                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Eye}" Width="18" Height="18" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !ShowCivitaiToken}"/>
-                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="18" Height="18" Foreground="#A78BFA" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowCivitaiToken}"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.EyeOff}" Width="18" Height="18" Foreground="{DynamicResource AccentLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding ShowCivitaiToken}"/>
                                     </Panel>
                                 </ToggleButton>
 
@@ -320,14 +320,14 @@
                                         HorizontalContentAlignment="Center"
                                         VerticalContentAlignment="Center"
                                         ToolTip.Tip="Smazat klíč">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="16" Height="16" Foreground="#F87171" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="16" Height="16" Foreground="{DynamicResource ErrorBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Button>
                             </Grid>
 
                             <Border Background="{DynamicResource SubtlePanelBgBrush}" CornerRadius="6" Padding="10,6"
                                     IsVisible="{Binding CivitaiApiKey, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
                                     <TextBlock Text="API klíč nastaven — Civitai modely jsou dostupné"
                                                FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                 </StackPanel>
@@ -339,7 +339,7 @@
                             <Border Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10">
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                                    <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="#F59E0B" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                    <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                     <TextBlock Grid.Column="1"
                                                Text="Některé modely na Civitai vyžadují přihlášení nebo věkové ověření. Bez API klíče může stahování selhat s chybou 401."
                                                FontSize="11" Foreground="#7A6A40"
@@ -364,11 +364,11 @@
                                  nekonečnou šířku a TextWrapping="Wrap" by byl bez efektu;
                                  Auto,* zaručí, že popisek dostane zbylý prostor a zalomí se. -->
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                                <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.InformationOutline}" Width="16" Height="16" Foreground="#A78BFA" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.InformationOutline}" Width="16" Height="16" Foreground="{DynamicResource AccentLightBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="Jak rozjet generování obrázků"
-                                               FontSize="13" FontWeight="SemiBold" Foreground="#C4B5FD"/>
-                                    <TextBlock FontSize="11" Foreground="#7c7398" TextWrapping="Wrap"
+                                               FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource AccentLighterBrush}"/>
+                                    <TextBlock FontSize="11" Foreground="{DynamicResource AccentSubtleBrush}" TextWrapping="Wrap"
                                                Text="ComfyUI je samostatná Python aplikace, která provede vlastní generování. AI Studio ji jen ovládá. Klikni na Nainstalovat automaticky a stáhneme za tebe nejnovější Windows + NVIDIA build (~2 GB). Pokud máš AMD/Intel GPU nebo chceš vlastní instalaci, použij ručně tlačítko Stránka GitHub a sem zadej cestu."/>
                                 </StackPanel>
                             </Grid>
@@ -409,7 +409,7 @@
                                     Background="#0F1A0F" BorderBrush="#1F3A1F" BorderThickness="1"
                                     CornerRadius="8" Padding="12,8" HorizontalAlignment="Left">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="#4ADE80" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
                                     <TextBlock Text="ComfyUI je nainstalovaný a připravený"
                                                FontSize="12" Foreground="#86EFAC"
                                                VerticalAlignment="Center"/>
@@ -431,17 +431,17 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                     <TextBlock Grid.Column="0"
                                                Text="{Binding InstallStatus}"
-                                               FontSize="12" Foreground="#C4B5FD"
+                                               FontSize="12" Foreground="{DynamicResource AccentLighterBrush}"
                                                TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Grid.Column="1"
                                                Text="{Binding InstallSpeed}"
-                                               FontSize="11" Foreground="#7c7398"
+                                               FontSize="11" Foreground="{DynamicResource AccentSubtleBrush}"
                                                IsVisible="{Binding InstallSpeed, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                 </Grid>
                                 <ProgressBar Value="{Binding InstallProgress}"
                                              Minimum="0" Maximum="100"
                                              Height="6" CornerRadius="3"
-                                             Foreground="#7C3AED"
+                                             Foreground="{DynamicResource AccentBrush}"
                                              Background="#1F1B3D"/>
                                 <Button Classes="secondary"
                                         HorizontalAlignment="Left"
@@ -456,9 +456,9 @@
                                     Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
                                     CornerRadius="8" Padding="12,8">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="14" Height="14" Foreground="#F87171" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="14" Height="14" Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                     <TextBlock Text="{Binding InstallError}"
-                                               FontSize="11" Foreground="#F87171"
+                                               FontSize="11" Foreground="{DynamicResource ErrorBrush}"
                                                TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>

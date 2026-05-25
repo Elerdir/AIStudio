@@ -17,7 +17,7 @@
                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="Auto,*">
                 <mi:MaterialIcon Grid.Column="0" Kind="TrayFull" Width="22" Height="22"
-                                 Foreground="#A78BFA" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                 Foreground="{DynamicResource AccentLightBrush}" VerticalAlignment="Center" Margin="0,0,12,0"/>
                 <StackPanel Grid.Column="1" Spacing="3">
                     <TextBlock Text="Fronta stahování" FontSize="17" FontWeight="Bold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -61,10 +61,10 @@
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <ProgressBar Grid.Column="0" Value="{Binding DownloadProgress}"
                                                              Minimum="0" Maximum="100" Height="5" CornerRadius="3"
-                                                             Foreground="#7C3AED"
+                                                             Foreground="{DynamicResource AccentBrush}"
                                                              Background="{DynamicResource AppBorderBrush}"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding DownloadProgressLabel}"
-                                                           FontSize="11" FontWeight="SemiBold" Foreground="#A78BFA"
+                                                           FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource AccentLightBrush}"
                                                            VerticalAlignment="Center"/>
                                             </Grid>
                                             <StackPanel Orientation="Horizontal" Spacing="10">
@@ -104,7 +104,7 @@
                                                 CommandParameter="{Binding}">
                                             <mi:MaterialIcon Kind="ArrowDown" Width="15" Height="15"/>
                                         </Button>
-                                        <Button Classes="secondary" Padding="7,5" Foreground="#F87171"
+                                        <Button Classes="secondary" Padding="7,5" Foreground="{DynamicResource ErrorBrush}"
                                                 ToolTip.Tip="Zrušit stahování"
                                                 Command="{ReflectionBinding $parent[Window].DataContext.CancelDownloadCommand}"
                                                 CommandParameter="{Binding}">

@@ -104,8 +104,8 @@
                         Command="{Binding StopComfyCommand}"
                         IsVisible="{Binding ComfyRunning}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Power}" Width="14" Height="14" Foreground="#F87171" VerticalAlignment="Center"/>
-                        <TextBlock Text="Zastavit" Foreground="#F87171" VerticalAlignment="Center"/>
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Power}" Width="14" Height="14" Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Zastavit" Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </Grid>
@@ -635,7 +635,7 @@
                                                 Minimum="0.0" Maximum="1.0"
                                                 SmallChange="0.05"
                                                 HorizontalAlignment="Stretch"
-                                                Foreground="#7C3AED"/>
+                                                Foreground="{DynamicResource AccentBrush}"/>
                                     </StackPanel>
                                 </StackPanel>
                             <!-- LoRA adaptery (Smart) -->
@@ -696,7 +696,7 @@
                                                     <TextBlock Grid.Column="0"
                                                                Text="{Binding Name}"
                                                                FontSize="12"
-                                                               Foreground="#A78BFA"
+                                                               Foreground="{DynamicResource AccentLightBrush}"
                                                                VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis"/>
                                                     <TextBlock Grid.Column="1"
@@ -884,7 +884,7 @@
                                     <Slider Value="{Binding ReferenceStrength}"
                                             Minimum="0.0" Maximum="1.0"
                                             SmallChange="0.05"
-                                            Foreground="#7C3AED"/>
+                                            Foreground="{DynamicResource AccentBrush}"/>
                                     <TextBlock FontSize="10"
                                                Foreground="{DynamicResource CardHoverBgBrush}"
                                                TextWrapping="Wrap">
@@ -953,7 +953,7 @@
                                                     <TextBlock Grid.Column="0"
                                                                Text="{Binding Name}"
                                                                FontSize="12"
-                                                               Foreground="#A78BFA"
+                                                               Foreground="{DynamicResource AccentLightBrush}"
                                                                VerticalAlignment="Center"
                                                                TextTrimming="CharacterEllipsis"/>
                                                     <TextBlock Grid.Column="1"
@@ -1021,7 +1021,7 @@
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Grid.Column="0" Text="Rozlišení" FontSize="12" Foreground="{DynamicResource TextWeakBrush}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding ResolutionLabel}"
-                                               FontSize="12" Foreground="#A78BFA" FontWeight="SemiBold"/>
+                                               FontSize="12" Foreground="{DynamicResource AccentLightBrush}" FontWeight="SemiBold"/>
                                 </Grid>
                             </Border>
 
@@ -1151,7 +1151,7 @@
                                 <ProgressBar Value="{Binding GenerationProgress}"
                                              Minimum="0" Maximum="100"
                                              Height="3"
-                                             Foreground="#7C3AED"
+                                             Foreground="{DynamicResource AccentBrush}"
                                              Background="{DynamicResource HoverBgBrush}"/>
                             </StackPanel>
 
@@ -1190,9 +1190,9 @@
                                         Command="{Binding StopGenerationCommand}"
                                         IsVisible="{Binding IsGenerating}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Stop}" Width="16" Height="16" Foreground="#F87171" VerticalAlignment="Center"/>
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Stop}" Width="16" Height="16" Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Center"/>
                                         <TextBlock Text="Zastavit" FontSize="14" FontWeight="SemiBold"
-                                                   Foreground="#F87171" VerticalAlignment="Center"/>
+                                                   Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </Panel>
@@ -1253,7 +1253,7 @@
                         <ProgressBar IsIndeterminate="True"
                                      Width="200"
                                      Height="3"
-                                     Foreground="#7C3AED"/>
+                                     Foreground="{DynamicResource AccentBrush}"/>
                         <TextBlock Text="{Binding GenerationStatus}"
                                    FontSize="13"
                                    Foreground="{DynamicResource TextMutedBrush}"
@@ -1283,7 +1283,7 @@
                                 <ProgressBar IsIndeterminate="True"
                                              Width="200"
                                              Height="3"
-                                             Foreground="#7C3AED"/>
+                                             Foreground="{DynamicResource AccentBrush}"/>
                                 <TextBlock Text="{Binding GenerationStatus}"
                                            FontSize="13"
                                            Foreground="{DynamicResource TextPrimaryBrush}"
@@ -1400,14 +1400,14 @@
                                         ToolTip.Tip="Načte ze SQLite dalších 50 obrázků">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ChevronDoubleDown}"
-                                                         Width="12" Height="12" Foreground="#A78BFA"
+                                                         Width="12" Height="12" Foreground="{DynamicResource AccentLightBrush}"
                                                          VerticalAlignment="Center"/>
                                         <TextBlock Text="Načíst další"
-                                                   FontSize="11" Foreground="#A78BFA"
+                                                   FontSize="11" Foreground="{DynamicResource AccentLightBrush}"
                                                    VerticalAlignment="Center"
                                                    IsVisible="{Binding !IsLoadingMoreImages}"/>
                                         <TextBlock Text="Načítám…"
-                                                   FontSize="11" Foreground="#A78BFA"
+                                                   FontSize="11" Foreground="{DynamicResource AccentLightBrush}"
                                                    VerticalAlignment="Center"
                                                    IsVisible="{Binding IsLoadingMoreImages}"/>
                                     </StackPanel>

@@ -138,7 +138,7 @@
                         <StackPanel Spacing="14">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <Border Width="32" Height="32" CornerRadius="8" Background="#1A1228">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Forum}" Width="18" Height="18" Foreground="#A78BFA"
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Forum}" Width="18" Height="18" Foreground="{DynamicResource AccentLightBrush}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
@@ -227,7 +227,7 @@
                         CornerRadius="8" Padding="14,10">
                     <StackPanel Spacing="4">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="14" Height="14" Foreground="#A78BFA"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="14" Height="14" Foreground="{DynamicResource AccentLightBrush}"
                                        VerticalAlignment="Center"/>
                             <TextBlock Text="Výchozí umístění:" FontSize="11"
                                        Foreground="{DynamicResource TextWeakBrush}"/>
@@ -261,7 +261,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="14">
                         <ProgressBar IsIndeterminate="True"
                                      Width="80" Height="2"
-                                     Foreground="#7C3AED"
+                                     Foreground="{DynamicResource AccentBrush}"
                                      Background="{DynamicResource AppBorderBrush}"
                                      VerticalAlignment="Center"/>
                         <TextBlock Text="Detekuji GPU…" FontSize="13"
@@ -277,14 +277,14 @@
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                         <Border Grid.Column="0" Width="44" Height="44"
                                 CornerRadius="10" Background="#14532D">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Harddisk}" Width="22" Height="22" Foreground="#4ADE80"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Harddisk}" Width="22" Height="22" Foreground="{DynamicResource SuccessBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                             <TextBlock Text="{Binding GpuName}"
                                        FontSize="14" FontWeight="SemiBold"
                                        Foreground="#CCFFCC"/>
-                            <TextBlock FontSize="12" Foreground="#4ADE80">
+                            <TextBlock FontSize="12" Foreground="{DynamicResource SuccessBrush}">
                                 <Run Text="VRAM: "/>
                                 <Run Text="{Binding VramTotalGb, StringFormat='{}{0:F1} GB'}"/>
                             </TextBlock>
@@ -300,7 +300,7 @@
                     <StackPanel Spacing="4"
                                 IsVisible="{Binding !IsDetectingGpu}">
                         <TextBlock Text="GPU nedetekováno" FontSize="13"
-                                   FontWeight="SemiBold" Foreground="#FBBF24"/>
+                                   FontWeight="SemiBold" Foreground="{DynamicResource RatingBrush}"/>
                         <TextBlock FontSize="12" Foreground="#A07820" TextWrapping="Wrap"
                                    Text="Inference poběží na CPU — bude pomalejší. Pro GPU je potřeba NVIDIA s CUDA 12."/>
                     </StackPanel>
@@ -357,7 +357,7 @@
                                                    FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                     </StackPanel>
                                     <mi:MaterialIcon Grid.Column="2"
-                                               Kind="{x:Static miKind:MaterialIconKind.Harddisk}" Width="16" Height="16" Foreground="#A78BFA"
+                                               Kind="{x:Static miKind:MaterialIconKind.Harddisk}" Width="16" Height="16" Foreground="{DynamicResource AccentLightBrush}"
                                                VerticalAlignment="Center"/>
                                 </Grid>
                                 <Border.Styles>
@@ -500,7 +500,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <Border Width="32" Height="32" CornerRadius="8" Background="#1A1228">
                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageMultipleOutline}"
-                                                 Width="18" Height="18" Foreground="#A78BFA"
+                                                 Width="18" Height="18" Foreground="{DynamicResource AccentLightBrush}"
                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <StackPanel VerticalAlignment="Center">
@@ -518,7 +518,7 @@
                                 CornerRadius="8" Padding="12,10">
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CheckCircleOutline}"
-                                                 Width="18" Height="18" Foreground="#4ADE80"
+                                                 Width="18" Height="18" Foreground="{DynamicResource SuccessBrush}"
                                                  VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="ComfyUI je nainstalovaný a připravený"
@@ -563,16 +563,16 @@
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                 <TextBlock Grid.Column="0"
                                            Text="{Binding ComfyInstallStatus}"
-                                           FontSize="12" Foreground="#C4B5FD"
+                                           FontSize="12" Foreground="{DynamicResource AccentLighterBrush}"
                                            TextTrimming="CharacterEllipsis"/>
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding ComfyInstallSpeed}"
-                                           FontSize="11" Foreground="#7c7398"/>
+                                           FontSize="11" Foreground="{DynamicResource AccentSubtleBrush}"/>
                             </Grid>
                             <ProgressBar Value="{Binding ComfyInstallPercent}"
                                          Minimum="0" Maximum="100"
                                          Height="6" CornerRadius="3"
-                                         Foreground="#7C3AED"
+                                         Foreground="{DynamicResource AccentBrush}"
                                          Background="#1F1B3D"/>
                             <Button Classes="secondary"
                                     Command="{Binding CancelComfyInstallCommand}"
@@ -655,7 +655,7 @@
                                             <Border Background="#1A1228" CornerRadius="4" Padding="6,2"
                                                     VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding KindLabel}"
-                                                           FontSize="10" Foreground="#A78BFA"/>
+                                                           FontSize="10" Foreground="{DynamicResource AccentLightBrush}"/>
                                             </Border>
                                         </StackPanel>
                                         <TextBlock Text="{Binding Model.Description}"
@@ -718,7 +718,7 @@
 
                         <!-- Složka modelů -->
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="#4ADE80"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="{DynamicResource SuccessBrush}"
                                        VerticalAlignment="Center"/>
                             <StackPanel>
                                 <TextBlock Text="Složka modelů"
@@ -733,7 +733,7 @@
 
                         <!-- GPU -->
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="#4ADE80"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="{DynamicResource SuccessBrush}"
                                        VerticalAlignment="Center"/>
                             <StackPanel>
                                 <TextBlock Text="Výpočetní prostředek"
@@ -747,20 +747,20 @@
 
                         <!-- API tokeny -->
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="#4ADE80"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="{DynamicResource SuccessBrush}"
                                        VerticalAlignment="Center"/>
                             <StackPanel>
                                 <TextBlock Text="API tokeny"
                                            FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="HuggingFace:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                                    <TextBlock Text="nastaven ✓"  FontSize="11" Foreground="#4ADE80"
+                                    <TextBlock Text="nastaven ✓"  FontSize="11" Foreground="{DynamicResource SuccessBrush}"
                                                IsVisible="{Binding HasHfToken}"/>
                                     <TextBlock Text="(nevyplněn)" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
                                                IsVisible="{Binding !HasHfToken}"/>
                                     <TextBlock Text="·" FontSize="11" Foreground="{DynamicResource CardHoverBgBrush}" Margin="4,0"/>
                                     <TextBlock Text="Civitai:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
-                                    <TextBlock Text="nastaven ✓"  FontSize="11" Foreground="#4ADE80"
+                                    <TextBlock Text="nastaven ✓"  FontSize="11" Foreground="{DynamicResource SuccessBrush}"
                                                IsVisible="{Binding HasCivitaiKey}"/>
                                     <TextBlock Text="(nevyplněn)" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
                                                IsVisible="{Binding !HasCivitaiKey}"/>
@@ -772,7 +772,7 @@
 
                         <!-- ComfyUI -->
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="#4ADE80"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="{DynamicResource SuccessBrush}"
                                        IsVisible="{Binding IsComfyInstalled}"
                                        VerticalAlignment="Center"/>
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Minus}" Width="16" Height="16"
@@ -792,7 +792,7 @@
 
                         <!-- Doporučené modely -->
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="#4ADE80"
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="{DynamicResource SuccessBrush}"
                                        IsVisible="{Binding HasSelectedRecommendedModels}"
                                        VerticalAlignment="Center"/>
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Minus}" Width="16" Height="16"
