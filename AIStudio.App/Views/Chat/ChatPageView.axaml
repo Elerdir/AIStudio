@@ -554,15 +554,14 @@
 
                 </StackPanel>
 
-                <!-- StackPanel wrapper kolem ItemsControl + ScrollSentinel:
-                     Raw Panel (parent) je v Avalonii overlay (jako Canvas) —
-                     děti se nestackují vertikálně, jen overlapují v top-left.
-                     ScrollSentinel jako sibling Panelu by visel nahoře, ne
-                     pod ItemsControlem. StackPanel zaručí, že sentinel je
-                     skutečně pod posledním bublinou. -->
+                <!-- Bottom margin 60: garantovaný gap pod poslední bublinou
+                     (action row + breathing space nad input panelem).
+                     ScrollToBottom v code-behind nastaví Offset = MaxValue,
+                     ScrollViewer clamp-uje na actual extent, takže poslední
+                     bublina vždy končí 60+ZsvPaddingBottom px nad inputem. -->
                 <StackPanel>
                 <ItemsControl ItemsSource="{Binding SelectedConversation.Messages}"
-                              Margin="0,0,0,0">
+                              Margin="0,0,0,60">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:ChatMessage">
                             <Border Margin="0,6">
@@ -1016,12 +1015,6 @@
                     </ItemsControl.Styles>
                 </ItemsControl>
 
-                <!-- Sentinel element pro auto-scroll: BringIntoView na něj je
-                     spolehlivější než ScrollToEnd. Sentinel je uvnitř StackPanelu,
-                     takže se rendruje POD ItemsControlem (StackPanel stack-uje
-                     vertikálně). Height 1 = neviditelný; Margin top 40 =
-                     breathing space pod poslední bublinou. -->
-                <Border Name="ScrollSentinel" Height="1" Margin="0,40,0,0"/>
                 </StackPanel>
 
               </Panel>

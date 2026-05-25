@@ -215,38 +215,37 @@ public partial class ChatPageView : UserControl
 
     private void ScrollToBottom()
     {
-        // Použijeme BringIntoView na sentinel element na konci ItemsControl —
-        // ScrollViewer si sám spočítá kam scrollovat tak, aby sentinel byl plně
-        // ve viewport. Tím se vyhneme race condition s ScrollToEnd, kde
-        // ScrollViewer.Extent v okamžiku volání nereflectoval skutečnou výšku
-        // ItemsControl (kvůli deferred MarkdownViewer layout / IsStreaming →
-        // false / action row).
+        // Direktní Offset = MaxValue. ScrollViewer.Offset setter clamp-uje
+        // na Extent.Y - Viewport.Y, takže se vždy trefíme do skutečného konce
+        // (na rozdíl od ScrollToEnd, který používá interně cached Extent z
+        // posledního MeasureOverride a může být zastaralý).
         //
-        // Sentinel má Margin top 40 → BringIntoView posune scroll tak, aby
-        // 1px sentinel byl vidět = pod poslední bublinou je 40px breathing
-        // space.
+        // Sentinel + BringIntoView z předchozího pokusu nefungoval — bubliny
+        // končily těsně nad inputem bez gap. Nahrazeno přímou manipulací s
+        // Offset, plus 25-frame retry safety window.
 
-        var sentinel = this.FindControl<Border>("ScrollSentinel");
-        var scroll   = this.FindControl<ScrollViewer>("MessagesScroll");
-        if (sentinel is null || scroll is null) return;
+        var scroll = this.FindControl<ScrollViewer>("MessagesScroll");
+        if (scroll is null) return;
 
-        // Vstupujeme do programmatic scroll okna — OnScrollChanged nesmí měnit _autoScroll
-        // (intermediate layout pass může chybně reportovat atBottom=false).
         _programmaticScroll = true;
+
+        static void ForceMaxOffset(ScrollViewer s)
+        {
+            // double.MaxValue → ScrollViewer.Offset clamp na max valid
+            // (= Extent.Y - Viewport.Height). Při Extent < Viewport jen 0.
+            s.Offset = new Avalonia.Vector(0, double.MaxValue);
+        }
 
         Dispatcher.UIThread.Post(() =>
         {
-            sentinel.BringIntoView();
+            ForceMaxOffset(scroll);
 
             var framesSeen = 0;
             EventHandler? handler = null;
             handler = (_, _) =>
             {
                 framesSeen++;
-                // Re-bring po každém layout pass — pokud bubliny dorůstají
-                // (MarkdownViewer postupně), sentinel posunul a my za ním
-                // dotáhneme scroll.
-                sentinel.BringIntoView();
+                ForceMaxOffset(scroll);
                 if (framesSeen >= 25)
                 {
                     scroll.LayoutUpdated -= handler!;
