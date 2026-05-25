@@ -586,8 +586,8 @@
                                                            FontSize="14" LineHeight="22"
                                                            TextWrapping="Wrap"/>
                                                 <!-- Řádek: čas + tokeny (vlevo) + akce (vpravo) -->
-                                                <Border BorderBrush="#3D2A6E" BorderThickness="0,1,0,0"
-                                                        Margin="0,10,0,0" Padding="0,6,0,0">
+                                                <StackPanel Spacing="8" Margin="0,12,0,2">
+                                                <Border Height="1" Background="#A78BFA" Opacity="0.5"/>
                                                 <Grid ColumnDefinitions="*,Auto">
                                                     <StackPanel Grid.Column="0" Orientation="Horizontal"
                                                                 Spacing="6" VerticalAlignment="Center">
@@ -633,7 +633,7 @@
                                                         </Button>
                                                     </StackPanel>
                                                 </Grid>
-                                                </Border>
+                                                </StackPanel>
                                             </StackPanel>
 
                                             <!-- Editační mód -->
@@ -933,13 +933,12 @@
                                             <ctrl:MarkdownViewer Markdown="{Binding Content}"
                                                                  Padding="0"
                                                                  IsVisible="{Binding !IsStreaming}"/>
-                                            <!-- Footer: čas + tokeny (vlevo) + akce (vpravo).
-                                                 Margin top 8 + bottom 0 (vs předchozí -2) = lepší
-                                                 vizuální oddělení od textu, žádný overflow z bubliny.
-                                                 Border top 1px = jasný visual anchor "konec zprávy". -->
-                                            <Border IsVisible="{Binding !IsStreaming}"
-                                                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0"
-                                                    Margin="0,10,0,0" Padding="0,6,0,0">
+                                            <!-- Footer wrap (separator čára + akční řádek).
+                                                 Separator je samostatný Border s vlastní Opacity,
+                                                 aby neovlivnil průhlednost children (TextBlock + akce). -->
+                                            <StackPanel IsVisible="{Binding !IsStreaming}" Spacing="8" Margin="0,12,0,2">
+                                            <Border Height="1" Background="#3D2A6E" Opacity="0.6"/>
+                                            <Border Padding="0,2,0,0">
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal"
                                                             Spacing="6" VerticalAlignment="Center">
@@ -988,6 +987,7 @@
                                                 </StackPanel>
                                             </Grid>
                                             </Border>
+                                            </StackPanel>
                                             </StackPanel>
                                             </Panel>
                                         </StackPanel>
