@@ -45,6 +45,16 @@
                     <SolidColorBrush x:Key="TextHintBrush"       Color="#666672"/>
                     <SolidColorBrush x:Key="TextWeakBrush"       Color="#555560"/>
                     <SolidColorBrush x:Key="TextDisabledBrush"   Color="#444450"/>
+                    <!-- Accent (fialová — primary brand) -->
+                    <SolidColorBrush x:Key="AccentBrush"          Color="#7C3AED"/>
+                    <SolidColorBrush x:Key="AccentLightBrush"     Color="#A78BFA"/>
+                    <SolidColorBrush x:Key="AccentLighterBrush"   Color="#C4B5FD"/>
+                    <SolidColorBrush x:Key="AccentSubtleBrush"    Color="#7c7398"/>
+                    <!-- Semantic — stejné v obou themes pro snadnou rozpoznatelnost -->
+                    <SolidColorBrush x:Key="ErrorBrush"            Color="#F87171"/>
+                    <SolidColorBrush x:Key="SuccessBrush"          Color="#4ADE80"/>
+                    <SolidColorBrush x:Key="WarningBrush"          Color="#F59E0B"/>
+                    <SolidColorBrush x:Key="RatingBrush"           Color="#FBBF24"/>
                 </ResourceDictionary>
 
                 <!-- ── Light theme ─────────────────────────────────────── -->
@@ -69,6 +79,16 @@
                     <SolidColorBrush x:Key="TextHintBrush"       Color="#707078"/>
                     <SolidColorBrush x:Key="TextWeakBrush"       Color="#8E8E98"/>
                     <SolidColorBrush x:Key="TextDisabledBrush"   Color="#A0A0A8"/>
+                    <!-- Accent — stejné jako dark, fialová je distinct dost na obou pozadích -->
+                    <SolidColorBrush x:Key="AccentBrush"          Color="#7C3AED"/>
+                    <SolidColorBrush x:Key="AccentLightBrush"     Color="#8B5CF6"/>
+                    <SolidColorBrush x:Key="AccentLighterBrush"   Color="#7C3AED"/>
+                    <SolidColorBrush x:Key="AccentSubtleBrush"    Color="#7c7398"/>
+                    <!-- Semantic — tmavší varianty pro lepší kontrast na světlém pozadí -->
+                    <SolidColorBrush x:Key="ErrorBrush"            Color="#DC2626"/>
+                    <SolidColorBrush x:Key="SuccessBrush"          Color="#16A34A"/>
+                    <SolidColorBrush x:Key="WarningBrush"          Color="#D97706"/>
+                    <SolidColorBrush x:Key="RatingBrush"           Color="#CA8A04"/>
                 </ResourceDictionary>
 
             </ResourceDictionary.ThemeDictionaries>
