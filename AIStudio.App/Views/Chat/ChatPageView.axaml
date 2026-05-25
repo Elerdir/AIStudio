@@ -586,13 +586,18 @@
                                                            FontSize="14" LineHeight="22"
                                                            TextWrapping="Wrap"/>
                                                 <!-- Řádek: čas + tokeny (vlevo) + akce (vpravo) -->
-                                                <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,-2">
+                                                <Border BorderBrush="#3D2A6E" BorderThickness="0,1,0,0"
+                                                        Margin="0,10,0,0" Padding="0,6,0,0">
+                                                <Grid ColumnDefinitions="*,Auto">
                                                     <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                                                Spacing="5" VerticalAlignment="Center">
+                                                                Spacing="6" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding TimeLabel}"
-                                                                   FontSize="10" Foreground="#4A3A6A"/>
+                                                                   FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="#9D8FC6"/>
+                                                        <TextBlock Text="·" FontSize="11" Foreground="#6A5A98"
+                                                                   IsVisible="{Binding TokenHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                                         <TextBlock Text="{Binding TokenHint}"
-                                                                   FontSize="10" Foreground="#2E2448"
+                                                                   FontSize="11" Foreground="#8275B0"
                                                                    IsVisible="{Binding TokenHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1"
@@ -600,34 +605,35 @@
                                                         <Button Classes="msgAction"
                                                                 Command="{Binding CopyContentCommand}"
                                                                 ToolTip.Tip="Kopírovat"
-                                                                Width="22" Height="22" Padding="0"
+                                                                Width="24" Height="24" Padding="0"
                                                                 CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <Panel>
-                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
-                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="12" Height="12" Foreground="{DynamicResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
+                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="14" Height="14" Foreground="#C4B5FD" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
+                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="{DynamicResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
                                                             </Panel>
                                                         </Button>
                                                         <Button Classes="msgAction"
                                                                 Command="{Binding BeginEditCommand}"
                                                                 ToolTip.Tip="Upravit zprávu"
-                                                                Width="22" Height="22" Padding="0"
+                                                                Width="24" Height="24" Padding="0"
                                                                 CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
-                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="14" Height="14" Foreground="#C4B5FD" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
                                                         <!-- Větev konverzace od této zprávy -->
                                                         <Button Classes="msgAction"
                                                                 Command="{ReflectionBinding $parent[UserControl].DataContext.BranchConversationCommand}"
                                                                 CommandParameter="{Binding}"
                                                                 ToolTip.Tip="Větev od této zprávy"
-                                                                Width="22" Height="22" Padding="0"
+                                                                Width="24" Height="24" Padding="0"
                                                                 CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
-                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="14" Height="14" Foreground="#C4B5FD" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
                                                     </StackPanel>
                                                 </Grid>
+                                                </Border>
                                             </StackPanel>
 
                                             <!-- Editační mód -->
@@ -927,15 +933,23 @@
                                             <ctrl:MarkdownViewer Markdown="{Binding Content}"
                                                                  Padding="0"
                                                                  IsVisible="{Binding !IsStreaming}"/>
-                                            <!-- Řádek: čas + tokeny (vlevo) + akce (vpravo) -->
-                                            <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,-2"
-                                                  IsVisible="{Binding !IsStreaming}">
+                                            <!-- Footer: čas + tokeny (vlevo) + akce (vpravo).
+                                                 Margin top 8 + bottom 0 (vs předchozí -2) = lepší
+                                                 vizuální oddělení od textu, žádný overflow z bubliny.
+                                                 Border top 1px = jasný visual anchor "konec zprávy". -->
+                                            <Border IsVisible="{Binding !IsStreaming}"
+                                                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0"
+                                                    Margin="0,10,0,0" Padding="0,6,0,0">
+                                            <Grid ColumnDefinitions="*,Auto">
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                                            Spacing="5" VerticalAlignment="Center">
+                                                            Spacing="6" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding TimeLabel}"
-                                                               FontSize="10" Foreground="{DynamicResource TextWeakBrush}"/>
+                                                               FontSize="11" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextMutedBrush}"/>
+                                                    <TextBlock Text="·" FontSize="11" Foreground="{DynamicResource TextDisabledBrush}"
+                                                               IsVisible="{Binding TokenHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                                     <TextBlock Text="{Binding TokenHint}"
-                                                               FontSize="10" Foreground="{DynamicResource TextDisabledBrush}"
+                                                               FontSize="11" Foreground="{DynamicResource TextHintBrush}"
                                                                IsVisible="{Binding TokenHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                                 </StackPanel>
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2">
@@ -944,35 +958,36 @@
                                                             IsVisible="{Binding IsError}"
                                                             Command="{ReflectionBinding $parent[UserControl].DataContext.RegenerateLastResponseCommand}"
                                                             ToolTip.Tip="Zkusit znovu"
-                                                            Width="22" Height="22" Padding="0"
+                                                            Width="24" Height="24" Padding="0"
                                                             CornerRadius="6"
                                                             Background="Transparent" BorderThickness="0">
-                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="12" Height="12" Foreground="{DynamicResource WarningBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="14" Height="14" Foreground="{DynamicResource WarningBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
                                                     <!-- Větev konverzace -->
                                                     <Button Classes="msgAction"
                                                             Command="{ReflectionBinding $parent[UserControl].DataContext.BranchConversationCommand}"
                                                             CommandParameter="{Binding}"
                                                             ToolTip.Tip="Větev od této zprávy"
-                                                            Width="22" Height="22" Padding="0"
+                                                            Width="24" Height="24" Padding="0"
                                                             CornerRadius="6"
                                                             Background="Transparent" BorderThickness="0">
-                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="14" Height="14" Foreground="{DynamicResource TextLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Button>
                                                     <!-- Kopírovat -->
                                                     <Button Classes="msgAction"
                                                             Command="{Binding CopyContentCommand}"
                                                             ToolTip.Tip="Kopírovat"
-                                                            Width="22" Height="22" Padding="0"
+                                                            Width="24" Height="24" Padding="0"
                                                             CornerRadius="6"
                                                             Background="Transparent" BorderThickness="0">
                                                         <Panel>
-                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="12" Height="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
-                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="12" Height="12" Foreground="{DynamicResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="14" Height="14" Foreground="{DynamicResource TextLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="{DynamicResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
                                                         </Panel>
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
+                                            </Border>
                                             </StackPanel>
                                             </Panel>
                                         </StackPanel>
@@ -994,12 +1009,11 @@
                                 </Animation>
                             </Style.Animations>
                         </Style>
-                        <!-- Akční tlačítka pod každou bublinou: vždy lehce viditelná (0.45),
-                             na hover bubliny zvýrazněna (0.85), na hover tlačítka samotného plné.
-                             Předtím Opacity=0 default → uživatel netušil, že tam tlačítka jsou
-                             a poslední bublina se zdála "useknutá" bez konce. -->
+                        <!-- Akční tlačítka pod každou bublinou: vždy dobře viditelná (0.75),
+                             na hover plné. Předtím byla 0.45 a uživatel je sotva viděl =
+                             bublina vypadala "bez konce". -->
                         <Style Selector="Border Button.msgAction">
-                            <Setter Property="Opacity" Value="0.45"/>
+                            <Setter Property="Opacity" Value="0.75"/>
                             <Setter Property="Transitions">
                                 <Transitions>
                                     <DoubleTransition Property="Opacity" Duration="0:0:0.12"/>
@@ -1007,10 +1021,11 @@
                             </Setter>
                         </Style>
                         <Style Selector="Border:pointerover Button.msgAction">
-                            <Setter Property="Opacity" Value="0.85"/>
-                        </Style>
-                        <Style Selector="Border:pointerover Button.msgAction:pointerover">
                             <Setter Property="Opacity" Value="1"/>
+                        </Style>
+                        <!-- Hover na tlačítko samotné: highlight pozadí pro feedback -->
+                        <Style Selector="Button.msgAction:pointerover /template/ ContentPresenter">
+                            <Setter Property="Background" Value="{DynamicResource HoverBgBrush}"/>
                         </Style>
                     </ItemsControl.Styles>
                 </ItemsControl>
