@@ -202,9 +202,29 @@ public sealed class LlamaService : ILlamaService
                 FlashAttention = true,
             };
 
-            _model         = await LLamaWeights.LoadFromFileAsync(parameters, ct);
-            _modelParams   = parameters;
-            LoadedModelName = modelName;
+            try
+            {
+                _model         = await LLamaWeights.LoadFromFileAsync(parameters, ct);
+                _modelParams   = parameters;
+                LoadedModelName = modelName;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                // LLamaWeights.LoadFromFileAsync hodí native exception různých typů:
+                // - "unknown model architecture" (nová verze GGUF, např. Qwen3 Next, Llama 4)
+                // - "tensor 'x' not found" (nekompletní download, broken soubor)
+                // - "tensor type not implemented" (nepodporovaná kvantizace IQ1_S apod.)
+                // - "image model detected" (uživatel omylem dal FLUX checkpoint do chat)
+                //
+                // Native errors jdou většinou přes RuntimeException s message
+                // obsahujícím anglický text — heuristikou je převedeme na user-friendly
+                // hint v češtině.
+                var hint = ClassifyLoadError(ex, modelName, modelSizeBytes);
+                Log.Warning(ex, "LlamaService.LoadModel: {Name} selhalo — {Hint}", modelName, hint);
+                StatusChanged?.Invoke($"❌ {modelName}: {hint}");
+                throw new AIStudio.Core.Models.ModelLoadFailedException(modelName, modelPath, hint, ex);
+            }
 
             // ── 4) Diagnostika: zjisti, jestli skutečně skončil na GPU ────────
             // llama_supports_gpu_offload() vrací true pokud native DLL byl
@@ -302,6 +322,61 @@ public sealed class LlamaService : ILlamaService
         await _lock.WaitAsync();
         try { await DisposeModelAsync(); }
         finally { _lock.Release(); }
+    }
+
+    /// <summary>
+    /// Mapuje native exception z LLamaWeights.LoadFromFileAsync na user-friendly
+    /// český hint. Heuristika podle známých substringů v ex.Message; pokud
+    /// nepoznáme, vrátíme generický hint s odkazem na update aplikace.
+    /// </summary>
+    private static string ClassifyLoadError(Exception ex, string modelName, long modelSizeBytes)
+    {
+        var msg   = (ex.Message ?? string.Empty).ToLowerInvariant();
+        var inner = (ex.InnerException?.Message ?? string.Empty).ToLowerInvariant();
+        var all   = msg + " || " + inner;
+
+        // Architecture not supported — nový model, starý llama.cpp
+        if (all.Contains("unknown model architecture") ||
+            all.Contains("unsupported architecture")   ||
+            all.Contains("unknown architecture"))
+            return "Architektura modelu není v této verzi aplikace podporovaná. " +
+                   "Zkus aktualizovat AI Studio nebo zvolit starší model (Llama 3.x, Qwen 2.5, Mistral).";
+
+        // Corrupted / partial download — chybí tensory
+        if (all.Contains("tensor") && (all.Contains("not found") || all.Contains("missing")))
+            return "Soubor je poškozený nebo neúplný (chybí některé tensory). " +
+                   "Smaž ho v sekci Modely a stáhni znovu.";
+
+        // Kvantizace nepodporovaná
+        if (all.Contains("tensor type") || all.Contains("quantization") || all.Contains("ggml_type"))
+            return "Kvantizace tohoto modelu není podporovaná. " +
+                   "Zkus klasickou Q4_K_M nebo Q5_K_M variantu — IQ1/IQ2/IQ3 vyžadují novější llama.cpp.";
+
+        // Image model omylem — FLUX / SD checkpoint
+        if (modelName.Contains("flux", StringComparison.OrdinalIgnoreCase) ||
+            modelName.Contains("sd", StringComparison.OrdinalIgnoreCase) ||
+            all.Contains("image") || all.Contains("diffusion"))
+            return "Vypadá to jako obrázkový model (FLUX/SDXL), ne chat. " +
+                   "Image modely patří do Image Studia, ne do chatu.";
+
+        // GGUF magic byte mismatch — vůbec není GGUF
+        if (all.Contains("magic") || all.Contains("invalid file") || all.Contains("not a gguf"))
+            return "Soubor není platný GGUF model. Možná se stáhla špatná varianta " +
+                   "— zkontroluj URL nebo zkus jiný quant.";
+
+        // Příliš malý soubor — pravděpodobně chyba downloadu
+        if (modelSizeBytes > 0 && modelSizeBytes < 100_000_000)
+            return $"Soubor je podezřele malý ({modelSizeBytes / 1_048_576} MB) — " +
+                   "pravděpodobně se nedostáhnul. Smaž a stáhni znovu.";
+
+        // Out of memory
+        if (all.Contains("out of memory") || all.Contains("oom") || all.Contains("alloc"))
+            return "Nedostatek paměti pro načtení modelu. Zkus menší kvantizaci nebo " +
+                   "vypni GPU offload v Nastavení (běží na CPU + RAM).";
+
+        // Generic fallback
+        return $"Načtení selhalo: {ex.Message?.Trim() ?? "neznámá chyba"}. " +
+               "Zkus restart aplikace, jiný kvant, nebo report bug.";
     }
 
     // ── Generování (chat) ─────────────────────────────────────────────────────

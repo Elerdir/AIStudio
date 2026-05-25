@@ -893,6 +893,20 @@ public partial class ChatPageViewModel : ViewModelBase
         {
             Dispatcher.UIThread.Post(() => { assistantMsg.IsStreaming = false; assistantMsg.IsError = true; });
         }
+        catch (AIStudio.Core.Models.ModelLoadFailedException loadEx)
+        {
+            // LLamaSharp se nepovedlo načíst model (nepodporovaná architektura,
+            // corrupted soubor, špatný formát…). Zobrazíme user-friendly hint
+            // z ClassifyLoadError místo krytického native stack tracu.
+            Log.Warning(loadEx, "Load model failed for {Name}", loadEx.ModelName);
+            Dispatcher.UIThread.Post(() =>
+            {
+                assistantMsg.IsStreaming = false;
+                assistantMsg.IsError     = true;
+                assistantMsg.Content     = $"❌ **{loadEx.ModelName}** se nepodařilo načíst.\n\n{loadEx.Hint}";
+            });
+            await TrySaveMessageAsync(assistantMsg, conv);
+        }
         catch (OperationCanceledException)
         {
             // IsStreaming=false už nahodil StreamIntoMessageAsync.finally
