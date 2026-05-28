@@ -106,6 +106,43 @@
                                 </StackPanel>
                             </Border>
 
+                            <!-- Velikost kontextu (KV cache) -->
+                            <Border BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0" Padding="0,14,0,0" Margin="0,4,0,0">
+                                <StackPanel Spacing="10">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0" Spacing="3">
+                                            <TextBlock Text="Velikost kontextu (paměť konverzace)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <TextBlock FontSize="12" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
+                                                       Text="Kolik tokenů celé konverzace (system + historie + nový dotaz + odpověď) si model pamatuje. Větší = delší konverzace bez ořezávání, ale více VRAM. Změna se projeví po dalším načtení modelu."/>
+                                            <TextBlock FontSize="11" Foreground="{DynamicResource TextHintBrush}"
+                                                       Text="{Binding ChatContextSizeLabel, StringFormat='Aktuálně: {0}'}"/>
+                                        </StackPanel>
+                                        <ComboBox Grid.Column="1"
+                                                  ItemsSource="{Binding ChatContextSizeOptions}"
+                                                  SelectedItem="{Binding ChatContextSize}"
+                                                  MinWidth="110"
+                                                  VerticalAlignment="Center"
+                                                  Background="{DynamicResource SubtlePanelBgBrush}"
+                                                  Foreground="{DynamicResource TextPrimaryBrush}"
+                                                  BorderBrush="{DynamicResource AppBorderBrush}"
+                                                  CornerRadius="8"
+                                                  Padding="12,8"
+                                                  FontSize="13"/>
+                                    </Grid>
+
+                                    <!-- Varování: velký kontext = hodně VRAM -->
+                                    <Border IsVisible="{Binding IsLargeContextWarning}"
+                                            Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
+                                            CornerRadius="8" Padding="12,10">
+                                        <StackPanel Orientation="Horizontal" Spacing="10">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                            <TextBlock FontSize="11" Foreground="#7A6A40" TextWrapping="Wrap"
+                                                       Text="Velký kontext zabírá výrazně víc VRAM (KV cache roste lineárně). Pokud model nejde načíst nebo padá na out-of-memory, sniž hodnotu zpátky na 8192."/>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
                         </StackPanel>
                     </Border>
                 </StackPanel>

@@ -169,8 +169,13 @@ public sealed class LlamaService : ILlamaService
     // ── Načítání modelu ────────────────────────────────────────────────────────
 
     public async Task LoadModelAsync(string modelPath, string modelName,
-                                     int gpuLayers = -1, CancellationToken ct = default)
+                                     int gpuLayers = -1, int contextSize = 8192,
+                                     CancellationToken ct = default)
     {
+        // Clamp do rozumného rozsahu — pod 1024 nemá smysl (chat se nevejde),
+        // nad 131072 je už extrémní VRAM cost a většina modelů nepodporuje.
+        contextSize = Math.Clamp(contextSize, 1024, 131072);
+
         await _lock.WaitAsync(ct);
         try
         {
@@ -190,14 +195,22 @@ public sealed class LlamaService : ILlamaService
             var ramBeforeGb  = _monitor?.Current?.RamUsedGb  ?? 0;
 
             Log.Information("LlamaService.LoadModel: {Name} | path={Path} | velikost={SizeMB} MB | " +
-                            "GPU={UseGpu} | gpuLayers={Layers} | VRAM před={VramGb:F1} GB | RAM před={RamGb:F1} GB",
+                            "GPU={UseGpu} | gpuLayers={Layers} | ctx={Ctx} | VRAM před={VramGb:F1} GB | RAM před={RamGb:F1} GB",
                             modelName, modelPath, modelSizeBytes / 1_048_576,
-                            UseGpu, gpuLayers, vramBeforeGb, ramBeforeGb);
+                            UseGpu, gpuLayers, contextSize, vramBeforeGb, ramBeforeGb);
 
             // ── 3) Vlastní load ───────────────────────────────────────────────
+            // ContextSize z AppSettings (default 8192). Většina moderních instruct
+            // modelů (Llama 3.x, Mistral, Qwen 2.5, Gemma 2) zvládá 8k+ nativně.
+            // 4096 bylo příliš málo — po 8-10 zprávách prompt + max_tokens přerostl
+            // kontext a llama_decode vrátil -3 (no KV slot available). 8192 +
+            // FlashAttention zabere navíc cca 0,5-1 GB VRAM oproti 4096.
+            //
+            // Pro ještě delší konverzace ChatAsync sám ořezává nejstarší ne-system
+            // zprávy dokud se prompt vejde do (ContextSize - maxTokens - margin).
             var parameters = new ModelParams(modelPath)
             {
-                ContextSize    = 4096,
+                ContextSize    = (uint)contextSize,
                 GpuLayerCount  = UseGpu ? gpuLayers : 0,   // -1 = vše na GPU, 0 = CPU
                 FlashAttention = true,
             };
@@ -418,7 +431,33 @@ public sealed class LlamaService : ILlamaService
         // se speciálními tokeny (<|start_header_id|>…<|eot_id|> apod.). Bez toho
         // model dostával generický „User: …\nAssistant:" prompt, který nikdy
         // neviděl při tréninku — neuměl skončit a halucinoval celé další tahy.
-        var prompt = BuildPrompt(model, messages);
+        //
+        // Context window guard: prompt + maxTokens musí < ContextSize, jinak
+        // llama_decode vrátí -3 (no KV slot). Postupně oříznem nejstarší non-system
+        // zprávy dokud se prompt nevejde do (ContextSize - maxTokens - 256 margin).
+        var contextSize = (int)(modelParams.ContextSize ?? 8192u);
+        var budget      = contextSize - maxTokens - 256;
+        if (budget < 512) budget = Math.Max(512, contextSize / 2);
+
+        var trimmedCount = TrimToFit(messages, model, budget,
+                                     out var prompt, out var promptTokens);
+
+        if (trimmedCount > 0)
+            Log.Information("LlamaService.ChatAsync: kontext plný — oříznuto {Trimmed}/{Total} starších zpráv " +
+                            "(prompt~{PromptTokens}t, context={Ctx}, max_new={Max})",
+                            trimmedCount, messages.Count, promptTokens, contextSize, maxTokens);
+
+        if (promptTokens >= contextSize - 64)
+        {
+            // I po trim je prompt větší než kontext (jediná user zpráva je obrovská
+            // nebo system prompt je extrémní). Vrátíme přehlednou hlášku místo
+            // pádu z native vrstvy.
+            Log.Warning("LlamaService.ChatAsync: prompt ~{Tokens}t > context {Ctx} — abort",
+                        promptTokens, contextSize);
+            yield return $"⚠️ Zpráva je příliš dlouhá (~{promptTokens} tokenů, kontext modelu je " +
+                         $"{contextSize}). Zkrať poslední zprávu nebo začni novou konverzaci.";
+            yield break;
+        }
 
         // ── Inference přes StatelessExecutor ─────────────────────────────────
         // Stateless = každé volání dostane vlastní KV cache → žádná kontaminace
@@ -436,11 +475,102 @@ public sealed class LlamaService : ILlamaService
             },
         };
 
-        await foreach (var token in executor.InferAsync(prompt, inferenceParams, ct))
+        // Manuální enumerace abychom mohli chytit LLamaDecodeError a vrátit
+        // user-friendly hlášku. `yield return` nesmí být v `catch`, takže si
+        // error message uložíme a yieldneme po smyčce.
+        string? errorMsg = null;
+        var enumerator = executor.InferAsync(prompt, inferenceParams, ct).GetAsyncEnumerator(ct);
+        try
         {
-            if (!string.IsNullOrEmpty(token))
-                yield return token;
+            while (true)
+            {
+                bool hasMore;
+                string? token = null;
+                try
+                {
+                    hasMore = await enumerator.MoveNextAsync();
+                    if (hasMore) token = enumerator.Current;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (LLama.Exceptions.LLamaDecodeError ex)
+                {
+                    // Kód -3 = no KV slot — i přes náš trim guard se to může stát:
+                    // chat template hlavičky přidávají tokeny které náš odhad neumí
+                    // přesně předpovědět, nebo model vygeneroval moc dlouhou odpověď.
+                    Log.Error(ex, "LlamaService.ChatAsync: llama_decode failed " +
+                                  "(prompt~{Tokens}t, context={Ctx}, max_new={Max})",
+                                  promptTokens, contextSize, maxTokens);
+                    errorMsg = $"\n\n⚠️ Generování přerušeno: kontextové okno modelu ({contextSize} tokenů) je plné. " +
+                               $"Začni novou konverzaci nebo sniž **Max tokens** v nastavení konverzace.";
+                    break;
+                }
+
+                if (!hasMore) break;
+                if (!string.IsNullOrEmpty(token))
+                    yield return token;
+            }
         }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+
+        if (errorMsg is not null)
+            yield return errorMsg;
+    }
+
+    /// <summary>
+    /// Spočte prompt pro daný seznam zpráv a postupně odebírá nejstarší ne-system
+    /// zprávu dokud se odhadovaný počet tokenů nevejde do <paramref name="tokenBudget"/>.
+    /// System prompt (typicky první zpráva) a poslední user zpráva se zachovávají
+    /// — bez nich by konverzace ztratila smysl.
+    ///
+    /// Token count je heuristika ~3 znaky/token (mistral BPE, čeština/EN mix).
+    /// Konzervativní — raději ořezneme víc než risknem overflow.
+    /// </summary>
+    private static int TrimToFit(
+        IReadOnlyList<(string Role, string Content)> messages,
+        LLamaWeights model,
+        int tokenBudget,
+        out string prompt,
+        out int promptTokens)
+    {
+        var working = new List<(string Role, string Content)>(messages);
+        var trimmed = 0;
+
+        while (true)
+        {
+            prompt       = BuildPrompt(model, working);
+            promptTokens = EstimateTokens(prompt);
+
+            if (promptTokens <= tokenBudget) return trimmed;
+
+            // Najdi první ne-system zprávu, ale NIKDY nemaž poslední (= aktuální user input).
+            var idx = -1;
+            for (var i = 0; i < working.Count - 1; i++)
+            {
+                if (!string.Equals(working[i].Role, "system", StringComparison.OrdinalIgnoreCase))
+                {
+                    idx = i;
+                    break;
+                }
+            }
+
+            if (idx < 0) return trimmed;  // už nic víc nejde oříznout
+
+            working.RemoveAt(idx);
+            trimmed++;
+        }
+    }
+
+    /// <summary>
+    /// Hrubý odhad počtu tokenů: ~3 znaky/token pro češtinu/EN BPE.
+    /// +16 fudge za chat template hlavičky (BOS, role markery atd.).
+    /// </summary>
+    private static int EstimateTokens(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return 0;
+        return (text.Length / 3) + 16;
     }
 
     /// <summary>

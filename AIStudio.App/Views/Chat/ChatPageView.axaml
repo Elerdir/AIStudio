@@ -171,12 +171,13 @@
         <!-- ═══════════════════ CHAT AREA ═══════════════════════════════════ -->
         <!--
             Row 0: Header (titulek, model picker, token slider)
-            Row 1: System prompt panel (Auto, skrytý pokud IsSystemPromptVisible=false)
-            Row 2: Zprávy (*)
-            Row 3: Regenerate / Loading strip (Auto)
-            Row 4: Input area (Auto)
+            Row 1: Context usage strip (Auto, viditelný jen pokud je vybraná konverzace)
+            Row 2: System prompt panel (Auto, skrytý pokud IsSystemPromptVisible=false)
+            Row 3: Zprávy (*)
+            Row 4: Regenerate / Loading strip (Auto)
+            Row 5: Input area (Auto)
         -->
-        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto,Auto">
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
 
             <!-- ── Row 0: Header ── -->
             <Border Grid.Row="0" Padding="20,12,20,10"
@@ -370,13 +371,14 @@
                         </Button>
                     </StackPanel>
 
-                    <!-- Token slider + context bar -->
+                    <!-- Token slider (limit délky odpovědi modelu) -->
                     <StackPanel Spacing="3" VerticalAlignment="Center"
                                 Width="210" Margin="0,0,16,4">
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <TextBlock Grid.Column="0"
                                        Text="Tokeny"
-                                       FontSize="10" Foreground="{DynamicResource TextDisabledBrush}"/>
+                                       FontSize="10" Foreground="{DynamicResource TextDisabledBrush}"
+                                       ToolTip.Tip="Maximální délka odpovědi modelu"/>
                             <TextBlock Grid.Column="2"
                                        Text="{Binding SelectedConversation.MaxTokensLabel}"
                                        FontSize="11" Foreground="{DynamicResource AccentLightBrush}"
@@ -387,20 +389,6 @@
                                 TickFrequency="0"
                                 IsSnapToTickEnabled="False"
                                 VerticalAlignment="Center"/>
-                        <!-- Kontext usage bar -->
-                        <Grid ColumnDefinitions="*,Auto"
-                              IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}">
-                            <ProgressBar Grid.Column="0"
-                                         Value="{Binding EstimatedTokensPercent}"
-                                         Minimum="0" Maximum="100"
-                                         Height="2" CornerRadius="1"
-                                         Foreground="{Binding TokenBarBrush}"
-                                         Background="#1C1C24"/>
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding EstimatedTokensLabel}"
-                                       FontSize="9" Foreground="#3A3A4A"
-                                       Margin="6,0,0,0" VerticalAlignment="Center"/>
-                        </Grid>
                     </StackPanel>
 
                     <!-- Temperature slider -->
@@ -427,8 +415,43 @@
                 </StackPanel>
             </Border>
 
-            <!-- ── Row 1: Systémový prompt panel (skrytý pokud není aktivní) ── -->
+            <!-- ── Row 1: Context usage strip — výrazný ukazatel naplnění
+                          KV cache modelu. Vždy viditelný (pokud máme konverzaci)
+                          aby uživatel věděl, kdy se kontext blíží limitu. ── -->
             <Border Grid.Row="1"
+                    IsVisible="{Binding SelectedConversation, Converter={x:Static ObjectConverters.IsNotNull}}"
+                    Background="{DynamicResource PanelBgBrush}"
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1"
+                    Padding="20,6,20,8"
+                    ToolTip.Tip="{Binding ContextUsageTooltip}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Memory}"
+                                         Width="13" Height="13"
+                                         Foreground="{DynamicResource TextWeakBrush}"
+                                         VerticalAlignment="Center"/>
+                        <TextBlock Text="Kontext"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextHintBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <ProgressBar Grid.Column="1"
+                                 Value="{Binding ContextUsagePercent}"
+                                 Minimum="0" Maximum="100"
+                                 Height="6" CornerRadius="3"
+                                 Foreground="{Binding ContextBarBrush}"
+                                 Background="#1C1C24"
+                                 VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding ContextUsageLabel}"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextLightBrush}"
+                               VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <!-- ── Row 2: Systémový prompt panel (skrytý pokud není aktivní) ── -->
+            <Border Grid.Row="2"
                     IsVisible="{Binding IsSystemPromptVisible}"
                     Background="{DynamicResource VeryDeepBgBrush}"
                     BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1"
@@ -471,9 +494,12 @@
                 </Grid>
             </Border>
 
-            <!-- ── Row 2: Zprávy + FAB ── -->
-            <Panel Grid.Row="2">
-              <ScrollViewer Padding="28,16,28,60" Name="MessagesScroll">
+            <!-- ── Row 3: Zprávy + FAB ── -->
+            <Panel Grid.Row="3">
+              <ScrollViewer Padding="28,16,28,0" Name="MessagesScroll"
+                            VerticalScrollBarVisibility="Auto"
+                            AllowAutoHide="False"
+                            Classes="visibleScrollbar">
               <Panel>
 
                 <!-- Prázdný stav — žádná konverzace vůbec (vše smazáno) -->
@@ -554,14 +580,13 @@
 
                 </StackPanel>
 
-                <!-- Bottom margin 60: garantovaný gap pod poslední bublinou
-                     (action row + breathing space nad input panelem).
-                     ScrollToBottom v code-behind nastaví Offset = MaxValue,
-                     ScrollViewer clamp-uje na actual extent, takže poslední
-                     bublina vždy končí 60+ZsvPaddingBottom px nad inputem. -->
+                <!-- Bottom margin 100: garantovaný gap pod poslední bublinou.
+                     SVPadding.Bottom je 0 (nuly se nepletou do extent výpočtu).
+                     ScrollToBottom nastaví Offset = Extent.Height, ScrollViewer
+                     clampuje na max → pod poslední bublinou je vždy 100px volna. -->
                 <StackPanel>
                 <ItemsControl ItemsSource="{Binding SelectedConversation.Messages}"
-                              Margin="0,0,0,60">
+                              Margin="0,0,0,100">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:ChatMessage">
                             <Border Margin="0,6">
@@ -575,7 +600,7 @@
                                             BorderBrush="#3D2A6E"
                                             BorderThickness="1"
                                             CornerRadius="14,14,2,14"
-                                            Padding="14,10"
+                                            Padding="14,10,14,14"
                                             IsVisible="{Binding Role, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:MessageRole.User}}">
                                         <Panel>
 
@@ -586,7 +611,7 @@
                                                            FontSize="14" LineHeight="22"
                                                            TextWrapping="Wrap"/>
                                                 <!-- Řádek: čas + tokeny (vlevo) + akce (vpravo) -->
-                                                <StackPanel Spacing="8" Margin="0,12,0,2">
+                                                <StackPanel Spacing="8" Margin="0,12,0,6">
                                                 <Border Height="1" Background="#A78BFA" Opacity="0.5"/>
                                                 <Grid ColumnDefinitions="*,Auto">
                                                     <StackPanel Grid.Column="0" Orientation="Horizontal"
@@ -679,13 +704,14 @@
                                         </Panel>
                                     </Border>
 
-                                    <!-- Asistent (vlevo) -->
+                                    <!-- Asistent (vlevo, nebo uprostřed při image progress loaderu) -->
                                     <Border Grid.Column="1"
-                                            HorizontalAlignment="Left"
+                                            Classes="assistantBubble"
+                                            Classes.centerOnImageProgress="{Binding IsImageProgressOnly}"
                                             MaxWidth="640"
                                             Background="{DynamicResource CardBgBrush}"
                                             CornerRadius="14,14,14,2"
-                                            Padding="14,10"
+                                            Padding="14,10,14,14"
                                             IsVisible="{Binding Role, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:MessageRole.Assistant}}">
                                         <StackPanel Spacing="0">
                                             <!-- ════════════ IMAGE BUBLINA (chat → image gen) ════════════
@@ -698,20 +724,22 @@
                                                 <!-- Searching placeholder — recommender + live search běží (1-3s) -->
                                                 <Border IsVisible="{Binding IsSearchingForUpgrade}"
                                                         Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
-                                                        CornerRadius="10" Padding="16,14"
-                                                        MinWidth="280" MinHeight="80">
-                                                    <StackPanel Orientation="Horizontal" Spacing="12"
+                                                        CornerRadius="12" Padding="24,18"
+                                                        MinWidth="420" MinHeight="90">
+                                                    <StackPanel Orientation="Horizontal" Spacing="14"
                                                                 HorizontalAlignment="Center" VerticalAlignment="Center">
                                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.MagnifyScan}"
-                                                                         Width="20" Height="20" Foreground="{DynamicResource AccentLightBrush}"
+                                                                         Width="26" Height="26" Foreground="{DynamicResource AccentLightBrush}"
                                                                          VerticalAlignment="Center"/>
-                                                        <StackPanel Spacing="3">
+                                                        <StackPanel Spacing="4">
                                                             <TextBlock Text="Hledám nejlepší model pro tento prompt…"
-                                                                       FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource AccentLighterBrush}"/>
+                                                                       FontSize="14" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource AccentLighterBrush}"
+                                                                       HorizontalAlignment="Center"/>
                                                             <TextBlock Text="Zkoumám stažené modely i online katalog (Civitai, HuggingFace)."
                                                                        FontSize="11" Foreground="{DynamicResource AccentSubtleBrush}"
-                                                                       TextWrapping="Wrap" MaxWidth="320"/>
+                                                                       TextWrapping="Wrap" MaxWidth="360"
+                                                                       TextAlignment="Center"/>
                                                         </StackPanel>
                                                     </StackPanel>
                                                 </Border>
@@ -812,41 +840,48 @@
                                                 <!-- Loading placeholder dokud běží generování -->
                                                 <Border IsVisible="{Binding IsImageGenerating}"
                                                         Background="#15131C" BorderBrush="#2A2050" BorderThickness="1"
-                                                        CornerRadius="10" Padding="16,14"
-                                                        MinWidth="280" MinHeight="100">
-                                                    <StackPanel Orientation="Horizontal" Spacing="12"
+                                                        CornerRadius="12" Padding="24,20"
+                                                        MinWidth="420" MinHeight="110">
+                                                    <StackPanel Orientation="Horizontal" Spacing="14"
                                                                 HorizontalAlignment="Center" VerticalAlignment="Center">
                                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}"
-                                                                         Width="20" Height="20" Foreground="{DynamicResource AccentLightBrush}"
+                                                                         Width="28" Height="28" Foreground="{DynamicResource AccentLightBrush}"
                                                                          VerticalAlignment="Center"/>
-                                                        <StackPanel Spacing="3">
+                                                        <StackPanel Spacing="4">
                                                             <TextBlock Text="Generuji obrázek…"
-                                                                       FontSize="13" FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource AccentLighterBrush}"/>
+                                                                       FontSize="14" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource AccentLighterBrush}"
+                                                                       HorizontalAlignment="Center"/>
                                                             <TextBlock Text="Může to chvíli trvat. Sleduj pokrok ve stavovém řádku Image Studia."
                                                                        FontSize="11" Foreground="{DynamicResource AccentSubtleBrush}"
-                                                                       TextWrapping="Wrap" MaxWidth="320"/>
+                                                                       TextWrapping="Wrap" MaxWidth="360"
+                                                                       TextAlignment="Center"/>
                                                         </StackPanel>
                                                     </StackPanel>
                                                 </Border>
 
-                                                <!-- Hotový obrázek (klik = zoom) -->
+                                                <!-- Hotový obrázek (klik = zoom).
+                                                     POZN: Použit Tapped handler v code-behind místo Button + Command.
+                                                     Důvod: Button + ICommand binding nefungoval spolehlivě uvnitř
+                                                     vnořeného DataTemplate (klik se občas chytil event handlerem
+                                                     ScrollVieweru nad ItemsControlem a chápal se jako pan gesto,
+                                                     navíc DataContext byl ne-deterministický kvůli Classes-binding
+                                                     na rodičovské bublině). Tapped event v code-behind nemá tyhle
+                                                     gotchas a vždy zavolá příslušnou ChatMessage.OpenImageZoom. -->
                                                 <StackPanel Spacing="6" IsVisible="{Binding !IsImageGenerating}">
                                                     <Border CornerRadius="10" ClipToBounds="True"
                                                             Cursor="Hand"
-                                                            HorizontalAlignment="Left">
+                                                            HorizontalAlignment="Left"
+                                                            Tapped="GeneratedImage_Tapped"
+                                                            ToolTip.Tip="Klikni pro zvětšení na plnou velikost">
                                                         <Border.Styles>
                                                             <Style Selector="Border:pointerover">
-                                                                <Setter Property="Opacity" Value="0.9"/>
+                                                                <Setter Property="Opacity" Value="0.92"/>
                                                             </Style>
                                                         </Border.Styles>
-                                                        <Button Command="{Binding OpenImageZoomCommand}"
-                                                                Background="Transparent" BorderThickness="0"
-                                                                Padding="0" Cursor="Hand">
-                                                            <Image Source="{Binding ImagePath, Converter={x:Static vm:ChatImagePathToBitmapConverter.Instance}}"
-                                                                   Stretch="Uniform"
-                                                                   MaxWidth="560" MaxHeight="560"/>
-                                                        </Button>
+                                                        <Image Source="{Binding ImagePath, Converter={x:Static vm:ChatImagePathToBitmapConverter.Instance}}"
+                                                               Stretch="Uniform"
+                                                               MaxWidth="560" MaxHeight="560"/>
                                                     </Border>
 
                                                     <!-- Hover action bar pod obrázkem -->
@@ -936,7 +971,7 @@
                                             <!-- Footer wrap (separator čára + akční řádek).
                                                  Separator je samostatný Border s vlastní Opacity,
                                                  aby neovlivnil průhlednost children (TextBlock + akce). -->
-                                            <StackPanel IsVisible="{Binding !IsStreaming}" Spacing="8" Margin="0,12,0,2">
+                                            <StackPanel IsVisible="{Binding !IsStreaming}" Spacing="8" Margin="0,12,0,6">
                                             <Border Height="1" Background="#3D2A6E" Opacity="0.6"/>
                                             <Border Padding="0,2,0,0">
                                             <Grid ColumnDefinitions="*,Auto">
@@ -998,6 +1033,18 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                     <ItemsControl.Styles>
+                        <!-- Asistentská bublina:
+                             - default vlevo (běžná text/obrázková zpráva)
+                             - .centerOnImageProgress aktivní = bublina ve středu chatu
+                               (zatímco se hledá model / stahuje / generuje obrázek)
+                               Po dokončení (ImagePath přibyde) se přepne zpátky vlevo. -->
+                        <Style Selector="Border.assistantBubble">
+                            <Setter Property="HorizontalAlignment" Value="Left"/>
+                        </Style>
+                        <Style Selector="Border.assistantBubble.centerOnImageProgress">
+                            <Setter Property="HorizontalAlignment" Value="Center"/>
+                        </Style>
+
                         <!-- Animace typing dots v asistentské bublině -->
                         <Style Selector="StackPanel.typingIndicator">
                             <Style.Animations>
@@ -1051,8 +1098,8 @@
               </Button>
             </Panel>
 
-            <!-- ── Row 3: Stripy (StackPanel = více pruhů může být viditelných naráz) ── -->
-            <StackPanel Grid.Row="3">
+            <!-- ── Row 4: Stripy (StackPanel = více pruhů může být viditelných naráz) ── -->
+            <StackPanel Grid.Row="4">
 
                 <!-- Edit-mode strip — aktivní editace zprávy -->
                 <Border IsVisible="{Binding SelectedConversation.IsAnyMessageEditing}"
@@ -1121,8 +1168,8 @@
 
             </StackPanel>
 
-            <!-- ── Row 4: Input area ── -->
-            <Border Grid.Row="4"
+            <!-- ── Row 5: Input area ── -->
+            <Border Grid.Row="5"
                     Padding="20,10,20,18"
                     BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0"
                     Background="{DynamicResource AppBgBrush}">

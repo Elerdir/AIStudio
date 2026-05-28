@@ -24,7 +24,18 @@ public sealed class ImageIntentParser : IImageIntentParser
             return DefaultIntent("", "Prázdný prompt");
 
         if (!_llama.IsLoaded)
-            return DefaultIntent(rawPrompt, "LLM není načtený — beze SmartParseru");
+        {
+            // Pre-condition: caller (ChatPageViewModel) by měl chat LLM načíst PŘED
+            // voláním parseru. Když se sem dostaneme, nějak to selhalo — log + fallback.
+            // Pro CZ rawPrompt to skoro jistě vyplodí halucinaci na SDXL/FLUX (modely
+            // neumí česky), proto explicitní warning v reasoning.
+            var looksCzech = ContainsCzechChars(rawPrompt);
+            Log.Warning("ImageIntentParser: LLM není načtený, fallback bez překladu " +
+                        "(prompt vypadá {Lang})", looksCzech ? "česky — SDXL pravděpodobně halucinuje" : "anglicky");
+            return DefaultIntent(rawPrompt, looksCzech
+                ? "Bez SmartParseru — popisuj anglicky, jinak SDXL nemusí rozumět"
+                : "Bez SmartParseru");
+        }
 
         var systemPrompt = BuildSystemPrompt();
         var userPrompt   = $"Popis: {rawPrompt}\n\nJSON:";
@@ -183,4 +194,24 @@ public sealed class ImageIntentParser : IImageIntentParser
     private static string Trunc(string s, int max) =>
         string.IsNullOrEmpty(s) ? "" :
         s.Length <= max ? s : s[..max] + "…";
+
+    /// <summary>
+    /// Heuristika: obsahuje text některý z typických českých diakritických znaků?
+    /// Slouží jen k tomu, abychom v reasoning hint hlásili "popisuj anglicky"
+    /// jen když uživatel napsal česky. Není dokonalá (slovenština, polština
+    /// detekuje taky), ale pro UX hint stačí.
+    /// </summary>
+    private static bool ContainsCzechChars(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return false;
+        foreach (var ch in s)
+        {
+            if (ch is 'á' or 'č' or 'ď' or 'é' or 'ě' or 'í' or 'ň' or 'ó' or 'ř'
+                   or 'š' or 'ť' or 'ú' or 'ů' or 'ý' or 'ž'
+                   or 'Á' or 'Č' or 'Ď' or 'É' or 'Ě' or 'Í' or 'Ň' or 'Ó' or 'Ř'
+                   or 'Š' or 'Ť' or 'Ú' or 'Ů' or 'Ý' or 'Ž')
+                return true;
+        }
+        return false;
+    }
 }

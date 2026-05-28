@@ -15,6 +15,27 @@ public class AppSettings
     public bool UseGpu { get; set; } = true;
 
     /// <summary>
+    /// Velikost kontextového okna (KV cache) v tokenech, předávaná do LlamaSharp
+    /// při <c>LoadModelAsync</c>. Určuje kolik tokenů celé konverzace (system + historie
+    /// + nový dotaz + místo na odpověď) si model pamatuje najednou. Při překročení
+    /// <c>LlamaService.ChatAsync</c> tiše ořezává nejstarší ne-system zprávy.
+    ///
+    /// Změna se projeví až po **reloadu modelu** (LlamaSharp ContextSize je per-load).
+    /// Větší hodnota = více VRAM (KV cache roste lineárně s ctx × num_layers).
+    /// Doporučené hodnoty: 4096 (úspora VRAM), 8192 (výchozí balance),
+    /// 16384/32768 (dlouhé konverzace, dostatek VRAM).
+    /// </summary>
+    public int ChatContextSize { get; set; } = 8192;
+
+    /// <summary>
+    /// Uživatel potvrdil pravidla použití při tréninku LoRA (etika tréninku
+    /// na fotky cizích osob, nezletilých, atd.). Dialog se ukazuje jen jednou —
+    /// při prvním kliknutí na „Spustit trénink". Po souhlasu se hodnota nastaví
+    /// na true a další pokusy o trénink rovnou jedou.
+    /// </summary>
+    public bool LoraTrainingCodeOfConductAccepted { get; set; } = false;
+
+    /// <summary>
     /// Výchozí model pro nové konverzace — nastavuje se v Model Manageru tlačítkem „Nastavit výchozí".
     /// Prázdný řetězec = použít první dostupný model.
     /// </summary>

@@ -30,7 +30,7 @@ public partial class ChatMessage
 
     /// <summary>Cesta k vygenerovanému obrázku (null = klasická text zpráva).</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage), nameof(IsImageProgressOnly))]
     private string? _imagePath;
 
     /// <summary>Reference obrázek pro img2img follow-up (null = txt2img od nuly).</summary>
@@ -38,7 +38,7 @@ public partial class ChatMessage
 
     /// <summary>True dokud běží Comfy generování — UI ukáže placeholder.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage), nameof(IsImageProgressOnly))]
     private bool _isImageGenerating;
 
     /// <summary>True pokud generování obrázku selhalo — UI ukáže Zkusit znovu.</summary>
@@ -50,7 +50,7 @@ public partial class ChatMessage
     /// trvá. Toggluje se v PromptUpgradeAsync flow.
     /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage), nameof(IsImageProgressOnly))]
     private bool _isSearchingForUpgrade;
 
     /// <summary>
@@ -63,6 +63,21 @@ public partial class ChatMessage
                                   || IsSearchingForUpgrade
                                   || IsAwaitingUpgradeChoice
                                   || IsDownloadingUpgradeModel;
+
+    /// <summary>
+    /// True když je obrázková zpráva ve stavu „nemám hotový obrázek, ale něco se děje"
+    /// (hledá se model, stahuje se model, běží generování). Slouží pro UI:
+    /// progress bubble centrujeme do středu chatu, ne k levému okraji jako
+    /// běžné asistentské zprávy — uživatel hned ví, že právě teď není text/obrázek.
+    /// Když ImagePath přibude, vrátí se na false a bublina jde zpátky vlevo.
+    ///
+    /// Pozn.: IsAwaitingUpgradeChoice (interaktivní upgrade prompt s tlačítky)
+    /// záměrně necentrujeme — působí jako akce, ne jako loader, a uživatel
+    /// musí na tlačítka kliknout; vlevo ale vypadá přirozeněji.
+    /// </summary>
+    public bool IsImageProgressOnly => string.IsNullOrEmpty(ImagePath) &&
+                                       (IsImageGenerating || IsSearchingForUpgrade ||
+                                        IsDownloadingUpgradeModel);
 
     // ── Image akce (jen pro IsImageMessage) ───────────────────────────────────
 

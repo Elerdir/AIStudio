@@ -43,22 +43,49 @@ public sealed class ChatImageIntentDetector : IChatImageIntentDetector
         "draw", "paint", "sketch", "illustrate",
     };
 
-    // Generická slovesa — vyžadují obrazové substantivum, aby se počítala jako image intent
+    // Generická slovesa — vyžadují obrazové substantivum, aby se počítala jako image intent.
+    // Pokrýváme imperativ + běžné konverzační obraty ("chci", "potřebuju", "dej mi"…),
+    // protože "chci obrázek psa" je v chatu úplně přirozený obrat, jen není imperativ.
+    // Generic slovesa záměrně NEdáváme infinitiv ("vytvořit", "udělat") — chytaly by
+    // false positives jako "musíš vytvořit funkci".
     private static readonly string[] GenericVerbs =
     {
+        // CZ — imperativ generování
         "vygeneruj", "vytvoř", "udělej", "generuj", "ukaž",
+        // CZ — chtění / potřeba / žádost (s image noun = chce obrázek)
+        "chci", "chtěl", "chtela", "chtěla", "potřebuju", "potrebuju", "potřebuji", "potrebuji",
+        "dej", "pošli", "posli", "vrať", "vrat",
+        // EN — generování
         "generate", "create", "make", "show", "render",
+        // EN — chtění / žádost
+        "want", "need", "give", "send",
     };
 
-    // Obrazová substantiva (česky se musí pokrýt pády)
+    // Obrazová substantiva — česky musíme pokrýt pády (akuzativ/genitiv hlavně).
+    // Pokud uživatel napíše "vygeneruj obrázek" / "obrázku" / "obrázky" — všechno
+    // znamená obrazový intent. Bez plurálu by věty typu "dej mi nějaké obrázky"
+    // propadly do chatu.
     private static readonly string[] ImageNouns =
     {
-        "obrázek", "obrázku", "obrazek", "obrazku",
-        "foto", "fotku", "fotografii", "fotografie",
-        "scénu", "scenu", "scéna",
-        "ilustraci", "ilustrace",
-        "kresbu", "kresba",
-        "image", "picture", "photo", "photograph", "scene", "illustration", "drawing", "sketch",
+        // CZ — obrázek (všechny pády + bez háčku pro toleranci klávesnice)
+        "obrázek", "obrázku", "obrázky", "obrázkem", "obrázcích",
+        "obrazek", "obrazku", "obrazky", "obrazkem",
+        // CZ — foto / fotka / fotografie
+        "foto", "fotka", "fotku", "fotky", "fotkou",
+        "fotografii", "fotografie", "fotografií", "fotografiemi",
+        // CZ — scéna
+        "scéna", "scénu", "scény", "scéně", "scénou", "scenu", "scena",
+        // CZ — ilustrace / kresba / malba
+        "ilustraci", "ilustrace", "ilustrací",
+        "kresbu", "kresba", "kresby",
+        "malbu", "malba",
+        "vizuál", "vizualizaci", "vizualizace",
+        // EN
+        "image", "images", "picture", "pictures", "pic", "pics",
+        "photo", "photos", "photograph", "photographs",
+        "scene", "scenes",
+        "illustration", "illustrations", "drawing", "drawings", "sketch", "sketches",
+        "artwork", "render", "renders", "visual", "visuals",
     };
 
     // Edit follow-up keywords — typicky používané pro úpravu předchozího obrázku

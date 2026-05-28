@@ -43,13 +43,51 @@ public class ChatImageIntentDetectorTests
 
     [Theory]
     [InlineData("Vygeneruj obrázek psa.")]
+    [InlineData("Vygeneruj mi obrázek psa.")]
+    [InlineData("Vygeneruj mi nějaký obrázek krajiny.")]
     [InlineData("Vytvoř scénu z lesa.")]
     [InlineData("Udělej fotku auta.")]
+    [InlineData("Udělej mi obrázek západu slunce.")]
+    [InlineData("Ukaž mi obrázek hor.")]
     [InlineData("Generate an image of a dog.")]
     [InlineData("Create a picture of a forest.")]
     [InlineData("Make a photo of a sunset.")]
     [InlineData("Show me a scene with mountains.")]
+    [InlineData("Render an image of a spaceship.")]
     public void Detect_GenericVerbWithImageNoun_ReturnsGenerateImage(string message)
+    {
+        _detector.Detect(message, lastAssistantHadImage: false)
+                 .Should().Be(ChatImageIntent.GenerateImage);
+    }
+
+    // ── Přirozené obraty bez slovesa generování (chci/potřebuju/dej mi/pošli mi) ───
+    // "Chci obrázek psa" je v chatu úplně normální fráze — nezůstává v chatu.
+
+    [Theory]
+    [InlineData("Chci obrázek psa.")]
+    [InlineData("Chtěl bych obrázek hor.")]
+    [InlineData("Potřebuju fotku auta.")]
+    [InlineData("Potřebuji ilustraci draka.")]
+    [InlineData("Dej mi obrázek západu slunce.")]
+    [InlineData("Pošli mi obrázek koťátka.")]
+    [InlineData("I want an image of a cat.")]
+    [InlineData("I need a picture of a house.")]
+    [InlineData("Give me a photo of a mountain.")]
+    [InlineData("Send me an illustration of a robot.")]
+    public void Detect_NaturalRequestPhrases_ReturnsGenerateImage(string message)
+    {
+        _detector.Detect(message, lastAssistantHadImage: false)
+                 .Should().Be(ChatImageIntent.GenerateImage);
+    }
+
+    // ── Plurál a další pády musí taky chytit ──────────────────────────────────
+
+    [Theory]
+    [InlineData("Vygeneruj mi nějaké obrázky koček.")]
+    [InlineData("Ukaž mi fotky z dovolené.")]
+    [InlineData("Vytvoř ilustrace k pohádce.")]
+    [InlineData("Generate some pictures of dogs.")]
+    public void Detect_PluralAndCases_ReturnsGenerateImage(string message)
     {
         _detector.Detect(message, lastAssistantHadImage: false)
                  .Should().Be(ChatImageIntent.GenerateImage);

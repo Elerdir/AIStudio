@@ -100,7 +100,9 @@ public partial class ChatPageViewModel : ViewModelBase
     // Live RAM/VRAM ticker → ChatPageViewModel.SystemMonitor.cs (partial)
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(EstimatedTokensLabel), nameof(EstimatedTokensPercent), nameof(TokenBarBrush))]
+    [NotifyPropertyChangedFor(nameof(EstimatedTokensLabel), nameof(EstimatedTokensPercent), nameof(TokenBarBrush),
+                              nameof(ContextUsageLabel), nameof(ContextUsagePercent), nameof(ContextBarBrush),
+                              nameof(ContextUsageTooltip))]
     private int _estimatedTokens;
 
     public string EstimatedTokensLabel
@@ -133,6 +135,62 @@ public partial class ChatPageViewModel : ViewModelBase
         >= 75 => new SolidColorBrush(Color.Parse("#FBBF24")),
         _     => new SolidColorBrush(Color.Parse("#818CF8")),
     };
+
+    // ── Context window usage (kolik konverzace zaplnila KV cache modelu) ──────
+    //
+    // Ukazatel je odvozen z AppSettings.ChatContextSize (nastavitelný v Settings).
+    // Při překročení modelův LlamaService.ChatAsync sám ořezává nejstarší
+    // non-system zprávy, ale uživatel má vidět, kdy se to blíží — proto bar.
+    //
+    // EstimatedTokens je hrubý odhad (chars/4), ne reálný tokenizer count. Bere se
+    // z TokenEstimator.EstimateMessages volaného v UpdateEstimatedTokens(). Stačí
+    // to na warning ve 75 % a 90 %.
+
+    /// <summary>Aktuální velikost kontextu z AppSettings (default 8192).</summary>
+    public int CurrentContextSize => _settings?.Settings?.ChatContextSize > 0
+        ? _settings.Settings.ChatContextSize
+        : 8192;
+
+    /// <summary>„~4.2k / 8k tokenů" — pro lidský label v hlavičce chatu.</summary>
+    public string ContextUsageLabel
+    {
+        get
+        {
+            var ctx       = CurrentContextSize;
+            var ctxLabel  = ctx < 10_000 ? $"{ctx / 1_000.0:F1}k" : $"{ctx / 1_000}k";
+            if (EstimatedTokens == 0) return $"0 / {ctxLabel}";
+            return EstimatedTokens < 1_000
+                ? $"~{EstimatedTokens} / {ctxLabel}"
+                : $"~{EstimatedTokens / 1_000.0:F1}k / {ctxLabel}";
+        }
+    }
+
+    /// <summary>Procento využití kontextového okna (0-100). Pro ProgressBar v hlavičce.</summary>
+    public double ContextUsagePercent =>
+        AIStudio.Core.Services.TokenEstimator.UsagePercent(EstimatedTokens, CurrentContextSize);
+
+    /// <summary>Barva context baru — stejná gradient jako TokenBarBrush.</summary>
+    public IBrush ContextBarBrush => ContextUsagePercent switch
+    {
+        >= 90 => new SolidColorBrush(Color.Parse("#EF4444")),
+        >= 75 => new SolidColorBrush(Color.Parse("#FBBF24")),
+        _     => new SolidColorBrush(Color.Parse("#818CF8")),
+    };
+
+    /// <summary>Vysvětlující tooltip pro context bar — co znamená a kdy se blíží limit.</summary>
+    public string ContextUsageTooltip
+    {
+        get
+        {
+            var ctx = CurrentContextSize;
+            return ContextUsagePercent >= 90
+                ? $"Kontext je téměř plný (~{EstimatedTokens} z {ctx} tokenů). " +
+                  "Brzy začnu ořezávat nejstarší zprávy. Změnit lze v Nastavení → Velikost kontextu."
+                : ContextUsagePercent >= 75
+                ? $"Kontext z {Math.Round(ContextUsagePercent)} % zaplněn (~{EstimatedTokens} z {ctx} tokenů)."
+                : $"Kontext modelu — ~{EstimatedTokens} z {ctx} tokenů.";
+        }
+    }
 
     // ── Title edit state ──────────────────────────────────────────────────────
     [ObservableProperty] private bool   _isEditingTitle;
@@ -225,6 +283,10 @@ public partial class ChatPageViewModel : ViewModelBase
             if (_monitor.Current is not null)
                 ApplySystemStatus(_monitor.Current);
         }
+
+        // Reaguj na změnu velikosti kontextu v Nastavení — context bar v hlavičce
+        // chatu se přepočítá, jakmile uživatel klikne na jinou hodnotu v ComboBoxu.
+        _settings.SettingsSaved += OnSettingsSaved;
 
         _llama.StatusChanged += status =>
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -520,6 +582,23 @@ public partial class ChatPageViewModel : ViewModelBase
                      && conv.Messages.Count > 0
                      && conv.Messages[^1].Role == MessageRole.Assistant
                      && !string.IsNullOrEmpty(conv.Messages[^1].Content);
+    }
+
+    /// <summary>
+    /// Voláno po každém uložení AppSettings — typicky když uživatel
+    /// změnil v Nastavení velikost kontextu nebo jiné chat-related option.
+    /// Refreshneme context bar bindings (CurrentContextSize a vše navázané).
+    /// </summary>
+    private void OnSettingsSaved()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(CurrentContextSize));
+            OnPropertyChanged(nameof(ContextUsageLabel));
+            OnPropertyChanged(nameof(ContextUsagePercent));
+            OnPropertyChanged(nameof(ContextBarBrush));
+            OnPropertyChanged(nameof(ContextUsageTooltip));
+        });
     }
 
     private void UpdateEstimatedTokens()
@@ -1168,8 +1247,12 @@ public partial class ChatPageViewModel : ViewModelBase
         }
 
         // C10: placeholder bublina zůstane prázdná — loading UX zajišťuje IsLoadingModel strip v Row 3
-        var gpuLayers = _settings.Settings.UseGpu ? -1 : 0;
-        await _llama.LoadModelAsync(modelPath, conv.SelectedModelName, gpuLayers: gpuLayers, ct: ct);
+        var gpuLayers   = _settings.Settings.UseGpu ? -1 : 0;
+        var contextSize = _settings.Settings.ChatContextSize;
+        await _llama.LoadModelAsync(modelPath, conv.SelectedModelName,
+                                    gpuLayers: gpuLayers,
+                                    contextSize: contextSize,
+                                    ct: ct);
     }
 
     /// <summary>

@@ -31,6 +31,39 @@ public partial class ChatPageView : UserControl
 
         var scroll = this.FindControl<ScrollViewer>("MessagesScroll")!;
         scroll.ScrollChanged += OnScrollChanged;
+
+        // Mouse wheel handler — chceme aby kolečko fungovalo i během streamování
+        // bez toho, aby uživatel musel nejdřív kliknout do scrollbaru (a tím
+        // ztratit fokus z inputu). Tunneling handler (RoutingStrategies.Tunnel)
+        // zachytí wheel event PŘED tím, než ho dostane TextBox v inputu nebo
+        // jiný element pod kurzorem — jinak by ho mohl spotřebovat něco jiného.
+        //
+        // Logika:
+        //   • Wheel up (Delta.Y > 0)  = uživatel se posouvá nahoru → vypnout autoScroll
+        //   • Wheel down (Delta.Y < 0) = uživatel se posouvá dolů  → necháme OnScrollChanged
+        //                                rozhodnout (pokud doscrolloval na konec, znova zapne)
+        scroll.AddHandler(PointerWheelChangedEvent, OnChatWheelTunnel,
+                          Avalonia.Interactivity.RoutingStrategies.Tunnel);
+    }
+
+    private void OnChatWheelTunnel(object? sender, Avalonia.Input.PointerWheelEventArgs e)
+    {
+        // Pouze pokud je kurzor reálně nad MessagesScroll — jinak nech default routing.
+        var scroll = this.FindControl<ScrollViewer>("MessagesScroll");
+        if (scroll is null) return;
+
+        // Wheel směrem nahoru = uživatel chce číst minulost → okamžitě vypni autoScroll
+        // a přeruš programmatic retry window. Bez tohoto se autoScroll znova zapnul
+        // přes ScrollToBottom uvnitř 25-frame retry okna, takže manuální scrollnutí
+        // během streamování bylo neúčinné.
+        if (e.Delta.Y > 0)
+        {
+            _programmaticScroll = false;  // zruš probíhající retry okno
+            SetAutoScroll(false);
+            // Necháme event propagovat — ScrollViewer ho zkonzumuje sám a posune offset
+        }
+        // Pro wheel dolů necháme normální flow — OnScrollChanged spočte atBottom
+        // a případně znovu zapne autoScroll, když se uživatel doscroluje na konec.
     }
 
     private void OnUnloaded(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -215,37 +248,37 @@ public partial class ChatPageView : UserControl
 
     private void ScrollToBottom()
     {
-        // Direktní Offset = MaxValue. ScrollViewer.Offset setter clamp-uje
-        // na Extent.Y - Viewport.Y, takže se vždy trefíme do skutečného konce
-        // (na rozdíl od ScrollToEnd, který používá interně cached Extent z
-        // posledního MeasureOverride a může být zastaralý).
+        // Princip: po Post na DispatcherPriority.Render proběhne layout
+        // pass synchronně, takže Extent je aktuální. Nastavíme Offset
+        // na Extent.Height (ScrollViewer clampuje na max valid).
         //
-        // Sentinel + BringIntoView z předchozího pokusu nefungoval — bubliny
-        // končily těsně nad inputem bez gap. Nahrazeno přímou manipulací s
-        // Offset, plus 25-frame retry safety window.
+        // Následně sledujeme LayoutUpdated — když se po prvním nastavení
+        // změní layout (streaming, MarkdownViewer render, footer becomes
+        // visible), znovu doscrollujeme. POZOR: v LayoutUpdated handleru
+        // NESMÍME volat UpdateLayout — to by vyvolalo nový layout pass
+        // uvnitř probíhajícího, který by zavolal LayoutUpdated, který
+        // by zavolal UpdateLayout… nekonečná rekurze → StackOverflow.
+        // Stačí nastavit Offset — clamp proběhne automaticky.
 
         var scroll = this.FindControl<ScrollViewer>("MessagesScroll");
         if (scroll is null) return;
 
         _programmaticScroll = true;
 
-        static void ForceMaxOffset(ScrollViewer s)
-        {
-            // double.MaxValue → ScrollViewer.Offset clamp na max valid
-            // (= Extent.Y - Viewport.Height). Při Extent < Viewport jen 0.
-            s.Offset = new Avalonia.Vector(0, double.MaxValue);
-        }
-
         Dispatcher.UIThread.Post(() =>
         {
-            ForceMaxOffset(scroll);
+            // Initial scroll — vynutíme layout pass jen tady (mimo LayoutUpdated)
+            scroll.UpdateLayout();
+            scroll.Offset = new Avalonia.Vector(0, scroll.Extent.Height);
 
             var framesSeen = 0;
             EventHandler? handler = null;
             handler = (_, _) =>
             {
                 framesSeen++;
-                ForceMaxOffset(scroll);
+                // POZOR: žádné UpdateLayout() tady — handler běží UVNITŘ layout passu,
+                // další UpdateLayout by vyvolal rekurzi.
+                scroll.Offset = new Avalonia.Vector(0, scroll.Extent.Height);
                 if (framesSeen >= 25)
                 {
                     scroll.LayoutUpdated -= handler!;
@@ -254,6 +287,28 @@ public partial class ChatPageView : UserControl
             };
             scroll.LayoutUpdated += handler;
         }, DispatcherPriority.Render);
+    }
+
+    // ── Generated image click → zoom ──────────────────────────────────────────
+
+    /// <summary>
+    /// Klik (nebo tap) na vygenerovaný obrázek v chat bublině → otevře zoom okno
+    /// přes ChatMessage.OpenImageZoomCommand. Předtím to bylo realizováno
+    /// Buttonem s Command bindingem, ale ten v některých situacích nefungoval
+    /// — uživatel hlásil, že klik místo zoomu jakoby přidal obrázek do referenčních
+    /// (zřejmě se Button click nevyhodnotil, místo toho event probublal jinam
+    /// nebo se nezavolal ICommand kvůli ne-deterministickému DataContextu).
+    /// Tapped event handler v code-behind řeší to explicitně bez bindings.
+    /// </summary>
+    private void GeneratedImage_Tapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        if (sender is not Avalonia.Controls.Control ctrl) return;
+
+        if (ctrl.DataContext is ChatMessage msg && msg.OpenImageZoomCommand.CanExecute(null))
+        {
+            msg.OpenImageZoomCommand.Execute(null);
+            e.Handled = true;
+        }
     }
 
     // ── Title inline edit ─────────────────────────────────────────────────────

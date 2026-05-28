@@ -24,8 +24,16 @@ public interface ILlamaService : IAsyncDisposable
     /// </summary>
     event Action<string>? StatusChanged;
 
+    /// <summary>
+    /// Načte GGUF model do paměti.
+    /// </summary>
+    /// <param name="contextSize">
+    /// Velikost KV cache v tokenech. Default 8192 (kompromis VRAM × délka konverzace).
+    /// Uživatelská hodnota se ukládá v <c>AppSettings.ChatContextSize</c>.
+    /// </param>
     Task LoadModelAsync(string modelPath, string modelName,
-                        int gpuLayers = -1, CancellationToken ct = default);
+                        int gpuLayers = -1, int contextSize = 8192,
+                        CancellationToken ct = default);
     Task UnloadModelAsync();
 
     IAsyncEnumerable<string> ChatAsync(

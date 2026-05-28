@@ -26,6 +26,30 @@ public partial class SettingsPageViewModel : ViewModelBase
     // ── Inference ─────────────────────────────────────────────────────────────
     [ObservableProperty] private bool _useGpu;
 
+    /// <summary>
+    /// Velikost kontextového okna v tokenech (KV cache). Per-aplikační nastavení,
+    /// projeví se po reloadu modelu. Větší ctx = více VRAM, ale delší konverzace.
+    /// Hodnota se ukládá do <c>AppSettings.ChatContextSize</c>.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ChatContextSizeLabel), nameof(IsLargeContextWarning))]
+    private int _chatContextSize = 8192;
+
+    /// <summary>True když uživatel vybral hodnotu, která může způsobit OOM na běžné VRAM.</summary>
+    public bool IsLargeContextWarning => ChatContextSize > 16384;
+
+    /// <summary>Dostupné předdefinované hodnoty kontextu pro ComboBox v UI.</summary>
+    public IReadOnlyList<int> ChatContextSizeOptions { get; } =
+        new[] { 2048, 4096, 8192, 16384, 32768, 65536 };
+
+    /// <summary>Lidsky čitelný popis aktuální velikosti kontextu pro UI hint.</summary>
+    public string ChatContextSizeLabel => ChatContextSize switch
+    {
+        < 1_000  => $"{ChatContextSize} tokenů",
+        < 10_000 => $"{ChatContextSize / 1_000.0:F1}k tokenů",
+        _        => $"{ChatContextSize / 1_000}k tokenů"
+    };
+
     // ── Modely ────────────────────────────────────────────────────────────────
     [ObservableProperty] private string _modelsDirectory = string.Empty;
 
@@ -103,6 +127,7 @@ public partial class SettingsPageViewModel : ViewModelBase
         _selectedTheme     = s.Theme;
         _selectedLanguage  = s.Language;
         _useGpu            = s.UseGpu;
+        _chatContextSize   = s.ChatContextSize > 0 ? s.ChatContextSize : 8192;
         _modelsDirectory   = s.ModelsDirectory;
         _huggingFaceToken  = s.HuggingFaceToken;
         _civitaiApiKey     = s.CivitaiApiKey;
@@ -133,6 +158,16 @@ public partial class SettingsPageViewModel : ViewModelBase
     partial void OnUseGpuChanged(bool value)
     {
         _settings.Settings.UseGpu = value;
+        ScheduleSave();
+    }
+
+    partial void OnChatContextSizeChanged(int value)
+    {
+        // Clamp pro případ že někdo nastaví ručně přes JSON; UI předává hodnoty
+        // z ChatContextSizeOptions, ale safety net pro out-of-band hodnoty.
+        var clamped = Math.Clamp(value, 1024, 131072);
+        _settings.Settings.ChatContextSize = clamped;
+        if (clamped != value) ChatContextSize = clamped;   // re-entrancy chráněna CommunityToolkit setterem
         ScheduleSave();
     }
 

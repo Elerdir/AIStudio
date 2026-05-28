@@ -165,4 +165,30 @@
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
+    <!-- ═══════════════════ VÝRAZNÝ SCROLLBAR ═══════════════════════════
+         Default Avalonia ScrollBar (FluentTheme) je hodně tenký a v
+         tmavém režimu skoro neviditelný. ScrollViewer s Classes="visibleScrollbar"
+         dostane širší pruh a kontrastní thumb, aby uživatel jasně viděl
+         pozici v dlouhých konverzacích. -->
+
+    <Style Selector="ScrollViewer.visibleScrollbar /template/ ScrollBar[Orientation=Vertical]">
+        <Setter Property="Width" Value="12"/>
+        <Setter Property="Background" Value="#0A0A0F"/>
+        <Setter Property="Opacity" Value="1"/>
+    </Style>
+
+    <Style Selector="ScrollViewer.visibleScrollbar /template/ ScrollBar[Orientation=Vertical] /template/ Thumb">
+        <Setter Property="Background" Value="#3A3A50"/>
+        <Setter Property="CornerRadius" Value="6"/>
+        <Setter Property="MinHeight" Value="40"/>
+    </Style>
+
+    <Style Selector="ScrollViewer.visibleScrollbar /template/ ScrollBar[Orientation=Vertical] /template/ Thumb:pointerover">
+        <Setter Property="Background" Value="#5A5A78"/>
+    </Style>
+
+    <Style Selector="ScrollViewer.visibleScrollbar /template/ ScrollBar[Orientation=Vertical] /template/ Thumb:pressed">
+        <Setter Property="Background" Value="#7C3AED"/>
+    </Style>
+
 </Styles>

@@ -147,6 +147,17 @@ public partial class ChatPageViewModel
         Log.Information("Image gen: intent={Intent} ref={Ref}",
                         intent, referencePath ?? "(none)");
 
+        // KRITICKÉ: SmartParser (ImageIntentParser) potřebuje chat LLM, aby přeložil
+        // český popis do anglického promptu pro SDXL/FLUX. Diffusion modely (SD/SDXL/
+        // FLUX) jsou trénované hlavně na EN datech a CZ promptu nerozumí — bez překladu
+        // by uživatel napsal "nakresli psa na louce" a SDXL vygeneroval cokoliv jiného.
+        //
+        // Pokud LLM ještě není načtený (např. nová konverzace, image jako první zpráva),
+        // pokusíme se ho teď načíst. Když selže (model nestažený, OOM, atd.), pojedeme
+        // dál — parser vrátí Fallback intent a SDXL dostane český text. To je horší
+        // než nic, ale aspoň aplikace nehavaruje.
+        await TryEnsureChatLlmForImageParserAsync(conv, placeholder, ct);
+
         var progress = new Progress<int>(_ => { /* zatím nevyužíváme — UI bublina má jen typing dots */ });
 
         // Callback pro upgrade nabídku — orchestrátor zavolá, pokud najde lepší
@@ -233,5 +244,71 @@ public partial class ChatPageViewModel
 
         _ = TrySaveConversationAsync(conv);
         _ = MaybeAutoRenameAsync(conv);
+    }
+
+    /// <summary>
+    /// Best-effort načtení chat LLM před image gen, aby SmartParser mohl
+    /// český popis přeložit do anglického SDXL promptu. Žádné exception
+    /// neunikne — když model není stažený, nejde načíst, nebo cokoliv jiného
+    /// selže, jen to zalogujeme a image gen pojede dál s tím že parser
+    /// propadne na pass-through fallback.
+    ///
+    /// Důvod proč tu nepoužíváme <see cref="EnsureModelLoadedAsync"/>: ta hází
+    /// <see cref="ModelNotAvailableException"/> / <see cref="ModelLoadFailedException"/>
+    /// a píše do placeholderu chybové zprávy určené pro chat flow. Pro image flow
+    /// chceme pokračovat i bez chat LLM (parser má fallback) a placeholder
+    /// reservujeme pro image-gen specific stavy ("Hledám lepší model" / "Generuji").
+    /// </summary>
+    private async Task TryEnsureChatLlmForImageParserAsync(
+        ConversationViewModel conv,
+        ChatMessage           placeholder,
+        CancellationToken     ct)
+    {
+        if (string.IsNullOrWhiteSpace(conv.SelectedModelName))
+        {
+            Log.Information("Image gen: žádný chat model vybraný, SmartParser pojede ve fallbacku");
+            return;
+        }
+
+        if (_llama.IsLoaded && _llama.LoadedModelName == conv.SelectedModelName)
+            return;  // už načtený, můžeme rovnou parsovat
+
+        try
+        {
+            var modelPath = GetModelPath(conv.SelectedModelName);
+            if (!File.Exists(modelPath))
+            {
+                Log.Information("Image gen: chat LLM '{Model}' není stažen, SmartParser pojede ve fallbacku " +
+                                "(SDXL může vrátit halucinaci pro český prompt)",
+                                conv.SelectedModelName);
+                return;
+            }
+
+            // Krátký vizuální feedback — placeholder zatím nemá nic, dáme text že
+            // model nahráváme. Po loadu se ho ChatImageOrchestrator přepíše na
+            // "Hledám lepší model" / "Generuji obrázek".
+            Dispatcher.UIThread.Post(() =>
+                placeholder.Content = $"⏳ Načítám chat model **{conv.SelectedModelName}** pro analýzu promptu…");
+
+            var gpuLayers   = _settings.Settings.UseGpu ? -1 : 0;
+            var contextSize = _settings.Settings.ChatContextSize;
+            Log.Information("Image gen: načítám chat LLM '{Model}' pro SmartParser", conv.SelectedModelName);
+
+            await _llama.LoadModelAsync(modelPath, conv.SelectedModelName,
+                                        gpuLayers: gpuLayers,
+                                        contextSize: contextSize,
+                                        ct: ct);
+
+            // Po úspěšném loadu placeholder vyčistíme — orchestrátor si ho přepíše sám
+            Dispatcher.UIThread.Post(() => placeholder.Content = "");
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Image gen: chat LLM nelze načíst, SmartParser pojede ve fallbacku " +
+                            "(SDXL může vrátit halucinaci pro český prompt)");
+            // Vrátíme placeholder do prázdného stavu — orchestrátor si ho přepíše
+            Dispatcher.UIThread.Post(() => placeholder.Content = "");
+        }
     }
 }

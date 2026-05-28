@@ -34,7 +34,7 @@ public partial class ChatMessage
     private bool _isAwaitingUpgradeChoice;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsImageMessage))]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage), nameof(IsImageProgressOnly))]
     private bool _isDownloadingUpgradeModel;
 
     [ObservableProperty] private int    _upgradeDownloadPercent;
