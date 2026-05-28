@@ -165,10 +165,42 @@ public partial class App : Application
         services.AddSingleton<IChatImageOrchestrator, ChatImageOrchestrator>();
         services.AddSingleton<IFluxDependencyService, FluxDependencyService>();
 
+        // LoRA trénink — reuse-uje ComfyUI Python venv (žádný druhý Python pro uživatele).
+        // Closure pro python.exe: spočítáme cestu z ComfyInstaller.DetectExisting nad
+        // aktuální ComfyUiDirectory v settings — tedy se přepočítává při každém volání,
+        // protože uživatel může ComfyUI přeinstalovat za běhu.
+        services.AddSingleton<ILoraTrainerDependencyService, LoraTrainerDependencyService>();
+
+        // Helper closure pro resolve Python.exe z ComfyUI venv — sdílený mezi
+        // trainer a caption service. Kdyby uživatel přeinstaloval ComfyUI za běhu,
+        // cesta se přepočítá při dalším volání.
+        Func<IServiceProvider, Func<string?>> makePythonResolver = sp =>
+        {
+            var installer = sp.GetRequiredService<IComfyInstaller>();
+            var settings  = sp.GetRequiredService<ISettingsService>();
+            return () =>
+            {
+                var dir = settings.Settings.ComfyUiDirectory;
+                if (string.IsNullOrWhiteSpace(dir)) dir = installer.DefaultInstallDirectory;
+                return installer.DetectExisting(dir)?.PythonPath;
+            };
+        };
+
+        services.AddSingleton<ILoraTrainerService>(sp =>
+            new SdScriptsLoraTrainer(
+                sp.GetRequiredService<ILoraTrainerDependencyService>(),
+                makePythonResolver(sp)));
+
+        services.AddSingleton<ILoraCaptionService>(sp =>
+            new BlipCaptionService(
+                sp.GetRequiredService<ILoraTrainerDependencyService>(),
+                makePythonResolver(sp)));
+
         // ViewModels — každý dostane ze DI jen vlastní závislosti
         services.AddSingleton<AIStudio.App.ViewModels.Chat.ChatPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.ImageStudio.ImageStudioPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Models.ModelManagerPageViewModel>();
+        services.AddSingleton<AIStudio.App.ViewModels.Lora.LoraLibraryPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.SystemMonitor.SystemPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Settings.SettingsPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Setup.FirstRunWizardViewModel>();

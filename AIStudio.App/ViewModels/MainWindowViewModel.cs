@@ -4,6 +4,7 @@ using AIStudio.Core.Enums;
 using AIStudio.Core.Interfaces;
 using AIStudio.App.ViewModels.Chat;
 using AIStudio.App.ViewModels.ImageStudio;
+using AIStudio.App.ViewModels.Lora;
 using AIStudio.App.ViewModels.Models;
 using AIStudio.App.ViewModels.Settings;
 using AIStudio.App.ViewModels.SystemMonitor;
@@ -28,6 +29,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public ChatPageViewModel         ChatPage         { get; }
     public ImageStudioPageViewModel  ImageStudioPage  { get; }
     public ModelManagerPageViewModel ModelManagerPage { get; }
+    public LoraLibraryPageViewModel  LoraPage         { get; }
     public SystemPageViewModel       SystemPage       { get; }
     public SettingsPageViewModel     SettingsPage     { get; }
     public UpdateViewModel           Updates          { get; }
@@ -39,6 +41,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ChatPageViewModel         chatPage,
         ImageStudioPageViewModel  imageStudioPage,
         ModelManagerPageViewModel modelManagerPage,
+        LoraLibraryPageViewModel  loraPage,
         SystemPageViewModel       systemPage,
         SettingsPageViewModel     settingsPage,
         UpdateViewModel           updates)
@@ -49,6 +52,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ChatPage         = chatPage;
         ImageStudioPage  = imageStudioPage;
         ModelManagerPage = modelManagerPage;
+        LoraPage         = loraPage;
         SystemPage       = systemPage;
         SettingsPage     = settingsPage;
         Updates          = updates;
@@ -97,6 +101,7 @@ public partial class MainWindowViewModel : ViewModelBase
             NavigationPage.Chat        => ChatPage,
             NavigationPage.ImageStudio => ImageStudioPage,
             NavigationPage.Models      => ModelManagerPage,
+            NavigationPage.Lora        => LoraPage,
             NavigationPage.System      => SystemPage,
             NavigationPage.Settings    => SettingsPage,
             _                          => ChatPage

@@ -1,0 +1,749 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AIStudio.App.ViewModels.Lora"
+             xmlns:mi="using:Material.Icons.Avalonia"
+             xmlns:miKind="using:Material.Icons"
+             x:Class="AIStudio.App.Views.Lora.LoraLibraryPageView"
+             x:DataType="vm:LoraLibraryPageViewModel">
+
+    <UserControl.DataTemplates>
+        <!-- Šablona pro jednu LoRA položku v hlavním seznamu -->
+        <DataTemplate DataType="vm:LoraItemViewModel" x:DataType="vm:LoraItemViewModel">
+            <Border Margin="0,0,14,8" CornerRadius="12" Padding="14"
+                    Background="{DynamicResource CardBgBrush}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+
+                    <!-- Ikona LoRA -->
+                    <Border Grid.Column="0"
+                            Width="44" Height="44" CornerRadius="10"
+                            Background="#1F1B2E" BorderBrush="#3B2F5A" BorderThickness="1"
+                            VerticalAlignment="Top">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Layers}"
+                                         Width="22" Height="22"
+                                         Foreground="#A78BFA"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"/>
+                    </Border>
+
+                    <!-- Název, podsložka, velikost -->
+                    <StackPanel Grid.Column="1" Spacing="5" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding DisplayName}"
+                                   FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding Name}"/>
+                        <WrapPanel>
+                            <Border IsVisible="{Binding SubfolderLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                    Margin="0,0,6,0"
+                                    Background="#1A1F2C" BorderBrush="#2A324A" BorderThickness="1"
+                                    CornerRadius="4" Padding="7,2">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderOutline}"
+                                                     Width="11" Height="11"
+                                                     Foreground="#7A8BB0"
+                                                     VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding SubfolderLabel}"
+                                               FontSize="10" Foreground="#7A8BB0"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Margin="0,0,6,0"
+                                    Background="#16221A" BorderBrush="#264726" BorderThickness="1"
+                                    CornerRadius="4" Padding="7,2">
+                                <TextBlock Text="{Binding SizeLabel}"
+                                           FontSize="10" Foreground="{DynamicResource SuccessBrush}"/>
+                            </Border>
+                            <Border Margin="0,0,6,0"
+                                    Background="#1C1C1E" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                    CornerRadius="4" Padding="7,2">
+                                <TextBlock Text="{Binding Extension}"
+                                           FontSize="10" Foreground="{DynamicResource TextHintBrush}"/>
+                            </Border>
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <!-- Pravá strana: akce -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6"
+                                VerticalAlignment="Center">
+                        <Button Command="{Binding RevealCommand}"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="8" CornerRadius="6"
+                                ToolTip.Tip="Zobrazit ve složce">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderOpen}"
+                                             Width="18" Height="18"
+                                             Foreground="{DynamicResource TextHintBrush}"/>
+                        </Button>
+                        <Button Command="{Binding DeleteCommand}"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="8" CornerRadius="6"
+                                IsEnabled="{Binding !IsDeleting}"
+                                ToolTip.Tip="Smazat soubor">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.TrashCanOutline}"
+                                             Width="18" Height="18"
+                                             Foreground="#C77B7B"/>
+                        </Button>
+                    </StackPanel>
+
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.DataTemplates>
+
+    <DockPanel>
+
+        <!-- Header -->
+        <Border DockPanel.Dock="Top" Padding="28,22,28,16"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <StackPanel Grid.Column="0" Spacing="3">
+                    <TextBlock Text="LoRA" Classes="pageTitle"/>
+                    <TextBlock Text="Knihovna stažených LoRA adapterů — použij je v Image Studiu pro úpravu stylu generování"
+                               FontSize="12" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding SummaryLabel}"
+                               FontSize="11" Foreground="{DynamicResource TextWeakBrush}"
+                               Margin="0,2,0,0"
+                               IsVisible="{Binding SummaryLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                            IsVisible="{Binding IsLibraryTab}">
+                    <Button Command="{Binding OpenLorasFolderCommand}"
+                            Classes="secondary"
+                            Padding="12,8"
+                            ToolTip.Tip="{Binding LorasDirectoryPath}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderOpen}" Width="14" Height="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Otevřít složku" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding RefreshCommand}"
+                            Classes="secondary"
+                            Padding="12,8"
+                            IsEnabled="{Binding !IsLoading}"
+                            ToolTip.Tip="Znovu naskenovat složku">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="14" Height="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Refresh" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Tab switcher: Knihovna / Trénovat -->
+        <Border DockPanel.Dock="Top" Padding="28,8,28,0"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button Classes="tabBtn"
+                        Classes.activeTab="{Binding IsLibraryTab}"
+                        Command="{Binding SelectLibraryTabCommand}"
+                        Padding="14,10">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.LibraryShelves}"
+                                         Width="14" Height="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Knihovna" FontSize="13" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+                <Button Classes="tabBtn"
+                        Classes.activeTab="{Binding IsTrainingTab}"
+                        Command="{Binding SelectTrainingTabCommand}"
+                        Padding="14,10"
+                        IsVisible="{Binding TrainingPane, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.School}"
+                                         Width="14" Height="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Trénovat" FontSize="13" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- Toolbar: search + status (jen v Knihovna tabu) -->
+        <Border DockPanel.Dock="Top" Padding="28,12,28,12"
+                IsVisible="{Binding IsLibraryTab}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Border Grid.Column="0"
+                        Background="{DynamicResource SubtlePanelBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                        CornerRadius="8" Padding="10,4">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Magnify}"
+                                         Width="16" Height="16"
+                                         Foreground="{DynamicResource TextHintBrush}"
+                                         VerticalAlignment="Center"/>
+                        <TextBox Text="{Binding SearchText}"
+                                 PlaceholderText="Hledat LoRA podle názvu nebo podsložky…"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 PlaceholderForeground="{DynamicResource TextDisabledBrush}"
+                                 MinWidth="320"
+                                 VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Border>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding StatusMessage}"
+                           FontSize="12"
+                           Foreground="{DynamicResource TextHintBrush}"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+            </Grid>
+        </Border>
+
+        <!-- Inline delete confirm strip (zobrazený když PendingDelete != null) -->
+        <Border DockPanel.Dock="Top"
+                IsVisible="{Binding PendingDelete, Converter={x:Static ObjectConverters.IsNotNull}}"
+                Padding="28,12,28,12"
+                Background="#221517" BorderBrush="#3E1F22" BorderThickness="0,1,0,1">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+                <mi:MaterialIcon Grid.Column="0"
+                                 Kind="{x:Static miKind:MaterialIconKind.AlertOutline}"
+                                 Width="20" Height="20"
+                                 Foreground="#E08585"
+                                 VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="Opravdu smazat tento LoRA soubor?"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="{Binding PendingDelete.Name}"
+                               FontSize="11"
+                               Foreground="{DynamicResource TextHintBrush}"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <Button Grid.Column="2"
+                        Command="{Binding CancelDeleteCommand}"
+                        Classes="secondary"
+                        Padding="14,7"
+                        Content="Zrušit"/>
+                <Button Grid.Column="3"
+                        Command="{Binding ConfirmDeleteCommand}"
+                        Background="#7E2A2A" BorderBrush="#9E3535" BorderThickness="1"
+                        Foreground="White"
+                        Padding="14,7"
+                        CornerRadius="8"
+                        Content="Smazat"/>
+            </Grid>
+        </Border>
+
+        <!-- Main content area: vyplní zbytek; obsah se přepíná podle aktivního tabu -->
+        <Panel>
+
+            <!-- ═══════════════════ TAB: KNIHOVNA ═══════════════════ -->
+            <Grid IsVisible="{Binding IsLibraryTab}">
+
+                <!-- Loading state -->
+                <StackPanel IsVisible="{Binding IsLoading}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Spacing="12">
+                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Loading}"
+                                     Width="36" Height="36"
+                                     Foreground="{DynamicResource TextHintBrush}"
+                                     HorizontalAlignment="Center"/>
+                    <TextBlock Text="Načítám LoRA…"
+                               FontSize="13"
+                               Foreground="{DynamicResource TextHintBrush}"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Empty state — žádné LoRA v knihovně -->
+                <StackPanel IsVisible="{Binding HasNoItems}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            MaxWidth="440" Spacing="14">
+                    <Border Width="64" Height="64" CornerRadius="32"
+                            Background="#1F1B2E" BorderBrush="#3B2F5A" BorderThickness="1"
+                            HorizontalAlignment="Center">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Layers}"
+                                         Width="30" Height="30"
+                                         Foreground="#A78BFA"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock Text="Žádné LoRA"
+                               FontSize="18" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock TextWrapping="Wrap" TextAlignment="Center"
+                               FontSize="12" Foreground="{DynamicResource TextHintBrush}">
+                        <Run Text="LoRA adaptery (.safetensors) si stáhni například z "/>
+                        <Run Text="civitai.com" Foreground="{DynamicResource AccentLightBrush}"/>
+                        <Run Text=" a ulož je do složky "/>
+                        <Run Text="Models/loras/" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <Run Text=" — pak klikni na Refresh. Nebo si vlastní natrénuj v tabu Trénovat."/>
+                    </TextBlock>
+                    <Button Command="{Binding OpenLorasFolderCommand}"
+                            Classes="secondary"
+                            Padding="14,8"
+                            HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderOpen}" Width="14" Height="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Otevřít složku Models/loras" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Empty state — filter nenašel nic -->
+                <StackPanel IsVisible="{Binding HasNoMatches}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Spacing="10">
+                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.MagnifyClose}"
+                                     Width="36" Height="36"
+                                     Foreground="{DynamicResource TextDisabledBrush}"
+                                     HorizontalAlignment="Center"/>
+                    <TextBlock Text="Žádná LoRA neodpovídá vyhledávání"
+                               FontSize="13"
+                               Foreground="{DynamicResource TextHintBrush}"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+
+                <!-- Seznam LoRA -->
+                <ScrollViewer Padding="28,8,14,28"
+                              IsVisible="{Binding FilteredItems.Count}">
+                    <ItemsControl ItemsSource="{Binding FilteredItems}"/>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- ═══════════════════ TAB: TRÉNOVAT ═══════════════════
+                 DataContext se přepíná až na vnitřním StackPanelu, aby IsVisible
+                 binding na ScrollVieweru evaluoval IsTrainingTab z page VM, ne
+                 z TrainingPane (kde by neexistoval = compile error AVLN2000). -->
+            <Panel IsVisible="{Binding IsTrainingTab}">
+              <ScrollViewer Padding="28,16,14,28">
+                <StackPanel Spacing="20" MaxWidth="780" HorizontalAlignment="Left"
+                            DataContext="{Binding TrainingPane}">
+
+                    <!-- HW indikátor -->
+                    <Border Background="{DynamicResource CardBgBrush}"
+                            BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                            CornerRadius="10" Padding="14,10">
+                        <StackPanel Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Gpu}"
+                                                 Width="16" Height="16"
+                                                 Foreground="{DynamicResource AccentLightBrush}"
+                                                 VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding HwInfoLabel}"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextLightBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock Text="{Binding HwWarningText}"
+                                       FontSize="11" Foreground="{DynamicResource WarningBrush}"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding HwWarningText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ── 1) Pojmenování + base model ── -->
+                    <StackPanel Spacing="10" IsEnabled="{Binding IsIdle}">
+                        <TextBlock Text="1) ZÁKLADNÍ NASTAVENÍ" Classes="sectionHeader"/>
+                        <Border Classes="card" Padding="16,14">
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="4">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Název LoRA"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="Základní model"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                                <TextBox Grid.Row="1" Grid.Column="0"
+                                         Text="{Binding TrainingName}"
+                                         PlaceholderText="např. nikol_v1"
+                                         Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                         BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
+                                         Padding="12,8" FontSize="13"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1"
+                                          ItemsSource="{Binding AvailableBaseModels}"
+                                          SelectedItem="{Binding SelectedBaseModel}"
+                                          PlaceholderText="-- vyber checkpoint --"
+                                          Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                          BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
+                                          Padding="12,8" FontSize="13"
+                                          HorizontalAlignment="Stretch"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0"
+                                           Text="Pojmenuj LoRA bez .safetensors přípony"
+                                           FontSize="10" Foreground="{DynamicResource TextHintBrush}"
+                                           Margin="0,4,0,0"/>
+                                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                                    <Border Background="#1F1B2E" BorderBrush="#3B2F5A" BorderThickness="1"
+                                            CornerRadius="4" Padding="6,2"
+                                            IsVisible="{Binding BaseModelTypeLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                        <TextBlock Text="{Binding BaseModelTypeLabel}" FontSize="10"
+                                                   Foreground="#A78BFA" FontWeight="SemiBold"/>
+                                    </Border>
+                                    <TextBlock Text="{Binding EstimatedTimeLabel, StringFormat='odhad {0}'}"
+                                               FontSize="10" Foreground="{DynamicResource TextHintBrush}"
+                                               VerticalAlignment="Center"
+                                               IsVisible="{Binding EstimatedTimeLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ── 2) Dataset ── -->
+                    <StackPanel Spacing="10" IsEnabled="{Binding IsIdle}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBlock Grid.Column="0" Text="2) DATASET" Classes="sectionHeader"
+                                       VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding DatasetStatusLabel}"
+                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Button Command="{Binding AddImagesFromPickerCommand}"
+                                        Classes="secondary" Padding="10,5">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Plus}" Width="12" Height="12" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Přidat" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <!-- Auto-caption: jen pokud je service dostupná a máme obrázky -->
+                                <Button Command="{Binding GenerateCaptionsCommand}"
+                                        Classes="secondary" Padding="10,5"
+                                        IsVisible="{Binding IsCaptioningSupported}"
+                                        IsEnabled="{Binding CanStartCaptioning}"
+                                        ToolTip.Tip="Vygenerovat popisky automaticky (BLIP/WD14)">
+                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.RobotHappyOutline}"
+                                                         Width="12" Height="12" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Auto-popisek" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding ClearDatasetCommand}"
+                                        Classes="secondary" Padding="10,5"
+                                        IsEnabled="{Binding !HasNoDatasetItems}">
+                                    <TextBlock Text="Vyčistit" FontSize="11"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Caption progress strip — viditelný během captioningu -->
+                        <Border IsVisible="{Binding IsCaptioning}"
+                                Background="#0F1A0F" BorderBrush="#264726" BorderThickness="1"
+                                CornerRadius="8" Padding="12,10">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding CaptionStatusLabel}"
+                                               FontSize="12" Foreground="{DynamicResource TextLightBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <Button Grid.Column="1"
+                                            Command="{Binding CancelCaptioningCommand}"
+                                            Classes="secondary" Padding="8,4">
+                                        <TextBlock Text="Zrušit" FontSize="11"/>
+                                    </Button>
+                                </Grid>
+                                <ProgressBar Value="{Binding CaptionProgress}"
+                                             Minimum="0" Maximum="100"
+                                             Height="4" CornerRadius="2"
+                                             Foreground="{DynamicResource SuccessBrush}"
+                                             Background="#1C1C24"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Velikost varování -->
+                        <Border IsVisible="{Binding IsDatasetSizeWarning}"
+                                Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
+                                CornerRadius="8" Padding="12,8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}"
+                                                 Width="14" Height="14" Foreground="{DynamicResource WarningBrush}"
+                                                 VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding DatasetSizeWarningText}"
+                                           FontSize="11" Foreground="#A07820" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Drop zone — empty state -->
+                        <Border IsVisible="{Binding HasNoDatasetItems}"
+                                Name="DatasetDropZone"
+                                Background="{DynamicResource SubtlePanelBgBrush}"
+                                BorderBrush="#3B2F5A" BorderThickness="2"
+                                CornerRadius="12" Padding="24,28"
+                                MinHeight="160"
+                                HorizontalAlignment="Stretch">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageMultipleOutline}"
+                                                 Width="38" Height="38"
+                                                 Foreground="#5A4E80"
+                                                 HorizontalAlignment="Center"/>
+                                <TextBlock Text="Přetáhni obrázky sem"
+                                           FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextLightBrush}"
+                                           HorizontalAlignment="Center"/>
+                                <TextBlock Text="…nebo klikni na ‚Přidat'. 15-30 fotek, různé úhly, dobré osvětlení."
+                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap" MaxWidth="320"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Dataset items -->
+                        <Border IsVisible="{Binding !HasNoDatasetItems}"
+                                Name="DatasetItemsPanel"
+                                Background="{DynamicResource SubtlePanelBgBrush}"
+                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                CornerRadius="10" Padding="6"
+                                MaxHeight="380">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding DatasetItems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:LoraDatasetItemViewModel">
+                                            <Border Margin="4" Padding="8" CornerRadius="8"
+                                                    Background="{DynamicResource CardBgBrush}">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                    <!-- Thumbnail (nebo ikona placeholder dokud Bitmap nedorazí) -->
+                                                    <Border Grid.Column="0" Width="60" Height="60" CornerRadius="6"
+                                                            ClipToBounds="True" Background="#0F0F18"
+                                                            BorderBrush="#1F1B2E" BorderThickness="1">
+                                                        <Panel>
+                                                            <Image Source="{Binding Thumbnail}"
+                                                                   Stretch="UniformToFill"
+                                                                   IsVisible="{Binding HasThumbnail}"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}"
+                                                                             Width="22" Height="22"
+                                                                             Foreground="#3B2F5A"
+                                                                             HorizontalAlignment="Center"
+                                                                             VerticalAlignment="Center"
+                                                                             IsVisible="{Binding !HasThumbnail}"/>
+                                                        </Panel>
+                                                    </Border>
+                                                    <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding FileName}"
+                                                                   FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBox Text="{Binding Caption}"
+                                                                 PlaceholderText="popisek pro trénink (např. young woman, beach)…"
+                                                                 Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                 BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="6"
+                                                                 Padding="8,5" FontSize="11"
+                                                                 MaxLength="500"/>
+                                                    </StackPanel>
+                                                    <Button Grid.Column="2"
+                                                            Command="{Binding RemoveCommand}"
+                                                            Background="Transparent" BorderThickness="0"
+                                                            Padding="6" Width="28" Height="28"
+                                                            VerticalAlignment="Center"
+                                                            ToolTip.Tip="Odebrat z datasetu">
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}"
+                                                                         Width="14" Height="14"
+                                                                         Foreground="#C77B7B"/>
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ── 3) Parametry tréninku ── -->
+                    <StackPanel Spacing="10" IsEnabled="{Binding IsIdle}">
+                        <TextBlock Text="3) PARAMETRY TRÉNINKU" Classes="sectionHeader"/>
+                        <Border Classes="card" Padding="16,14">
+                            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="6">
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Rank"   FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="1" Text="Alpha"  FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="2" Text="Steps"  FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                <TextBlock Grid.Row="0" Grid.Column="3" Text="Batch"  FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+
+                                <NumericUpDown Grid.Row="1" Grid.Column="0" Value="{Binding Rank}"      Minimum="4"  Maximum="128"  Increment="4"/>
+                                <NumericUpDown Grid.Row="1" Grid.Column="1" Value="{Binding Alpha}"     Minimum="1"  Maximum="128"  Increment="1"/>
+                                <NumericUpDown Grid.Row="1" Grid.Column="2" Value="{Binding Steps}"     Minimum="100" Maximum="10000" Increment="100"/>
+                                <NumericUpDown Grid.Row="1" Grid.Column="3" Value="{Binding BatchSize}" Minimum="1"  Maximum="8"    Increment="1"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                                           Text="Learning rate" FontSize="11" Foreground="{DynamicResource TextHintBrush}" Margin="0,8,0,0"/>
+                                <TextBlock Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2"
+                                           Text="Optimizer" FontSize="11" Foreground="{DynamicResource TextHintBrush}" Margin="0,8,0,0"/>
+
+                                <NumericUpDown Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                                               Value="{Binding LearningRate}"
+                                               Minimum="0.00001" Maximum="0.01"
+                                               Increment="0.00005"
+                                               FormatString="0.000000"/>
+                                <ComboBox Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2"
+                                          ItemsSource="{Binding AvailableOptimizers}"
+                                          SelectedItem="{Binding SelectedOptimizer}"
+                                          HorizontalAlignment="Stretch"
+                                          Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                          BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
+                                          Padding="10,6" FontSize="12"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- ── 4) Start / Cancel ── -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Button Grid.Column="0"
+                                Classes="primary"
+                                IsVisible="{Binding IsIdle}"
+                                IsEnabled="{Binding CanStartTraining}"
+                                Command="{Binding StartTrainingCommand}"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                Padding="0,14">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Play}" Width="16" Height="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Spustit trénink" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="0"
+                                IsVisible="{Binding IsTraining}"
+                                Command="{Binding CancelTrainingCommand}"
+                                Background="#7E2A2A" BorderBrush="#9E3535" BorderThickness="1"
+                                Foreground="White"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                CornerRadius="10" Padding="0,14">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Stop}" Width="16" Height="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Zrušit trénink" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <!-- ── 5) Progress (jen během tréninku) ── -->
+                    <Border IsVisible="{Binding IsTraining}"
+                            Background="{DynamicResource CardBgBrush}"
+                            BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                            CornerRadius="10" Padding="16,14">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding StatusLine}"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextLightBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding LossLabel}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource AccentLightBrush}"
+                                           FontWeight="SemiBold"
+                                           IsVisible="{Binding LossLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            </Grid>
+                            <ProgressBar Value="{Binding CurrentProgress}"
+                                         Minimum="0" Maximum="100"
+                                         Height="8" CornerRadius="4"
+                                         Foreground="{DynamicResource AccentBrush}"
+                                         Background="#1C1C24"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding ElapsedLabel}"
+                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding RemainingLabel}"
+                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Result message -->
+                    <Border IsVisible="{Binding ResultMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            BorderThickness="1" CornerRadius="10" Padding="14,10">
+                        <Border.Styles>
+                            <Style Selector="Border">
+                                <Setter Property="Background" Value="#0F1A0F"/>
+                                <Setter Property="BorderBrush" Value="#264726"/>
+                            </Style>
+                        </Border.Styles>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CheckCircleOutline}"
+                                             Width="18" Height="18"
+                                             Foreground="{DynamicResource SuccessBrush}"
+                                             IsVisible="{Binding IsResultSuccess}"
+                                             VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertCircleOutline}"
+                                             Width="18" Height="18"
+                                             Foreground="#E08585"
+                                             IsVisible="{Binding IsResultError}"
+                                             VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding ResultMessage}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextLightBrush}"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+              </ScrollViewer>
+
+              <!-- ═══════════ Code of Conduct overlay ═══════════
+                   Zobrazí se při prvním pokusu o spuštění tréninku.
+                   Po souhlasu se LoraTrainingCodeOfConductAccepted=true uloží
+                   a další tréninky to už neprosí. -->
+              <Border IsVisible="{Binding TrainingPane.IsCodeOfConductVisible}"
+                      Background="#CC000000">
+                  <Border DataContext="{Binding TrainingPane}"
+                          MaxWidth="560" VerticalAlignment="Center" HorizontalAlignment="Center"
+                          Background="{DynamicResource CardBgBrush}"
+                          BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                          CornerRadius="14" Padding="28,24">
+                      <StackPanel Spacing="14">
+                          <StackPanel Orientation="Horizontal" Spacing="10">
+                              <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ShieldCheckOutline}"
+                                               Width="24" Height="24"
+                                               Foreground="{DynamicResource AccentLightBrush}"
+                                               VerticalAlignment="Center"/>
+                              <TextBlock Text="Pravidla použití LoRA tréninku"
+                                         FontSize="16" FontWeight="SemiBold"
+                                         Foreground="{DynamicResource TextLightBrush}"
+                                         VerticalAlignment="Center"/>
+                          </StackPanel>
+
+                          <TextBlock TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                     Foreground="{DynamicResource TextSecondaryBrush}">
+                              <Run Text="Než natrénuješ vlastní LoRA, prosím přečti si:"/>
+                              <LineBreak/><LineBreak/>
+                              <Run Text="🔒 " /><Run Text="Trénink na fotky cizích osob" FontWeight="SemiBold"/>
+                              <Run Text=" vyžaduje jejich souhlas. Trénovat na partnera/kamaráda bez vědomí je porušení soukromí a v ČR může být i trestné (GDPR, §84 OZ — ochrana osobnosti)."/>
+                              <LineBreak/><LineBreak/>
+                              <Run Text="🚫 " /><Run Text="Nikdy" FontWeight="SemiBold"/>
+                              <Run Text=" netrénuj LoRA na nezletilé osoby, zesnulé bez souhlasu rodiny, nebo s cílem vytvářet pornografický / urážlivý obsah konkrétních lidí. Tohle je v mnoha zemích trestný čin."/>
+                              <LineBreak/><LineBreak/>
+                              <Run Text="✓ " /><Run Text="OK je" FontWeight="SemiBold"/>
+                              <Run Text=" trénovat na sebe, na veřejně sdílené fotky se souhlasem, na fiktivní postavy, nebo na umělecké styly."/>
+                              <LineBreak/><LineBreak/>
+                              <Run Text="Plnou zodpovědnost za výsledky tréninku a jejich použití nese uživatel. AI Studio je jen nástroj a nemá kontrolu nad výstupy."/>
+                          </TextBlock>
+
+                          <Border Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
+                                  CornerRadius="6" Padding="10,6" Margin="0,4,0,0">
+                              <StackPanel Orientation="Horizontal" Spacing="8">
+                                  <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.InformationOutline}"
+                                                   Width="14" Height="14"
+                                                   Foreground="{DynamicResource WarningBrush}"
+                                                   VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                  <TextBlock FontSize="11" Foreground="#A07820" TextWrapping="Wrap"
+                                             Text="Tato pravidla potvrdíš jen jednou — pak už se nezobrazí."/>
+                              </StackPanel>
+                          </Border>
+
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,4,0,0">
+                              <Button Grid.Column="0"
+                                      Classes="secondary"
+                                      Command="{Binding DeclineCodeOfConductCommand}"
+                                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                      Padding="0,10">
+                                  <TextBlock Text="Nesouhlasím" FontSize="13"/>
+                              </Button>
+                              <Button Grid.Column="1"
+                                      Classes="primary"
+                                      Command="{Binding AcceptCodeOfConductCommand}"
+                                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                      Padding="0,10">
+                                  <TextBlock Text="Souhlasím a chci pokračovat" FontSize="13" FontWeight="SemiBold"/>
+                              </Button>
+                          </Grid>
+                      </StackPanel>
+                  </Border>
+              </Border>
+
+            </Panel>
+
+        </Panel>
+
+    </DockPanel>
+
+</UserControl>

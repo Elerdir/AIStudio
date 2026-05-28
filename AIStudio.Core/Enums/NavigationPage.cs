@@ -5,6 +5,7 @@ public enum NavigationPage
     Chat,
     ImageStudio,
     Models,
+    Lora,
     System,
     Settings
 }
