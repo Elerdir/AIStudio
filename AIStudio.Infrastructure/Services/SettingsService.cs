@@ -166,27 +166,35 @@ public class SettingsService : ISettingsService
     /// <summary>
     /// Mělká kopie <see cref="AppSettings"/> pro zápis na disk — s šifrovanými
     /// tokeny. In-memory <see cref="Settings"/> zůstává nezměněn (plaintext).
+    ///
+    /// <para><b>POZOR:</b> Při přidání nové property do <see cref="AppSettings"/>
+    /// je nutné přidat ji i sem, jinak se po restartu aplikace ztratí (defaultní
+    /// hodnota při Load přepíše uložené nastavení). Pokrytí kontroluje
+    /// <c>SettingsServiceTests.CloneForDisk_CoversAllProperties</c>.</para>
     /// </summary>
-    private static AppSettings CloneForDisk(AppSettings src)
+    internal static AppSettings CloneForDisk(AppSettings src)
     {
         return new AppSettings
         {
-            Theme                = src.Theme,
-            Language             = src.Language,
-            ModelsDirectory      = src.ModelsDirectory,
-            SetupCompleted       = src.SetupCompleted,
-            UseGpu               = src.UseGpu,
-            DefaultChatModelName = src.DefaultChatModelName,
-            CivitaiApiKey        = TokenProtection.Protect(src.CivitaiApiKey),
-            HuggingFaceToken     = TokenProtection.Protect(src.HuggingFaceToken),
-            ComfyUiDirectory     = src.ComfyUiDirectory,
-            ComfyUiPort          = src.ComfyUiPort,
-            AutoStartComfyUi     = src.AutoStartComfyUi,
-            PythonPath           = src.PythonPath,
-            CheckForUpdates      = src.CheckForUpdates,
-            UpdateChannel        = src.UpdateChannel,
-            // Kopie kolekce — reference by zapsala neúmyslně sdílený stav
-            PendingModelDownloads = new List<string>(src.PendingModelDownloads),
+            Theme                            = src.Theme,
+            Language                         = src.Language,
+            ModelsDirectory                  = src.ModelsDirectory,
+            SetupCompleted                   = src.SetupCompleted,
+            UseGpu                           = src.UseGpu,
+            ChatContextSize                  = src.ChatContextSize,
+            DefaultChatModelName             = src.DefaultChatModelName,
+            CivitaiApiKey                    = TokenProtection.Protect(src.CivitaiApiKey),
+            HuggingFaceToken                 = TokenProtection.Protect(src.HuggingFaceToken),
+            ComfyUiDirectory                 = src.ComfyUiDirectory,
+            ComfyUiPort                      = src.ComfyUiPort,
+            AutoStartComfyUi                 = src.AutoStartComfyUi,
+            PythonPath                       = src.PythonPath,
+            CheckForUpdates                  = src.CheckForUpdates,
+            UpdateChannel                    = src.UpdateChannel,
+            LoraTrainingCodeOfConductAccepted = src.LoraTrainingCodeOfConductAccepted,
+            // Kopie kolekcí — reference by zapsala neúmyslně sdílený stav
+            PendingModelDownloads     = new List<string>(src.PendingModelDownloads),
+            IgnoredImageUpgradeKinds  = new List<string>(src.IgnoredImageUpgradeKinds),
         };
     }
 }

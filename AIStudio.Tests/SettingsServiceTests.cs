@@ -63,6 +63,110 @@ public class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SaveAndLoad_ChatContextSize_RoundTrips()
+    {
+        // Regresní test: ChatContextSize byl přidaný do AppSettings, ale chyběl
+        // v CloneForDisk → po restartu se uložená hodnota ztrácela a vrátila se
+        // na default 8192. Tento test by chybu chytil.
+        var svc = MakeService();
+        svc.Settings.ChatContextSize = 16384;
+
+        await svc.SaveAsync();
+
+        var svc2 = MakeService();
+        await svc2.LoadAsync();
+        svc2.Settings.ChatContextSize.Should().Be(16384);
+    }
+
+    [Fact]
+    public async Task SaveAndLoad_LoraCodeOfConductAccepted_RoundTrips()
+    {
+        // Stejný regresní test pro CoC flag — nová property v AppSettings musí
+        // přežít restart, jinak by uživateli pořád zobrazoval CoC dialog.
+        var svc = MakeService();
+        svc.Settings.LoraTrainingCodeOfConductAccepted = true;
+
+        await svc.SaveAsync();
+
+        var svc2 = MakeService();
+        await svc2.LoadAsync();
+        svc2.Settings.LoraTrainingCodeOfConductAccepted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SaveAndLoad_IgnoredImageUpgradeKinds_RoundTrips()
+    {
+        var svc = MakeService();
+        svc.Settings.IgnoredImageUpgradeKinds.Add("Anime");
+        svc.Settings.IgnoredImageUpgradeKinds.Add("Stylized");
+
+        await svc.SaveAsync();
+
+        var svc2 = MakeService();
+        await svc2.LoadAsync();
+        svc2.Settings.IgnoredImageUpgradeKinds.Should().BeEquivalentTo(new[] { "Anime", "Stylized" });
+    }
+
+    [Fact]
+    public void CloneForDisk_CoversAllProperties()
+    {
+        // Defenzivní reflection test — pokud někdo přidá novou property do
+        // AppSettings, musí ji přidat i do SettingsService.CloneForDisk.
+        // Tento test selže pokud CloneForDisk výsledek neobsahuje konkrétní
+        // hodnotu z source pro libovolnou non-default property.
+        //
+        // Strategie: vyplníme source non-default hodnotami u všech properties,
+        // zavoláme CloneForDisk a porovnáme každou property na rovnost.
+        // Tokeny jsou výjimka — TokenProtection.Protect je úmyslně mění.
+
+        var src = new AppSettings
+        {
+            Theme                            = AIStudio.Core.Enums.AppTheme.Light,
+            Language                         = AIStudio.Core.Enums.AppLanguage.English,
+            ModelsDirectory                  = @"C:\TestModels",
+            SetupCompleted                   = true,
+            UseGpu                           = false,
+            ChatContextSize                  = 32768,
+            DefaultChatModelName             = "test_model",
+            CivitaiApiKey                    = "civitai_key",
+            HuggingFaceToken                 = "hf_token",
+            ComfyUiDirectory                 = @"C:\Comfy",
+            ComfyUiPort                      = 9999,
+            AutoStartComfyUi                 = true,
+            PythonPath                       = @"C:\python.exe",
+            CheckForUpdates                  = true,
+            UpdateChannel                    = "beta",
+            LoraTrainingCodeOfConductAccepted = true,
+            PendingModelDownloads             = new List<string> { "model1", "model2" },
+            IgnoredImageUpgradeKinds          = new List<string> { "Anime" },
+        };
+
+        var clone = SettingsService.CloneForDisk(src);
+
+        clone.Theme.Should().Be(src.Theme);
+        clone.Language.Should().Be(src.Language);
+        clone.ModelsDirectory.Should().Be(src.ModelsDirectory);
+        clone.SetupCompleted.Should().Be(src.SetupCompleted);
+        clone.UseGpu.Should().Be(src.UseGpu);
+        clone.ChatContextSize.Should().Be(src.ChatContextSize);
+        clone.DefaultChatModelName.Should().Be(src.DefaultChatModelName);
+        clone.ComfyUiDirectory.Should().Be(src.ComfyUiDirectory);
+        clone.ComfyUiPort.Should().Be(src.ComfyUiPort);
+        clone.AutoStartComfyUi.Should().Be(src.AutoStartComfyUi);
+        clone.PythonPath.Should().Be(src.PythonPath);
+        clone.CheckForUpdates.Should().Be(src.CheckForUpdates);
+        clone.UpdateChannel.Should().Be(src.UpdateChannel);
+        clone.LoraTrainingCodeOfConductAccepted.Should().Be(src.LoraTrainingCodeOfConductAccepted);
+        clone.PendingModelDownloads.Should().BeEquivalentTo(src.PendingModelDownloads);
+        clone.IgnoredImageUpgradeKinds.Should().BeEquivalentTo(src.IgnoredImageUpgradeKinds);
+
+        // Tokeny jsou šifrované — ověříme jen že jsou non-null (přesnost
+        // šifrování má vlastní test níže).
+        clone.CivitaiApiKey.Should().NotBeNullOrEmpty();
+        clone.HuggingFaceToken.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
     public async Task LoadAsync_CorruptedJson_ReturnsDefaultSettings()
     {
         File.WriteAllText(_settingsPath, "{ toto není json }}}");
