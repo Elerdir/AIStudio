@@ -51,10 +51,17 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
                               nameof(EstimatedTimeLabel))]
     private string? _selectedBaseModel;
 
-    /// <summary>Seznam dostupných base modelů (lokální checkpoints). Naplní se v Refresh.</summary>
+    /// <summary>
+    /// Seznam dostupných base modelů — display name (s prefixem zdroje, např.
+    /// „[ComfyUI] sd_xl_base_1.0.safetensors"). Mapování na absolutní cestu
+    /// drží <see cref="_baseModelPaths"/>.
+    /// </summary>
     public ObservableCollection<string> AvailableBaseModels { get; } = new();
 
-    /// <summary>True když Models/checkpoints/ obsahuje aspoň jeden .safetensors — pro UI empty state.</summary>
+    /// <summary>Mapování display name → absolutní cesta na disku. Vyplňuje RefreshBaseModelsAsync.</summary>
+    private readonly Dictionary<string, string> _baseModelPaths = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>True když máme aspoň jeden checkpoint — pro UI empty state.</summary>
     public bool HasAvailableBaseModels => AvailableBaseModels.Count > 0;
 
     /// <summary>Lidsky čitelná detekce typu modelu (SDXL / SD 1.5 / FLUX) — pro UI badge.</summary>
@@ -63,7 +70,10 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         get
         {
             if (string.IsNullOrEmpty(SelectedBaseModel)) return string.Empty;
-            var lower = SelectedBaseModel.ToLowerInvariant();
+            // SelectedBaseModel může mít prefix „[ComfyUI] " nebo „[Vlastní] " —
+            // pro detekci typu nás zajímá jen filename.
+            var path  = ResolveSelectedBaseModelPath() ?? SelectedBaseModel;
+            var lower = Path.GetFileName(path).ToLowerInvariant();
             if (lower.Contains("flux"))                                return "FLUX";
             if (lower.Contains("xl") || lower.Contains("sdxl"))        return "SDXL";
             return "SD 1.5";
@@ -251,41 +261,130 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Naskenuje <c>Models/checkpoints/</c> a naplní <see cref="AvailableBaseModels"/>
-    /// relativními cestami (např. <c>sd_xl_base_1.0.safetensors</c>).
+    /// Naskenuje <b>všechny známé checkpoint lokace</b> a naplní seznam base modelů:
+    /// <list type="bullet">
+    /// <item>AI Studio Models/checkpoints/ (settings.ModelsDirectory)</item>
+    /// <item>ComfyUI bundle models/checkpoints/ (settings.ComfyUiDirectory)</item>
+    /// </list>
+    /// Důvod: ComfyUI Portable má vlastní složku <c>models/checkpoints/</c> a uživatel
+    /// tam typicky modely stáhne (Image Studio je vidí přes ComfyUI API). Pro sd-scripts
+    /// trénink potřebujeme absolutní cestu — proto držíme mapování v <see cref="_baseModelPaths"/>.
     /// </summary>
     [RelayCommand]
     public async Task RefreshBaseModelsAsync()
     {
-        var modelsRoot = AppPaths.ResolveModelsDirectory(_settings.Settings.ModelsDirectory);
-        var ckptDir    = Path.Combine(modelsRoot, "checkpoints");
+        var settings   = _settings.Settings;
+        var aiModelsDir = AppPaths.ResolveModelsDirectory(settings.ModelsDirectory);
+
+        // Lokace, ve kterých hledáme — (display prefix, absolutní path k checkpoints/)
+        var scanLocations = new List<(string Label, string Dir)>
+        {
+            ("AI Studio", Path.Combine(aiModelsDir, "checkpoints")),
+        };
+
+        // ComfyUI lokace — pokud máme nastavený directory, hledáme tam taky.
+        // ComfyUI Portable má pevnou strukturu {ComfyUiDir}/models/checkpoints/.
+        if (!string.IsNullOrWhiteSpace(settings.ComfyUiDirectory))
+        {
+            scanLocations.Add(("ComfyUI",
+                Path.Combine(settings.ComfyUiDirectory, "models", "checkpoints")));
+        }
 
         var found = await Task.Run(() =>
         {
-            if (!Directory.Exists(ckptDir)) return Array.Empty<string>();
-            try
+            var results = new List<(string Display, string FullPath)>();
+            foreach (var (label, dir) in scanLocations)
             {
-                return Directory.EnumerateFiles(ckptDir, "*.safetensors", SearchOption.AllDirectories)
-                                .Select(p => Path.GetRelativePath(ckptDir, p).Replace('\\', '/'))
-                                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-                                .ToArray();
+                if (!Directory.Exists(dir)) continue;
+                try
+                {
+                    foreach (var ext in new[] { "*.safetensors", "*.ckpt" })
+                    foreach (var path in Directory.EnumerateFiles(dir, ext, SearchOption.AllDirectories))
+                    {
+                        var relName = Path.GetRelativePath(dir, path).Replace('\\', '/');
+                        // Pokud máme víc lokací, prefixujeme display názvem zdroje pro
+                        // rozlišení duplicit (uživatel může mít stejný model na obou
+                        // místech — ukážeme oba ať si vybere).
+                        var display = scanLocations.Count > 1
+                            ? $"[{label}] {relName}"
+                            : relName;
+                        results.Add((display, path));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "LoraTrainingPane: scan {Dir} selhal", dir);
+                }
             }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "LoraTrainingPane: scan checkpoints selhal");
-                return Array.Empty<string>();
-            }
+            return results
+                .OrderBy(r => r.Display, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         });
 
         Dispatcher.UIThread.Post(() =>
         {
             AvailableBaseModels.Clear();
-            foreach (var m in found) AvailableBaseModels.Add(m);
+            _baseModelPaths.Clear();
+
+            foreach (var (display, fullPath) in found)
+            {
+                AvailableBaseModels.Add(display);
+                _baseModelPaths[display] = fullPath;
+            }
 
             // Auto-select první stažený, pokud žádný není vybraný
             if (string.IsNullOrEmpty(SelectedBaseModel) && AvailableBaseModels.Count > 0)
                 SelectedBaseModel = AvailableBaseModels[0];
         });
+    }
+
+    /// <summary>
+    /// Otevře file picker a přidá ručně zvolený checkpoint do seznamu. Užitečné když
+    /// uživatel má model na netradiční cestě (např. externí disk) a nechce ho
+    /// přesouvat. Vybraný soubor se přidá s prefixem [Vlastní] a hned se zvolí.
+    /// </summary>
+    [RelayCommand]
+    private async Task BrowseBaseModelAsync()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } win }) return;
+
+        var files = await win.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title         = "Vyber základní model (.safetensors / .ckpt)",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Checkpoint modely") { Patterns = new[] { "*.safetensors", "*.ckpt" } }
+            }
+        });
+
+        if (files.Count == 0) return;
+        var path = files[0].Path.LocalPath;
+        if (!File.Exists(path)) return;
+
+        var display = $"[Vlastní] {Path.GetFileName(path)}";
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            // Pokud už tam je (uživatel vybral podruhé stejný), jen vyber
+            if (!AvailableBaseModels.Contains(display))
+            {
+                AvailableBaseModels.Add(display);
+                _baseModelPaths[display] = path;
+            }
+            SelectedBaseModel = display;
+        });
+    }
+
+    /// <summary>
+    /// Vrátí absolutní cestu k vybranému checkpointu. Pokud nic nevybráno
+    /// nebo se cesta v mapování neztratila, vrátí null.
+    /// </summary>
+    private string? ResolveSelectedBaseModelPath()
+    {
+        if (string.IsNullOrEmpty(SelectedBaseModel)) return null;
+        return _baseModelPaths.TryGetValue(SelectedBaseModel, out var path) ? path : null;
     }
 
     /// <summary>
@@ -353,9 +452,13 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     {
         if (string.IsNullOrEmpty(value)) return;
 
+        // Filename pro DefaultsFor — SelectedBaseModel může nést display prefix
+        // („[ComfyUI] ", „[Vlastní] "), detekce by ho jinak interpretovala chybně.
+        var filename = Path.GetFileName(ResolveSelectedBaseModelPath() ?? value);
+
         // Aplikuj doporučené default parametry, pokud uživatel ještě nemění nic
         // (tj. má je na initial defaults). Pokud už si rank zvedl, neměníme to.
-        var defaults = LoraTrainingParameters.DefaultsFor(value);
+        var defaults = LoraTrainingParameters.DefaultsFor(filename);
 
         // Heuristika "uživatel zatím needitoval" — porovnáme s našimi sticky defaults.
         // Pro MVP prostě vždycky aplikujeme — pokročilý uživatel může přepsat zpátky.
@@ -552,7 +655,9 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         }
 
         var modelsRoot = AppPaths.ResolveModelsDirectory(_settings.Settings.ModelsDirectory);
-        var baseModelPath = Path.Combine(modelsRoot, "checkpoints", SelectedBaseModel!.Replace('/', Path.DirectorySeparatorChar));
+        var baseModelPath = ResolveSelectedBaseModelPath()
+            ?? throw new InvalidOperationException(
+                $"Nelze rozeznat cestu k '{SelectedBaseModel}'. Klikni Obnovit a zkus znovu.");
         var outputDir     = Path.Combine(modelsRoot, "loras");
 
         var dataset = DatasetItems

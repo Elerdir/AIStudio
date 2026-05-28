@@ -1442,8 +1442,15 @@
                                                 <Setter Property="BorderBrush" Value="#5B21B6"/>
                                             </Style>
                                         </Border.Styles>
-                                        <!-- Grid umožní vrstvit obrázek + hover overlay -->
-                                        <Grid Width="78" Height="78" Classes="thumbGrid">
+                                        <!-- Grid umožní vrstvit obrázek + hover overlay.
+                                             POZN: Tapped handler v code-behind místo Button +
+                                             ReflectionBinding $parent[UserControl] — ten v
+                                             Avalonia 12 uvnitř hluboce nested DataTemplate
+                                             nedeterministicky selhával (klik se „ztratil",
+                                             metadata bar pod hlavním obrázkem se neaktualizoval). -->
+                                        <Grid Width="78" Height="78" Classes="thumbGrid"
+                                              Cursor="Hand"
+                                              Tapped="ThumbnailGrid_Tapped">
                                             <Grid.Styles>
                                                 <Style Selector="Grid.thumbGrid Border.thumbHover">
                                                     <Setter Property="Opacity" Value="0"/>
@@ -1452,17 +1459,10 @@
                                                     <Setter Property="Opacity" Value="1"/>
                                                 </Style>
                                             </Grid.Styles>
-                                            <!-- Kliknutí na obrázek = vybrat -->
-                                            <Button Background="Transparent"
-                                                    BorderThickness="0"
-                                                    Padding="0"
-                                                    Command="{ReflectionBinding $parent[UserControl].DataContext.ActiveGenerator.SelectImageCommand}"
-                                                    CommandParameter="{Binding}">
-                                                <Image Source="{Binding Thumbnail}"
-                                                       Width="78"
-                                                       Height="78"
-                                                       Stretch="UniformToFill"/>
-                                            </Button>
+                                            <Image Source="{Binding Thumbnail}"
+                                                   Width="78"
+                                                   Height="78"
+                                                   Stretch="UniformToFill"/>
                                             <!-- Hover overlay: tlačítko Použít jako referenci -->
                                             <Border Classes="thumbHover"
                                                     Background="#AA000000"

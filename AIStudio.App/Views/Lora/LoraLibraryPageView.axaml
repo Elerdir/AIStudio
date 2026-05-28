@@ -354,15 +354,25 @@
                                          Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                          BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                          Padding="12,8" FontSize="13"/>
-                                <ComboBox Grid.Row="1" Grid.Column="1"
-                                          ItemsSource="{Binding AvailableBaseModels}"
-                                          SelectedItem="{Binding SelectedBaseModel}"
-                                          PlaceholderText="-- vyber checkpoint --"
-                                          Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
-                                          BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
-                                          Padding="12,8" FontSize="13"
-                                          HorizontalAlignment="Stretch"
-                                          IsEnabled="{Binding HasAvailableBaseModels}"/>
+                                <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                    <ComboBox Grid.Column="0"
+                                              ItemsSource="{Binding AvailableBaseModels}"
+                                              SelectedItem="{Binding SelectedBaseModel}"
+                                              PlaceholderText="-- vyber checkpoint --"
+                                              Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                              BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
+                                              Padding="12,8" FontSize="13"
+                                              HorizontalAlignment="Stretch"
+                                              IsEnabled="{Binding HasAvailableBaseModels}"/>
+                                    <Button Grid.Column="1"
+                                            Command="{Binding BrowseBaseModelCommand}"
+                                            Classes="secondary"
+                                            Padding="10,8"
+                                            ToolTip.Tip="Najít checkpoint jinde na disku">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderSearchOutline}"
+                                                         Width="14" Height="14" VerticalAlignment="Center"/>
+                                    </Button>
+                                </Grid>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0"
                                            Text="Pojmenuj LoRA bez .safetensors přípony"
@@ -401,13 +411,15 @@
                                                     <Run Text="SDXL Base 1.0" FontWeight="SemiBold"/>
                                                     <Run Text=", "/>
                                                     <Run Text="JuggernautXL" FontWeight="SemiBold"/>
-                                                    <Run Text=" (fotorealistic), nebo "/>
+                                                    <Run Text=" (foto), nebo "/>
                                                     <Run Text="Animagine XL 3.1" FontWeight="SemiBold"/>
-                                                    <Run Text=" (anime). Stáhni si checkpoint v sekci "/>
-                                                    <Run Text="Modely" FontWeight="SemiBold"/>
-                                                    <Run Text=" nebo ho ručně vlož do "/>
+                                                    <Run Text=" (anime)."/>
+                                                    <LineBreak/>
+                                                    <Run Text="Hledám v "/>
                                                     <Run Text="Models/checkpoints/" FontWeight="SemiBold"/>
-                                                    <Run Text=" a klikni Obnovit."/>
+                                                    <Run Text=" i v "/>
+                                                    <Run Text="ComfyUI/models/checkpoints/" FontWeight="SemiBold"/>
+                                                    <Run Text=" (kam stahuje Image Studio). Pro model na jiné cestě klikni na ikonku 🔍 vedle dropdownu."/>
                                                 </TextBlock>
                                             </StackPanel>
                                         </StackPanel>

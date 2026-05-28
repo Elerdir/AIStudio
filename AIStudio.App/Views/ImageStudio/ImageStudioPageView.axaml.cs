@@ -51,4 +51,27 @@ public partial class ImageStudioPageView : UserControl
 
     private ImageGeneratorViewModel? GetActiveGenerator()
         => (DataContext as ImageStudioPageViewModel)?.ActiveGenerator;
+
+    /// <summary>
+    /// Klik na thumbnail v pásu pod hlavním obrázkem — vybere obrázek jako
+    /// LatestImage. Předtím to bylo Button + ReflectionBinding $parent[UserControl],
+    /// ale v Avalonia 12 uvnitř hluboce nested DataTemplate to nedeterministicky
+    /// selhávalo (klik se „ztratil", uživatel se nedostal k promptu starých
+    /// obrázků). Tapped handler v code-behind je bulletproof — najde DataContext
+    /// thumbnailu a zavolá ActiveGenerator.SelectImageCommand.
+    /// </summary>
+    private void ThumbnailGrid_Tapped(object? sender, Avalonia.Input.TappedEventArgs e)
+    {
+        if (sender is not Avalonia.Controls.Control ctrl) return;
+        if (ctrl.DataContext is not GeneratedImageViewModel img) return;
+
+        var vm = GetActiveGenerator();
+        if (vm is null) return;
+
+        if (vm.SelectImageCommand.CanExecute(img))
+        {
+            vm.SelectImageCommand.Execute(img);
+            e.Handled = true;
+        }
+    }
 }
