@@ -1,0 +1,144 @@
+name: Release macOS
+
+# Tag-triggered build pro Apple Silicon — vytvoří .app bundle + DMG installer
+# a publikuje do GitHub Releases. Stejný trigger jako release-windows.yml,
+# takže push tagu v0.1.0 vyrobí oba artefakty paralelně.
+#
+# Signing strategie:
+#   - Default: ad-hoc signed (free, neviditelný pro uživatele, jednorázový
+#     Gatekeeper warning při prvním Open)
+#   - Pokud jsou nastavené secrets MACOS_SIGN_IDENTITY + MACOS_NOTARY_PROFILE_*
+#     → plný Developer ID + notarizace (zero-friction install pro uživatele)
+#
+# Aktivace paid signingu vyžaduje v GitHub Settings → Secrets:
+#   MACOS_DEVELOPER_ID         — např. "Developer ID Application: Jméno (TEAMID)"
+#   MACOS_CERT_P12_BASE64      — exportovaný .p12 cert (base64)
+#   MACOS_CERT_PASSWORD        — heslo k .p12
+#   MACOS_NOTARY_APPLE_ID      — Apple ID účet
+#   MACOS_NOTARY_TEAM_ID       — Team ID (TEAMID12345)
+#   MACOS_NOTARY_PASSWORD      — app-specific password z appleid.apple.com
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:    # umožní ruční trigger v Actions UI
+
+jobs:
+  build-macos-arm64:
+    # macos-14 je Apple Silicon (M1) — macos-latest by mohl být Intel
+    runs-on: macos-14
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Extract version from tag
+        id: version
+        # Tag "v0.1.0" → "0.1.0" (drop leading v); pro workflow_dispatch fallback
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=0.0.0-dev" >> $GITHUB_OUTPUT
+          fi
+
+      # ── Paid signing setup (jen pokud jsou secrets k dispozici) ──────────
+      - name: Import Developer ID certificate
+        if: env.MACOS_CERT_P12_BASE64 != ''
+        env:
+          MACOS_CERT_P12_BASE64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          MACOS_CERT_PASSWORD:   ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          # Vytvoř dočasný keychain — abychom neporušili system default
+          KEYCHAIN_PATH="$RUNNER_TEMP/ai-studio-build.keychain-db"
+          KEYCHAIN_PASS="$(openssl rand -base64 24)"
+
+          security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+
+          # Importuj cert
+          echo "$MACOS_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" \
+              -P "$MACOS_CERT_PASSWORD" \
+              -A -t cert -f pkcs12 \
+              -k "$KEYCHAIN_PATH"
+          rm "$RUNNER_TEMP/cert.p12"
+
+          # Přidej keychain do search listu (codesign ho jinak nenajde)
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | xargs)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+              -s -k "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+
+      - name: Setup notarization profile
+        if: env.MACOS_NOTARY_APPLE_ID != ''
+        env:
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_TEAM_ID:  ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+        run: |
+          xcrun notarytool store-credentials "ai-studio-notary" \
+              --apple-id "$MACOS_NOTARY_APPLE_ID" \
+              --team-id  "$MACOS_NOTARY_TEAM_ID" \
+              --password "$MACOS_NOTARY_PASSWORD"
+
+      # ── Build ─────────────────────────────────────────────────────────────
+      - name: Build .app + DMG
+        env:
+          # Předáme do skriptu jen pokud máme cert; jinak fallback na ad-hoc
+          MACOS_DEVELOPER_ID: ${{ secrets.MACOS_DEVELOPER_ID }}
+        run: |
+          chmod +x scripts/build-macos.sh
+
+          if [[ -n "$MACOS_DEVELOPER_ID" ]]; then
+            echo "▶ Paid signing + notarization"
+            ./scripts/build-macos.sh \
+                --version "${{ steps.version.outputs.version }}" \
+                --sign "$MACOS_DEVELOPER_ID" \
+                --notarize-profile "ai-studio-notary" \
+                --dmg
+          else
+            echo "▶ Ad-hoc signing (žádné Developer ID secrets v repo)"
+            ./scripts/build-macos.sh \
+                --version "${{ steps.version.outputs.version }}" \
+                --sign-adhoc \
+                --dmg
+          fi
+
+      # ── Upload artifacts ──────────────────────────────────────────────────
+      - name: Upload DMG as artifact (always, i bez release tag)
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIStudio-macos-arm64-${{ steps.version.outputs.version }}
+          path: artifacts/macos/*.dmg
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        # Jen pro tag push; workflow_dispatch jen uploaduje artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: AI Studio ${{ github.ref_name }}
+          files: |
+            artifacts/macos/*.dmg
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Cleanup ───────────────────────────────────────────────────────────
+      - name: Cleanup keychain
+        if: always() && env.KEYCHAIN_PATH != ''
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" || true
