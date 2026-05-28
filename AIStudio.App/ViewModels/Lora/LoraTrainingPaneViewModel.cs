@@ -54,6 +54,9 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     /// <summary>Seznam dostupných base modelů (lokální checkpoints). Naplní se v Refresh.</summary>
     public ObservableCollection<string> AvailableBaseModels { get; } = new();
 
+    /// <summary>True když Models/checkpoints/ obsahuje aspoň jeden .safetensors — pro UI empty state.</summary>
+    public bool HasAvailableBaseModels => AvailableBaseModels.Count > 0;
+
     /// <summary>Lidsky čitelná detekce typu modelu (SDXL / SD 1.5 / FLUX) — pro UI badge.</summary>
     public string BaseModelTypeLabel
     {
@@ -196,11 +199,22 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         ISystemMonitorService?         monitor        = null,
         ILoraCaptionService?           captionService = null)
     {
+        AvailableBaseModels.CollectionChanged += (_, _) =>
+            OnPropertyChanged(nameof(HasAvailableBaseModels));
+
         _trainer        = trainer;
         _deps           = deps;
         _settings       = settings;
         _monitor        = monitor;
         _captionService = captionService;
+
+        // SystemMonitor sbírá metriky každé 2.5 s, takže Current je při startu
+        // null (ještě nestihl odběr). DetectHardware si subscribneme i na
+        // StatusUpdated event — po prvním samplu se HW labels naplní.
+        // Zároveň okamžitě uděláme jeden pokus pro případ že už nějaký
+        // sample existuje (např. ChatPageViewModel ho už triggernul).
+        if (_monitor is not null)
+            _monitor.StatusUpdated += OnSystemStatusUpdated;
 
         DatasetItems.CollectionChanged += (_, _) =>
         {
@@ -213,6 +227,27 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
 
         DetectHardware();
         _ = RefreshBaseModelsAsync();
+    }
+
+    /// <summary>
+    /// Otevře <c>Models/checkpoints/</c> v default file manageru — uživatel
+    /// si tam může ručně zkopírovat stažený .safetensors checkpoint.
+    /// Pokud složka neexistuje, vytvoříme ji.
+    /// </summary>
+    [RelayCommand]
+    private void OpenCheckpointsFolder()
+    {
+        var modelsRoot = AppPaths.ResolveModelsDirectory(_settings.Settings.ModelsDirectory);
+        var ckptDir    = Path.Combine(modelsRoot, "checkpoints");
+        try
+        {
+            if (!Directory.Exists(ckptDir)) Directory.CreateDirectory(ckptDir);
+            AIStudio.Infrastructure.Services.PlatformShell.Open(ckptDir);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "LoraTrainingPane: otevření {Dir} selhalo", ckptDir);
+        }
     }
 
     /// <summary>
@@ -254,8 +289,17 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Reaguje na update ze SystemMonitorService — typicky 1× za 2.5 s. Pro UI
+    /// nás zajímá hlavně první sample (po něm máme GPU info), pak už změny
+    /// VRAM jsou pro náš HW label irelevantní.
+    /// </summary>
+    private void OnSystemStatusUpdated(object? _, AIStudio.Core.Models.SystemStatus __)
+        => Dispatcher.UIThread.Post(DetectHardware);
+
+    /// <summary>
     /// Detekce HW — VRAM size + vendor pro odhad rychlosti a varování.
-    /// Volá se jednou při startu, výsledek je statický.
+    /// Volá se při startu (kdy Current je typicky null) a znovu z
+    /// <see cref="OnSystemStatusUpdated"/> jakmile přijde první sample.
     /// </summary>
     private void DetectHardware()
     {

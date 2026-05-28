@@ -307,7 +307,10 @@
                  binding na ScrollVieweru evaluoval IsTrainingTab z page VM, ne
                  z TrainingPane (kde by neexistoval = compile error AVLN2000). -->
             <Panel IsVisible="{Binding IsTrainingTab}">
-              <ScrollViewer Padding="28,16,14,28">
+              <ScrollViewer Padding="28,16,14,28"
+                            VerticalScrollBarVisibility="Auto"
+                            AllowAutoHide="False"
+                            Classes="visibleScrollbar">
                 <StackPanel Spacing="20" MaxWidth="780" HorizontalAlignment="Left"
                             DataContext="{Binding TrainingPane}">
 
@@ -358,7 +361,8 @@
                                           Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                           BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                           Padding="12,8" FontSize="13"
-                                          HorizontalAlignment="Stretch"/>
+                                          HorizontalAlignment="Stretch"
+                                          IsEnabled="{Binding HasAvailableBaseModels}"/>
 
                                 <TextBlock Grid.Row="2" Grid.Column="0"
                                            Text="Pojmenuj LoRA bez .safetensors přípony"
@@ -376,6 +380,57 @@
                                                VerticalAlignment="Center"
                                                IsVisible="{Binding EstimatedTimeLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                 </StackPanel>
+
+                                <!-- Empty state: žádný checkpoint v Models/checkpoints/ -->
+                                <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                                        IsVisible="{Binding !HasAvailableBaseModels}"
+                                        Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
+                                        CornerRadius="8" Padding="12,10" Margin="0,12,0,0">
+                                    <StackPanel Spacing="8">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}"
+                                                             Width="14" Height="14"
+                                                             Foreground="{DynamicResource WarningBrush}"
+                                                             VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="Žádný základní model nenalezen"
+                                                           FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="#C09030"/>
+                                                <TextBlock FontSize="11" Foreground="#A07820" TextWrapping="Wrap">
+                                                    <Run Text="LoRA potřebuje základ — typicky "/>
+                                                    <Run Text="SDXL Base 1.0" FontWeight="SemiBold"/>
+                                                    <Run Text=", "/>
+                                                    <Run Text="JuggernautXL" FontWeight="SemiBold"/>
+                                                    <Run Text=" (fotorealistic), nebo "/>
+                                                    <Run Text="Animagine XL 3.1" FontWeight="SemiBold"/>
+                                                    <Run Text=" (anime). Stáhni si checkpoint v sekci "/>
+                                                    <Run Text="Modely" FontWeight="SemiBold"/>
+                                                    <Run Text=" nebo ho ručně vlož do "/>
+                                                    <Run Text="Models/checkpoints/" FontWeight="SemiBold"/>
+                                                    <Run Text=" a klikni Obnovit."/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="22,0,0,0">
+                                            <Button Command="{Binding RefreshBaseModelsCommand}"
+                                                    Classes="secondary" Padding="10,5">
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}"
+                                                                     Width="12" Height="12" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Obnovit" FontSize="11" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Command="{Binding OpenCheckpointsFolderCommand}"
+                                                    Classes="secondary" Padding="10,5">
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderOpen}"
+                                                                     Width="12" Height="12" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Otevřít složku" FontSize="11" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
                             </Grid>
                         </Border>
                     </StackPanel>
