@@ -163,8 +163,13 @@ public sealed class BlipCaptionService : ILoraCaptionService
             CreateNoWindow         = true,
             RedirectStandardOutput = true,
             RedirectStandardError  = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding  = System.Text.Encoding.UTF8,
         };
-        psi.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
+        psi.EnvironmentVariables["PYTHONUNBUFFERED"]  = "1";
+        // UTF-8 stdout — sd-scripts finetune skripty taky tisknou CJK řetězce
+        psi.EnvironmentVariables["PYTHONIOENCODING"]  = "utf-8";
+        psi.EnvironmentVariables["PYTHONUTF8"]        = "1";
 
         using var p = new Process { StartInfo = psi };
         p.OutputDataReceived += (_, e) => { if (e.Data is not null) Log.Debug("[caption] {Line}", e.Data); };

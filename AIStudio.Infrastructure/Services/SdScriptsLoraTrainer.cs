@@ -397,10 +397,21 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             CreateNoWindow         = true,
             RedirectStandardOutput = true,
             RedirectStandardError  = true,
+            // UTF-8 čtení v C# — sd-scripts tiskne japonské/čínské/korejské
+            // řetězce (学習開始 atd.), které by default Windows codepage nedekódovala.
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding  = Encoding.UTF8,
         };
         // PYTHONUNBUFFERED=1 → tqdm progress flushuje real-time, jinak by se output
         // zobrazoval jen po dokončení (buffered).
         psi.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
+        // KRITICKÉ: PYTHONIOENCODING + PYTHONUTF8 donutí Python psát stdout/stderr
+        // v UTF-8. Bez toho sd-scripts spadne na UnicodeEncodeError při tisku
+        // japonských stringů (学習開始 = „začátek tréninku"), protože default
+        // stdout encoding je Windows locale codepage (cp1250 na české Windows),
+        // která tyto znaky neumí. Byli jsme krok od startu tréninku.
+        psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+        psi.EnvironmentVariables["PYTHONUTF8"]       = "1";
 
         using var p = new Process { StartInfo = psi };
 
