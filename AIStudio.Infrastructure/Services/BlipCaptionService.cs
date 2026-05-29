@@ -1,25 +1,25 @@
 using System.Diagnostics;
+using System.Text;
+using System.Text.RegularExpressions;
 using Serilog;
 using AIStudio.Core.Interfaces;
 
 namespace AIStudio.Infrastructure.Services;
 
 /// <summary>
-/// Default implementace <see cref="ILoraCaptionService"/> — volá sd-scripts
-/// <c>finetune/make_captions.py</c> (BLIP) nebo <c>finetune/tag_images_by_wd14_tagger.py</c>
-/// (WD14) přes ComfyUI Python venv.
+/// Default implementace <see cref="ILoraCaptionService"/> — generuje popisky přes
+/// HuggingFace <c>transformers</c> BLIP model spuštěný v ComfyUI Python venv.
 ///
-/// <para>Strategie:</para>
-/// <list type="number">
-/// <item>Zkopírujeme obrázky do dočasné složky (sd-scripts script jede přes adresář).</item>
-/// <item>Spustíme Python skript s <c>--caption_extension .txt</c> — výstupní popisky
-/// vyleze jako sidecary <c>image.txt</c>.</item>
-/// <item>Načteme všechny <c>.txt</c> a vrátíme jako dictionary.</item>
-/// <item>Uklidíme dočasné soubory.</item>
-/// </list>
+/// <para><b>Proč ne sd-scripts make_captions.py:</b> ten vyžaduje stažení BLIP
+/// checkpointu z (často mrtvé) Salesforce URL a bundled BLIP modul s extra deps
+/// (timm, fairscale). Místo toho používáme vlastní inline Python skript nad
+/// <c>transformers.BlipForConditionalGeneration</c> — model
+/// <c>Salesforce/blip-image-captioning-large</c> se auto-stáhne z HuggingFace
+/// hubu (~1,9 GB při prvním běhu, pak cache). <c>transformers</c>, <c>torch</c>
+/// i <c>PIL</c> jsou v ComfyUI venv vždy dostupné.</para>
 ///
-/// <para>BLIP-large váží ~990 MB. Při prvním spuštění HuggingFace transformers
-/// auto-stáhne do <c>%USERPROFILE%\.cache\huggingface\</c>. Další spuštění je rychlé.</para>
+/// <para>Skript píše každý caption jako <c>.txt</c> sidecar do working dir a
+/// zároveň progress řádky <c>CAPTION i/n :: text</c> na stdout (parsujeme pro UI).</para>
 /// </summary>
 public sealed class BlipCaptionService : ILoraCaptionService
 {
@@ -29,6 +29,10 @@ public sealed class BlipCaptionService : ILoraCaptionService
     /// <summary>Dočasná pracovní složka pro batch captioning.</summary>
     private static readonly string WorkingDirRoot =
         Path.Combine(AIStudio.Core.Services.AppPaths.AppDataRoot, "captioning");
+
+    /// <summary>Regex pro progress řádek <c>CAPTION 3/22 :: a woman on a beach</c>.</summary>
+    private static readonly Regex CaptionLineRegex = new(
+        @"^CAPTION\s+(\d+)/(\d+)\s+::\s+(.*)$", RegexOptions.Compiled);
 
     public bool IsCaptioning { get; private set; }
 
@@ -55,17 +59,12 @@ public sealed class BlipCaptionService : ILoraCaptionService
             ?? throw new InvalidOperationException(
                 "Python interpreter z ComfyUI nebyl nalezen — dokonči ComfyUI instalaci.");
 
-        // Zajistíme závislosti — pokud sd-scripts ještě nejsou, doinstalují se teď
-        await _deps.EnsureAllAsync(pythonExe, null, ct);
-        var sdScriptsDir = _deps.SdScriptsDirectory
-            ?? throw new InvalidOperationException("sd-scripts dir nedostupný");
-
         IsCaptioning = true;
         string? workDir = null;
 
         try
         {
-            // 1) Nakopírovat obrázky do work dir (sd-scripts script projde celou složku)
+            // 1) Nakopírovat obrázky do work dir s deterministickými názvy
             Directory.CreateDirectory(WorkingDirRoot);
             workDir = Path.Combine(WorkingDirRoot, $"batch_{DateTime.Now:yyyyMMdd_HHmmss}");
             Directory.CreateDirectory(workDir);
@@ -76,47 +75,50 @@ public sealed class BlipCaptionService : ILoraCaptionService
                 var src = imagePaths[i];
                 if (!File.Exists(src)) continue;
                 var ext  = Path.GetExtension(src);
-                var dest = Path.Combine(workDir, $"{i:D4}{ext}");
-                File.Copy(src, dest);
-                nameMap[$"{i:D4}"] = src;   // mapa work-stub → originál path
+                var stub = $"{i:D4}";
+                File.Copy(src, Path.Combine(workDir, $"{stub}{ext}"));
+                nameMap[stub] = src;
             }
 
-            progress?.Report(new CaptionProgress(0, imagePaths.Count, string.Empty, "Načítám BLIP model…"));
+            progress?.Report(new CaptionProgress(0, imagePaths.Count, string.Empty,
+                "Načítám BLIP model (první běh stahuje ~1,9 GB)…"));
 
-            // 2) Spustit Python script (BLIP nebo WD14)
-            var (script, args) = BuildCommand(workDir, sdScriptsDir, style);
-            await RunPythonAsync(pythonExe, sdScriptsDir, args, ct);
+            // 2) Napsat inline Python skript a spustit
+            var scriptPath = WriteCaptionScript(workDir);
+            var tail = await RunPythonAsync(pythonExe, scriptPath, workDir, imagePaths.Count, progress, ct);
 
             // 3) Načíst captions z .txt sidecarů
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var done   = 0;
             foreach (var txtFile in Directory.EnumerateFiles(workDir, "*.txt"))
             {
                 ct.ThrowIfCancellationRequested();
-
                 var stub = Path.GetFileNameWithoutExtension(txtFile);
                 if (!nameMap.TryGetValue(stub, out var originalPath)) continue;
 
                 var caption = (await File.ReadAllTextAsync(txtFile, ct)).Trim();
                 if (!string.IsNullOrWhiteSpace(caption))
                     result[originalPath] = caption;
-
-                done++;
-                progress?.Report(new CaptionProgress(
-                    done, imagePaths.Count,
-                    Path.GetFileName(originalPath),
-                    Truncate(caption, 80)));
             }
 
-            Log.Information("BlipCaptionService: vygenerováno {Done}/{Total} popisků (style={Style})",
-                result.Count, imagePaths.Count, style);
+            if (result.Count == 0)
+            {
+                // Skript doběhl ale nic nevyrobil — pošleme tail výstupu, ať uživatel
+                // (a my v logu) vidíme proč. Bez tohoto „chvilku něco dělal a nic".
+                var tailText = tail.Count > 0
+                    ? "\nVýstup skriptu:\n" + string.Join('\n', tail)
+                    : string.Empty;
+                Log.Warning("BlipCaptionService: 0 popisků vygenerováno.{Tail}", tailText);
+                throw new InvalidOperationException(
+                    "Captioning doběhl, ale nevygeneroval žádný popisek." + tailText);
+            }
 
+            Log.Information("BlipCaptionService: vygenerováno {Done}/{Total} popisků",
+                result.Count, imagePaths.Count);
             return result;
         }
         finally
         {
             IsCaptioning = false;
-            // Uklid working dir
             if (workDir is not null && Directory.Exists(workDir))
             {
                 try { Directory.Delete(workDir, recursive: true); }
@@ -125,55 +127,138 @@ public sealed class BlipCaptionService : ILoraCaptionService
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── Inline Python skript ────────────────────────────────────────────────────
 
-    private static (string Script, string Args) BuildCommand(
-        string workDir, string sdScriptsDir, string style)
+    /// <summary>
+    /// Zapíše self-contained BLIP captioning skript do working dir. Skript:
+    /// načte BLIP-large přes transformers, projde všechny obrázky ve složce,
+    /// pro každý vygeneruje caption, zapíše <c>.txt</c> sidecar a vytiskne
+    /// <c>CAPTION i/n :: text</c> na stdout pro progress.
+    /// </summary>
+    private static string WriteCaptionScript(string workDir)
     {
-        // Spouštíme přes launcher kvůli ComfyUI embedded Pythonu — finetune skripty
-        // taky importují balík `library` (viz SdScriptsLauncher).
-        var launcher = SdScriptsLauncher.EnsureLauncher(sdScriptsDir);
+        // Cesty v Pythonu: použijeme raw string + forward slashes (Windows je bere taky)
+        var workDirPy = workDir.Replace('\\', '/');
 
-        if (string.Equals(style, "wd14", StringComparison.OrdinalIgnoreCase))
-        {
-            // WD14 tagger pro anime — vrací tagy oddělené čárkami, hodí se pro anime
-            // LoRA. Model ~300 MB, auto-stažený při prvním běhu.
-            var script = Path.Combine(sdScriptsDir, "finetune", "tag_images_by_wd14_tagger.py");
-            var args   = $"\"{launcher}\" \"{script}\" \"{workDir}\" --caption_extension .txt --batch_size 4 " +
-                         $"--general_threshold 0.35 --character_threshold 0.35 --max_data_loader_n_workers 2";
-            return (script, args);
-        }
+        var script = $$"""
+            import os, sys, glob
+            try:
+                import torch
+                from PIL import Image
+                from transformers import BlipProcessor, BlipForConditionalGeneration
+            except Exception as e:
+                print("IMPORT_ERROR: " + repr(e), flush=True)
+                sys.exit(3)
 
-        // BLIP large captioning — vrací 1-2 věty popisu, default pro fotorealistic
-        var blipScript = Path.Combine(sdScriptsDir, "finetune", "make_captions.py");
-        var blipArgs   = $"\"{launcher}\" \"{blipScript}\" \"{workDir}\" --caption_extension .txt --batch_size 4 " +
-                         $"--max_data_loader_n_workers 2 --beam_search --max_length 75";
-        return (blipScript, blipArgs);
+            WORK = r"{{workDirPy}}"
+            EXTS = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
+
+            files = sorted([f for f in os.listdir(WORK)
+                            if os.path.splitext(f)[1].lower() in EXTS])
+            if not files:
+                print("NO_IMAGES", flush=True)
+                sys.exit(0)
+
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            print(f"LOADING blip-image-captioning-large on {device}", flush=True)
+
+            model_id = "Salesforce/blip-image-captioning-large"
+            processor = BlipProcessor.from_pretrained(model_id)
+            model = BlipForConditionalGeneration.from_pretrained(model_id).to(device)
+            model.eval()
+
+            total = len(files)
+            for i, fn in enumerate(files):
+                path = os.path.join(WORK, fn)
+                try:
+                    img = Image.open(path).convert("RGB")
+                    inputs = processor(img, return_tensors="pt").to(device)
+                    with torch.no_grad():
+                        out = model.generate(**inputs, max_new_tokens=50, num_beams=4)
+                    caption = processor.decode(out[0], skip_special_tokens=True).strip()
+                except Exception as e:
+                    caption = ""
+                    print(f"ERR {fn}: {e!r}", flush=True)
+
+                txt = os.path.splitext(path)[0] + ".txt"
+                with open(txt, "w", encoding="utf-8") as f:
+                    f.write(caption)
+
+                print(f"CAPTION {i+1}/{total} :: {caption}", flush=True)
+
+            print("DONE", flush=True)
+            """;
+
+        var scriptPath = Path.Combine(workDir, "_caption.py");
+        File.WriteAllText(scriptPath, script, new UTF8Encoding(false));
+        return scriptPath;
     }
 
-    private static async Task RunPythonAsync(
-        string pythonExe, string workingDir, string args, CancellationToken ct)
+    // ── Subprocess ──────────────────────────────────────────────────────────────
+
+    private async Task<IReadOnlyList<string>> RunPythonAsync(
+        string                      pythonExe,
+        string                      scriptPath,
+        string                      workDir,
+        int                         total,
+        IProgress<CaptionProgress>? progress,
+        CancellationToken           ct)
     {
         var psi = new ProcessStartInfo
         {
             FileName               = pythonExe,
-            Arguments              = args,
-            WorkingDirectory       = workingDir,
+            Arguments              = $"\"{scriptPath}\"",
+            WorkingDirectory       = workDir,
             UseShellExecute        = false,
             CreateNoWindow         = true,
             RedirectStandardOutput = true,
             RedirectStandardError  = true,
-            StandardOutputEncoding = System.Text.Encoding.UTF8,
-            StandardErrorEncoding  = System.Text.Encoding.UTF8,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding  = Encoding.UTF8,
         };
-        psi.EnvironmentVariables["PYTHONUNBUFFERED"]  = "1";
-        // UTF-8 stdout — sd-scripts finetune skripty taky tisknou CJK řetězce
-        psi.EnvironmentVariables["PYTHONIOENCODING"]  = "utf-8";
-        psi.EnvironmentVariables["PYTHONUTF8"]        = "1";
+        psi.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
+        psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+        psi.EnvironmentVariables["PYTHONUTF8"]       = "1";
 
         using var p = new Process { StartInfo = psi };
-        p.OutputDataReceived += (_, e) => { if (e.Data is not null) Log.Debug("[caption] {Line}", e.Data); };
-        p.ErrorDataReceived  += (_, e) => { if (e.Data is not null) Log.Debug("[caption-err] {Line}", e.Data); };
+
+        var tail = new System.Collections.Generic.Queue<string>(64);
+        void Capture(string line)
+        {
+            lock (tail) { if (tail.Count >= 64) tail.Dequeue(); tail.Enqueue(line); }
+        }
+
+        void Handle(string? line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+            Capture(line);
+
+            // Chybové/diagnostické řádky na Warning, ať jsou vidět
+            if (line.StartsWith("IMPORT_ERROR", StringComparison.Ordinal) ||
+                line.StartsWith("ERR ", StringComparison.Ordinal) ||
+                line.StartsWith("NO_IMAGES", StringComparison.Ordinal))
+                Log.Warning("[caption] {Line}", line);
+            else
+                Log.Debug("[caption] {Line}", line);
+
+            var m = CaptionLineRegex.Match(line);
+            if (m.Success &&
+                int.TryParse(m.Groups[1].Value, out var done) &&
+                int.TryParse(m.Groups[2].Value, out var tot))
+            {
+                var caption = m.Groups[3].Value.Trim();
+                progress?.Report(new CaptionProgress(done, tot,
+                    $"obrázek {done}", Truncate(caption, 80)));
+            }
+            else if (line.StartsWith("LOADING", StringComparison.Ordinal))
+            {
+                progress?.Report(new CaptionProgress(0, total, string.Empty,
+                    "Načítám BLIP model do paměti…"));
+            }
+        }
+
+        p.OutputDataReceived += (_, e) => Handle(e.Data);
+        p.ErrorDataReceived  += (_, e) => Handle(e.Data);
 
         p.Start();
         p.BeginOutputReadLine();
@@ -186,9 +271,20 @@ public sealed class BlipCaptionService : ILoraCaptionService
             throw;
         }
 
+        List<string> tailSnapshot;
+        lock (tail) tailSnapshot = tail.ToList();
+
         if (p.ExitCode != 0)
+        {
+            var tailText = tailSnapshot.Count > 0
+                ? "\nVýstup:\n" + string.Join('\n', tailSnapshot)
+                : string.Empty;
+            Log.Warning("BlipCaptionService: skript exit code {Code}.{Tail}", p.ExitCode, tailText);
             throw new InvalidOperationException(
-                $"Captioning skript selhal (exit code {p.ExitCode}). Detail v debug logu.");
+                $"Captioning skript selhal (exit code {p.ExitCode}).{tailText}");
+        }
+
+        return tailSnapshot;
     }
 
     private static string Truncate(string s, int max) =>
