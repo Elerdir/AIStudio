@@ -42,6 +42,12 @@ public sealed class LoraTrainerDependencyService : ILoraTrainerDependencyService
         "pytorch-lightning",
         "voluptuous",
         "open-clip-torch",
+        // Importované při module-load v library/train_util.py — bez nich trénink
+        // padá hned na importu (imagesize byl konkrétní případ). requirements.txt
+        // je taky obsahuje, ale držíme i tady jako pojistku.
+        "imagesize",
+        "toml",
+        "rich",
     };
 
     private const string SdScriptsRepoUrl = "https://github.com/kohya-ss/sd-scripts.git";
@@ -99,12 +105,37 @@ public sealed class LoraTrainerDependencyService : ILoraTrainerDependencyService
         IsInstalling = true;
         try
         {
-            // ── 1) Pip balíky ─────────────────────────────────────────────────
+            // ── 1) sd-scripts repo (NEJDŘÍV — kvůli requirements.txt) ──────────
+            if (!IsSdScriptsAvailable())
+            {
+                CurrentStage = "Klonuji sd-scripts…";
+                progress?.Report(new LoraTrainerInstallProgress(CurrentStage, null));
+                await CloneSdScriptsAsync(progress, ct);
+            }
+            else
+            {
+                Log.Information("LoraTrainerDependency: sd-scripts už dostupné v {Dir}", SdScriptsRoot);
+            }
+
+            // ── 2) Pip balíky ─────────────────────────────────────────────────
+            // Kombinujeme náš base list s balíky z requirements.txt samotného
+            // sd-scripts — tím chytneme VŠECHNY runtime deps (imagesize, toml,
+            // rich, altair, easygui, tensorboard, …) místo dohánění balík po
+            // balíku při každém pádu. Verze ODPINUJEME: pokud je balík už
+            // nainstalovaný (sdílený s ComfyUI — torch, transformers, diffusers),
+            // pip ho nechá být a NEPŘEPÍŠE → ComfyUI se nerozbije.
             CurrentStage = "Kontroluji pip balíky…";
             progress?.Report(new LoraTrainerInstallProgress(CurrentStage, null));
 
+            var allPackages = new List<string>(RequiredPipPackages);
+            foreach (var pkg in ParseRequirementsTxt())
+            {
+                if (!allPackages.Contains(pkg, StringComparer.OrdinalIgnoreCase))
+                    allPackages.Add(pkg);
+            }
+
             var missingPip = new List<string>();
-            foreach (var pkg in RequiredPipPackages)
+            foreach (var pkg in allPackages)
             {
                 ct.ThrowIfCancellationRequested();
                 if (!await IsPipPackageInstalledAsync(pythonExe, pkg, ct))
@@ -123,18 +154,6 @@ public sealed class LoraTrainerDependencyService : ILoraTrainerDependencyService
                 Log.Information("LoraTrainerDependency: všechny pip balíky už nainstalovány");
             }
 
-            // ── 2) sd-scripts repo ────────────────────────────────────────────
-            if (!IsSdScriptsAvailable())
-            {
-                CurrentStage = "Klonuji sd-scripts…";
-                progress?.Report(new LoraTrainerInstallProgress(CurrentStage, null));
-                await CloneSdScriptsAsync(progress, ct);
-            }
-            else
-            {
-                Log.Information("LoraTrainerDependency: sd-scripts už dostupné v {Dir}", SdScriptsRoot);
-            }
-
             CurrentStage = "Hotovo";
             progress?.Report(new LoraTrainerInstallProgress(CurrentStage, 100));
         }
@@ -142,6 +161,66 @@ public sealed class LoraTrainerDependencyService : ILoraTrainerDependencyService
         {
             IsInstalling = false;
         }
+    }
+
+    /// <summary>
+    /// Balíky, které NIKDY neinstalujeme z requirements.txt — chráníme ComfyUI
+    /// torch stack a vynecháváme xformers (nahrazeno --sdpa, build na Windows
+    /// embedded Pythonu nespolehlivý).
+    /// </summary>
+    private static readonly HashSet<string> ExcludedFromRequirements =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "torch", "torchvision", "torchaudio", "xformers",
+        };
+
+    /// <summary>
+    /// Naparsuje <c>{sd-scripts}/requirements.txt</c> na seznam názvů balíků
+    /// BEZ verzí (odpinováno). Přeskakuje komentáře, prázdné řádky, <c>-r</c>/
+    /// <c>-e</c>/<c>.</c> direktivy a balíky z <see cref="ExcludedFromRequirements"/>.
+    ///
+    /// <para>Odpinování je klíčové: <c>pip install transformers</c> (bez verze)
+    /// nechá existující ComfyUI verzi být, zatímco <c>transformers==4.44</c> by ji
+    /// mohl downgradnout a rozbít ComfyUI. Odpinováním instalujeme jen to, co
+    /// reálně chybí.</para>
+    /// </summary>
+    private static IReadOnlyList<string> ParseRequirementsTxt()
+    {
+        var reqPath = Path.Combine(SdScriptsRoot, "requirements.txt");
+        if (!File.Exists(reqPath)) return Array.Empty<string>();
+
+        var result = new List<string>();
+        try
+        {
+            foreach (var raw in File.ReadAllLines(reqPath))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith('#')) continue;
+                // -r other.txt, -e ., . (editable self-install) — přeskoč
+                if (line.StartsWith('-') || line == ".") continue;
+                // Odřízni inline komentář
+                var hashIdx = line.IndexOf('#');
+                if (hashIdx >= 0) line = line[..hashIdx].Trim();
+                if (line.Length == 0) continue;
+
+                // Název balíku = vše před prvním z ==, >=, <=, ~=, !=, [, ;, mezera
+                var name = line;
+                foreach (var sep in new[] { "==", ">=", "<=", "~=", "!=", "[", ";", " ", ">" , "<" })
+                {
+                    var idx = name.IndexOf(sep, StringComparison.Ordinal);
+                    if (idx > 0) name = name[..idx];
+                }
+                name = name.Trim();
+
+                if (name.Length == 0 || ExcludedFromRequirements.Contains(name)) continue;
+                result.Add(name);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "LoraTrainerDependency: parsování requirements.txt selhalo");
+        }
+        return result;
     }
 
     // ── Pip helpers ───────────────────────────────────────────────────────────
