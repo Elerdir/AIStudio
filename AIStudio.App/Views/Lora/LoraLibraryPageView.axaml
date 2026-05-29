@@ -307,10 +307,120 @@
                  binding na ScrollVieweru evaluoval IsTrainingTab z page VM, ne
                  z TrainingPane (kde by neexistoval = compile error AVLN2000). -->
             <Panel IsVisible="{Binding IsTrainingTab}">
-              <ScrollViewer Padding="28,16,14,28"
-                            VerticalScrollBarVisibility="Auto"
-                            AllowAutoHide="False"
-                            Classes="visibleScrollbar">
+              <DockPanel>
+
+                <!-- ── Připnutý footer: Spustit/Zrušit + progress + výsledek ──
+                     Dock=Bottom = vždy viditelné dole, ať je formulář jakkoliv
+                     dlouhý. Scrolluje jen oblast nad footerem. Tím je primární
+                     akce (Spustit trénink) vždy dosažitelná bez ohledu na počet
+                     fotek v datasetu. -->
+                <Border DockPanel.Dock="Bottom"
+                        DataContext="{Binding TrainingPane}"
+                        Background="{DynamicResource PanelBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0"
+                        Padding="28,12,28,16">
+                  <StackPanel Spacing="10" MaxWidth="780" HorizontalAlignment="Left">
+
+                    <!-- Result message (nad tlačítkem ať je vidět hned po dokončení) -->
+                    <Border IsVisible="{Binding ResultMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                            BorderThickness="1" CornerRadius="10" Padding="14,10">
+                        <Border.Styles>
+                            <Style Selector="Border">
+                                <Setter Property="Background" Value="#0F1A0F"/>
+                                <Setter Property="BorderBrush" Value="#264726"/>
+                            </Style>
+                        </Border.Styles>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CheckCircleOutline}"
+                                             Width="18" Height="18"
+                                             Foreground="{DynamicResource SuccessBrush}"
+                                             IsVisible="{Binding IsResultSuccess}"
+                                             VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertCircleOutline}"
+                                             Width="18" Height="18"
+                                             Foreground="#E08585"
+                                             IsVisible="{Binding IsResultError}"
+                                             VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding ResultMessage}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextLightBrush}"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Progress (jen během tréninku) -->
+                    <Border IsVisible="{Binding IsTraining}"
+                            Background="{DynamicResource CardBgBrush}"
+                            BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                            CornerRadius="10" Padding="16,14">
+                        <StackPanel Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding StatusLine}"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextLightBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding LossLabel}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource AccentLightBrush}"
+                                           FontWeight="SemiBold"
+                                           IsVisible="{Binding LossLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                            </Grid>
+                            <ProgressBar Value="{Binding CurrentProgress}"
+                                         Minimum="0" Maximum="100"
+                                         Height="8" CornerRadius="4"
+                                         Foreground="{DynamicResource AccentBrush}"
+                                         Background="#1C1C24"/>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding ElapsedLabel}"
+                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding RemainingLabel}"
+                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Start / Cancel -->
+                    <Grid ColumnDefinitions="*">
+                        <Button Grid.Column="0"
+                                Classes="primary"
+                                IsVisible="{Binding IsIdle}"
+                                IsEnabled="{Binding CanStartTraining}"
+                                Command="{Binding StartTrainingCommand}"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center"
+                                Padding="0,14">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Play}" Width="16" Height="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Spustit trénink" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="0"
+                                IsVisible="{Binding IsTraining}"
+                                Command="{Binding CancelTrainingCommand}"
+                                Background="#7E2A2A" BorderBrush="#9E3535" BorderThickness="1"
+                                Foreground="White"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                CornerRadius="10" Padding="0,14">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Stop}" Width="16" Height="16" VerticalAlignment="Center"/>
+                                <TextBlock Text="Zrušit trénink" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                  </StackPanel>
+                </Border>
+
+                <!-- ── Scrollovatelný formulář (vyplní zbytek nad footerem) ── -->
+                <ScrollViewer Padding="28,16,14,16"
+                              VerticalScrollBarVisibility="Auto"
+                              AllowAutoHide="False"
+                              Classes="visibleScrollbar">
                 <StackPanel Spacing="20" MaxWidth="780" HorizontalAlignment="Left"
                             DataContext="{Binding TrainingPane}">
 
@@ -733,100 +843,10 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- ── 4) Start / Cancel ── -->
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                        <Button Grid.Column="0"
-                                Classes="primary"
-                                IsVisible="{Binding IsIdle}"
-                                IsEnabled="{Binding CanStartTraining}"
-                                Command="{Binding StartTrainingCommand}"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Center"
-                                Padding="0,14">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Play}" Width="16" Height="16" VerticalAlignment="Center"/>
-                                <TextBlock Text="Spustit trénink" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                        <Button Grid.Column="0"
-                                IsVisible="{Binding IsTraining}"
-                                Command="{Binding CancelTrainingCommand}"
-                                Background="#7E2A2A" BorderBrush="#9E3535" BorderThickness="1"
-                                Foreground="White"
-                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                CornerRadius="10" Padding="0,14">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Stop}" Width="16" Height="16" VerticalAlignment="Center"/>
-                                <TextBlock Text="Zrušit trénink" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                    </Grid>
-
-                    <!-- ── 5) Progress (jen během tréninku) ── -->
-                    <Border IsVisible="{Binding IsTraining}"
-                            Background="{DynamicResource CardBgBrush}"
-                            BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
-                            CornerRadius="10" Padding="16,14">
-                        <StackPanel Spacing="10">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                <TextBlock Grid.Column="0"
-                                           Text="{Binding StatusLine}"
-                                           FontSize="13" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextLightBrush}"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding LossLabel}"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource AccentLightBrush}"
-                                           FontWeight="SemiBold"
-                                           IsVisible="{Binding LossLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                            </Grid>
-                            <ProgressBar Value="{Binding CurrentProgress}"
-                                         Minimum="0" Maximum="100"
-                                         Height="8" CornerRadius="4"
-                                         Foreground="{DynamicResource AccentBrush}"
-                                         Background="#1C1C24"/>
-                            <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Grid.Column="0"
-                                           Text="{Binding ElapsedLabel}"
-                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding RemainingLabel}"
-                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Result message -->
-                    <Border IsVisible="{Binding ResultMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                            BorderThickness="1" CornerRadius="10" Padding="14,10">
-                        <Border.Styles>
-                            <Style Selector="Border">
-                                <Setter Property="Background" Value="#0F1A0F"/>
-                                <Setter Property="BorderBrush" Value="#264726"/>
-                            </Style>
-                        </Border.Styles>
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CheckCircleOutline}"
-                                             Width="18" Height="18"
-                                             Foreground="{DynamicResource SuccessBrush}"
-                                             IsVisible="{Binding IsResultSuccess}"
-                                             VerticalAlignment="Center"/>
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertCircleOutline}"
-                                             Width="18" Height="18"
-                                             Foreground="#E08585"
-                                             IsVisible="{Binding IsResultError}"
-                                             VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding ResultMessage}"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource TextLightBrush}"
-                                       TextWrapping="Wrap"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
-
                 </StackPanel>
               </ScrollViewer>
+
+              </DockPanel>
 
               <!-- ═══════════ Code of Conduct overlay ═══════════
                    Zobrazí se při prvním pokusu o spuštění tréninku.
