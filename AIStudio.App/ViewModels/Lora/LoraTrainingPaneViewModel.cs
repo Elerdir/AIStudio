@@ -177,7 +177,8 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     // ── Stav tréninku ─────────────────────────────────────────────────────────
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanStartTraining), nameof(IsIdle), nameof(IsInitializing))]
+    [NotifyPropertyChangedFor(nameof(CanStartTraining), nameof(IsIdle), nameof(IsInitializing),
+                              nameof(CanStartCaptioning))]
     private bool _isTraining;
 
     [ObservableProperty]
@@ -258,6 +259,10 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsDatasetSizeWarning));
             OnPropertyChanged(nameof(DatasetSizeWarningText));
             OnPropertyChanged(nameof(CanStartTraining));
+            // BUG fix: bez tohoto zůstalo tlačítko Auto-popisek disabled —
+            // CanStartCaptioning se po přidání fotek nikdy nepřepočítal a
+            // držel initial false (0 fotek při startu).
+            OnPropertyChanged(nameof(CanStartCaptioning));
         };
 
         DetectHardware();
