@@ -352,34 +352,54 @@
                     <!-- Progress (jen během tréninku) -->
                     <Border IsVisible="{Binding IsTraining}"
                             Background="{DynamicResource CardBgBrush}"
-                            BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                            BorderBrush="#3B2F5A" BorderThickness="1"
                             CornerRadius="10" Padding="16,14">
                         <StackPanel Spacing="10">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                <TextBlock Grid.Column="0"
-                                           Text="{Binding StatusLine}"
-                                           FontSize="13" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextLightBrush}"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding LossLabel}"
-                                           FontSize="11"
+                            <!-- Horní řádek: spinner + status + velká procenta -->
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <mi:MaterialIcon Grid.Column="0"
+                                                 Kind="{x:Static miKind:MaterialIconKind.Loading}"
+                                                 Width="18" Height="18"
+                                                 Foreground="{DynamicResource AccentLightBrush}"
+                                                 VerticalAlignment="Center"/>
+                                <StackPanel Grid.Column="1" Spacing="1" VerticalAlignment="Center">
+                                    <!-- Inicializace: jasná hláška místo statického „Krok 0" -->
+                                    <TextBlock Text="Inicializuji — načítám model do VRAM…"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextLightBrush}"
+                                               IsVisible="{Binding IsInitializing}"/>
+                                    <TextBlock Text="{Binding StatusLine}"
+                                               FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextLightBrush}"
+                                               TextTrimming="CharacterEllipsis"
+                                               IsVisible="{Binding !IsInitializing}"/>
+                                    <TextBlock Text="{Binding LossLabel}"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource AccentLightBrush}"
+                                               IsVisible="{Binding LossLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                </StackPanel>
+                                <TextBlock Grid.Column="2"
+                                           Text="{Binding ProgressPercentLabel}"
+                                           FontSize="20" FontWeight="Bold"
                                            Foreground="{DynamicResource AccentLightBrush}"
-                                           FontWeight="SemiBold"
-                                           IsVisible="{Binding LossLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                           VerticalAlignment="Center"/>
                             </Grid>
+                            <!-- Tlustší, výraznější progress bar -->
                             <ProgressBar Value="{Binding CurrentProgress}"
                                          Minimum="0" Maximum="100"
-                                         Height="8" CornerRadius="4"
+                                         Height="12" CornerRadius="6"
                                          Foreground="{DynamicResource AccentBrush}"
-                                         Background="#1C1C24"/>
+                                         Background="#1C1C24"
+                                         IsIndeterminate="{Binding IsInitializing}"/>
+                            <!-- Spodní řádek: uplynulý / zbývající čas -->
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBlock Grid.Column="0"
-                                           Text="{Binding ElapsedLabel}"
+                                           Text="{Binding ElapsedLabel, StringFormat='Uplynulo: {0}'}"
                                            FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding RemainingLabel}"
-                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                           FontSize="11" Foreground="{DynamicResource TextHintBrush}"
+                                           IsVisible="{Binding RemainingLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                             </Grid>
                         </StackPanel>
                     </Border>

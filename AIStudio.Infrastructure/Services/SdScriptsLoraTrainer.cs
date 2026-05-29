@@ -255,15 +255,27 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         var datasetDir = Path.Combine(imgRoot, instanceFolder);
         Directory.CreateDirectory(datasetDir);
 
+        // Fallback trigger token pro fotky bez popisku: použijeme sanitizovaný
+        // název LoRA. Bez něj by sd-scripts trénoval na prázdný caption — LoRA by
+        // se „rozmazala" do bezpodmínečného výstupu místo konkrétního subjektu.
+        // S tímto tokenem uživatel pak v Image Studiu napíše „nikol_vvv" a dostane
+        // natrénovanou postavu. (Ručně napsaný / auto-caption popisek má přednost.)
+        var fallbackToken = SanitizeForFolderName(r.Name);
+
         var i = 1;
         foreach (var item in r.Dataset)
         {
             var ext = Path.GetExtension(item.ImagePath);
             var name = $"{i:D4}{ext}";
             File.Copy(item.ImagePath, Path.Combine(datasetDir, name));
+
+            var caption = string.IsNullOrWhiteSpace(item.Caption)
+                ? fallbackToken
+                : item.Caption.Trim();
+
             File.WriteAllText(
                 Path.Combine(datasetDir, $"{Path.GetFileNameWithoutExtension(name)}.txt"),
-                item.Caption ?? string.Empty);
+                caption);
             i++;
         }
 

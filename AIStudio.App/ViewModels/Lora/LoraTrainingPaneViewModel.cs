@@ -177,16 +177,36 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     // ── Stav tréninku ─────────────────────────────────────────────────────────
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanStartTraining), nameof(IsIdle))]
+    [NotifyPropertyChangedFor(nameof(CanStartTraining), nameof(IsIdle), nameof(IsInitializing))]
     private bool _isTraining;
 
-    [ObservableProperty] private int    _currentStep;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsInitializing))]
+    private int    _currentStep;
+
     [ObservableProperty] private int    _totalSteps;
-    [ObservableProperty] private double _currentProgress;       // 0-100
-    [ObservableProperty] private string _statusLine = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressPercentLabel))]
+    private double _currentProgress;       // 0-100
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsInitializing))]
+    private string _statusLine = string.Empty;
+
     [ObservableProperty] private string _elapsedLabel = string.Empty;
     [ObservableProperty] private string _remainingLabel = string.Empty;
     [ObservableProperty] private string _lossLabel = string.Empty;
+
+    /// <summary>Procenta jako label pro UI („42 %"). Při 0 ukáže „0 %".</summary>
+    public string ProgressPercentLabel => $"{CurrentProgress:F0} %";
+
+    /// <summary>
+    /// True dokud trénink běží, ale ještě nezačal tikat kroky (Krok 0 / setup).
+    /// V této fázi se načítá checkpoint do VRAM (~30-60 s) — UI ukáže „Inicializuji…"
+    /// místo statického „Krok 0", aby uživatel věděl, že se něco děje.
+    /// </summary>
+    public bool IsInitializing => IsTraining && CurrentStep <= 0;
 
     /// <summary>True když nic neběží — UI ukáže formulář.</summary>
     public bool IsIdle => !IsTraining;
