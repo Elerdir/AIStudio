@@ -830,6 +830,41 @@
                     <!-- ── 3) Parametry tréninku ── -->
                     <StackPanel Spacing="10" IsEnabled="{Binding IsIdle}">
                         <TextBlock Text="3) PARAMETRY TRÉNINKU" Classes="sectionHeader"/>
+
+                        <!-- Presety jedním klikem — aktivní je zvýrazněný fialově -->
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Command="{Binding ApplyPresetCommand}" CommandParameter="person"
+                                    Classes="presetBtn"
+                                    Classes.presetActive="{Binding IsPresetPerson}"
+                                    ToolTip.Tip="Rank 32, 1500 kroků — pro konkrétní osobu / obličej (15-30 fotek)">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AccountOutline}" Width="14" Height="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Postava" FontSize="12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{Binding ApplyPresetCommand}" CommandParameter="style"
+                                    Classes="presetBtn"
+                                    Classes.presetActive="{Binding IsPresetStyle}"
+                                    ToolTip.Tip="Rank 64, 2000 kroků, nižší LR — pro estetiku / umělecký styl">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.PaletteOutline}" Width="14" Height="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Styl" FontSize="12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Command="{Binding ApplyPresetCommand}" CommandParameter="quick"
+                                    Classes="presetBtn"
+                                    Classes.presetActive="{Binding IsPresetQuick}"
+                                    ToolTip.Tip="Rank 16, jen 400 kroků (~2-3 min) — rychlé ověření, že trénink funguje">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FlashOutline}" Width="14" Height="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Rychlý test" FontSize="12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Text="vlastní" FontSize="11" Foreground="{DynamicResource TextHintBrush}"
+                                       VerticalAlignment="Center" Margin="4,0,0,0"
+                                       IsVisible="{Binding ActivePreset, Converter={x:Static ObjectConverters.IsNull}}"/>
+                        </StackPanel>
+
                         <Border Classes="card" Padding="16,14">
                             <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="6">
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="Rank"   FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>

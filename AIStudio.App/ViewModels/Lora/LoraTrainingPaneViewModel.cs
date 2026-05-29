@@ -138,6 +138,83 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     public IReadOnlyList<string> AvailableOptimizers { get; } =
         new[] { "AdamW8bit", "AdamW", "Lion", "Prodigy" };
 
+    /// <summary>Aktivní preset pro zvýraznění tlačítka (null = vlastní/ručně upraveno).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPresetPerson), nameof(IsPresetStyle), nameof(IsPresetQuick))]
+    private string? _activePreset = "person";
+
+    public bool IsPresetPerson => ActivePreset == "person";
+    public bool IsPresetStyle  => ActivePreset == "style";
+    public bool IsPresetQuick  => ActivePreset == "quick";
+
+    /// <summary>
+    /// Presety parametrů jedním klikem. Hodnoty osvědčené pro SDXL na 8+ GB VRAM:
+    /// <list type="bullet">
+    /// <item><b>Postava</b> — konkrétní osoba/obličej. Rank 32, 1500 kroků,
+    ///   batch 2 (využije VRAM 3090), 1e-4. Sweet spot pro ~20-30 fotek.</item>
+    /// <item><b>Styl</b> — estetika/umělecký styl. Vyšší rank 64 (víc kapacity
+    ///   pro komplexní vzory), 2000 kroků, nižší LR 5e-5 (jemnější).</item>
+    /// <item><b>Rychlý test</b> — ověření že pipeline funguje. Rank 16, jen 400
+    ///   kroků, ~2-3 min. Výsledek je hrubý, ale rychle uvidíš, zda to jede.</item>
+    /// </list>
+    /// </summary>
+    [RelayCommand]
+    private void ApplyPreset(string preset)
+    {
+        // Guard: nastavování hodnot níže by jinak přes OnXxxChanged shodilo
+        // ActivePreset zpátky na null (vypadalo by to jako „ruční úprava").
+        _applyingPreset = true;
+        try
+        {
+            switch (preset)
+            {
+                case "person":
+                    Rank = 32; Alpha = 16; Steps = 1500; LearningRate = 1e-4;
+                    BatchSize = RecommendedBatchForVram(); SelectedOptimizer = "AdamW8bit";
+                    break;
+                case "style":
+                    Rank = 64; Alpha = 32; Steps = 2000; LearningRate = 5e-5;
+                    BatchSize = RecommendedBatchForVram(); SelectedOptimizer = "AdamW8bit";
+                    break;
+                case "quick":
+                    Rank = 16; Alpha = 8; Steps = 400; LearningRate = 1e-4;
+                    BatchSize = 1; SelectedOptimizer = "AdamW8bit";
+                    break;
+                default:
+                    return;
+            }
+            ActivePreset = preset;
+        }
+        finally { _applyingPreset = false; }
+    }
+
+    /// <summary>
+    /// Doporučený batch size podle VRAM. 24 GB → 2 (rychlejší, gradient hladší
+    /// u SDXL LoRA), pod 12 GB → 1 (jistota proti OOM).
+    /// </summary>
+    private int RecommendedBatchForVram()
+    {
+        var vram = _monitor?.Current?.VramTotalGb ?? 0;
+        return vram >= 16 ? 2 : 1;
+    }
+
+    // Když uživatel ručně sáhne na parametr, zrušíme zvýraznění presetu
+    // (hodnota už neodpovídá presetu — je „vlastní").
+    partial void OnRankChanged(int v)          => ClearPresetIfManual();
+    partial void OnAlphaChanged(int v)         => ClearPresetIfManual();
+    partial void OnStepsChanged(int v)         => ClearPresetIfManual();
+    partial void OnLearningRateChanged(double v) => ClearPresetIfManual();
+    partial void OnBatchSizeChanged(int v)     => ClearPresetIfManual();
+    partial void OnSelectedOptimizerChanged(string v) => ClearPresetIfManual();
+
+    /// <summary>Guard proti rekurzi: ApplyPreset nastavuje hodnoty, nechceme aby to hned shodilo preset.</summary>
+    private bool _applyingPreset;
+
+    private void ClearPresetIfManual()
+    {
+        if (!_applyingPreset) ActivePreset = null;
+    }
+
     // ── HW indikátor + odhad ──────────────────────────────────────────────────
 
     [ObservableProperty] private string _hwInfoLabel = "Detekuji GPU…";
