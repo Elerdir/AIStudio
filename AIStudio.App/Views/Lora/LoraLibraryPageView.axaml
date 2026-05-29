@@ -634,14 +634,17 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Dataset items -->
+                        <!-- Dataset items.
+                             POZN: Vnořený ScrollViewer + MaxHeight zde POŽÍRAL kolečko
+                             myši — vnější ScrollViewer training panu se nehnul a
+                             uživatel se nedostal k tlačítku Spustit trénink. Odstraněno:
+                             dataset roste přirozeně v hlavním scrollu (běžný UX pattern
+                             pro dlouhé seznamy). -->
                         <Border IsVisible="{Binding !HasNoDatasetItems}"
                                 Name="DatasetItemsPanel"
                                 Background="{DynamicResource SubtlePanelBgBrush}"
                                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
-                                CornerRadius="10" Padding="6"
-                                MaxHeight="380">
-                            <ScrollViewer>
+                                CornerRadius="10" Padding="6">
                                 <ItemsControl ItemsSource="{Binding DatasetItems}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:LoraDatasetItemViewModel">
@@ -691,7 +694,6 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                            </ScrollViewer>
                         </Border>
                     </StackPanel>
 

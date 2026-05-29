@@ -133,14 +133,22 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             progress?.Report(new LoraTrainingProgress(0, request.Parameters.Steps, null,
                 sw.Elapsed, null, "Načítám checkpoint a inicializuji…"));
 
-            var exitCode = await RunTrainingProcessAsync(
+            var (exitCode, tailLog) = await RunTrainingProcessAsync(
                 pythonExe, sdScriptsDir, script, args,
                 request.Parameters.Steps, sw, progress, ct);
 
             if (exitCode != 0)
             {
+                // Sběr posledních řádků poskytuje konkrétní diagnostický kontext —
+                // bez něj byl uživatel slepý („detail v logu" se neukazoval, protože
+                // Serilog mlčí na Debug level pro [sd-scripts] řádky).
+                var tail = tailLog.Count > 0
+                    ? "\n\nPosledních " + tailLog.Count + " řádků výstupu:\n" + string.Join('\n', tailLog)
+                    : string.Empty;
+                Log.Error("SdScriptsLoraTrainer: training subprocess skončilo s exit kódem {Code}.{Tail}",
+                    exitCode, tail);
                 return new LoraTrainingResult(false, null,
-                    $"sd-scripts skončilo s exit kódem {exitCode}. Detail v logu.",
+                    $"sd-scripts skončilo s exit kódem {exitCode}.{tail}",
                     sw.Elapsed);
             }
 
@@ -339,7 +347,27 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
 
     // ── Subprocess + progress parsing ─────────────────────────────────────────
 
-    private async Task<int> RunTrainingProcessAsync(
+    /// <summary>Maximální počet stdout řádků v ring bufferu pro diagnostiku.</summary>
+    private const int TailBufferSize = 50;
+
+    /// <summary>
+    /// Klíčová slova v stdout/stderr, která eskalují řádek z Debug na Warning level.
+    /// sd-scripts používá Python logging i print statementy — chyby se hází jako
+    /// Tracebacks nebo Errors přes oba kanály.
+    /// </summary>
+    private static readonly string[] ErrorKeywords =
+    {
+        "error", "traceback", "exception", "failed", "cuda out of memory",
+        "runtimeerror", "valueerror", "filenotfounderror", "importerror",
+        "no module named", "assertionerror",
+    };
+
+    /// <summary>
+    /// Spustí Python subprocess, parsuje progress, drží ring buffer posledních
+    /// řádků pro diagnostiku, eskaluje chybové řádky na Warning level.
+    /// Vrací (exitCode, tailLines).
+    /// </summary>
+    private async Task<(int ExitCode, IReadOnlyList<string> Tail)> RunTrainingProcessAsync(
         string                            pythonExe,
         string                            sdScriptsDir,
         string                            scriptPath,
@@ -365,12 +393,35 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
 
         using var p = new Process { StartInfo = psi };
 
+        // Ring buffer posledních ~50 řádků pro post-mortem diagnostiku. Pokud
+        // subprocess spadne, vrátíme tail caller-u jako součást error zprávy.
+        var tail = new Queue<string>(TailBufferSize);
+        var tailLock = new object();
+
+        void Capture(string line)
+        {
+            lock (tailLock)
+            {
+                if (tail.Count >= TailBufferSize) tail.Dequeue();
+                tail.Enqueue(line);
+            }
+        }
+
         void HandleLine(string? line)
         {
             if (string.IsNullOrEmpty(line)) return;
 
             OutputLog?.Invoke(line);
-            Log.Debug("[sd-scripts] {Line}", line);
+            Capture(line);
+
+            // Eskalace logging level pro chybové řádky — bez toho byl Debug výpis
+            // tichý při Serilog Information minimum a uživatel viděl jen
+            // „exit code N", nic víc.
+            var lower = line.ToLowerInvariant();
+            if (ErrorKeywords.Any(k => lower.Contains(k)))
+                Log.Warning("[sd-scripts] {Line}", line);
+            else
+                Log.Debug("[sd-scripts] {Line}", line);
 
             if (!TryParseProgressLine(line, out var step, out var total, out var loss)) return;
             if (total <= 0) total = totalSteps;
@@ -406,6 +457,8 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             throw;
         }
 
-        return p.ExitCode;
+        List<string> tailSnapshot;
+        lock (tailLock) tailSnapshot = tail.ToList();
+        return (p.ExitCode, tailSnapshot);
     }
 }
