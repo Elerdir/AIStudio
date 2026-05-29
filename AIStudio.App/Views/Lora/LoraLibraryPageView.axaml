@@ -336,6 +336,96 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- ── 0) Doporučené modely (ke stažení v aplikaci) ── -->
+                    <StackPanel Spacing="10" IsEnabled="{Binding IsIdle}"
+                                IsVisible="{Binding IsDownloadSupported}">
+                        <TextBlock Text="DOPORUČENÉ MODELY" Classes="sectionHeader"/>
+                        <TextBlock Text="Jeden klik = stažení rovnou do Models/checkpoints/. Po dokončení se objeví v dropdownu níže."
+                                   FontSize="11" Foreground="{DynamicResource TextHintBrush}"
+                                   TextWrapping="Wrap" Margin="0,-4,0,0"/>
+                        <ItemsControl ItemsSource="{Binding RecommendedBaseModels}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="8"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:RecommendedBaseModelViewModel">
+                                    <Border Classes="card" Padding="14,10">
+                                        <StackPanel Spacing="8">
+                                            <!-- Hlavička: název + badges + akce -->
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                <StackPanel Grid.Column="0" Spacing="3">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="{Binding Name}"
+                                                                   FontSize="13" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                   VerticalAlignment="Center"/>
+                                                        <Border Background="#1F1B2E" BorderBrush="#3B2F5A" BorderThickness="1"
+                                                                CornerRadius="4" Padding="6,1"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding ModelTypeLabel}" FontSize="10"
+                                                                       Foreground="#A78BFA" FontWeight="SemiBold"/>
+                                                        </Border>
+                                                        <Border Background="#1C1C1E"
+                                                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                                                CornerRadius="4" Padding="6,1"
+                                                                VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding SizeLabel}" FontSize="10"
+                                                                       Foreground="{DynamicResource TextHintBrush}"/>
+                                                        </Border>
+                                                        <Border Background="#16221A" BorderBrush="#264726" BorderThickness="1"
+                                                                CornerRadius="4" Padding="6,1"
+                                                                VerticalAlignment="Center"
+                                                                IsVisible="{Binding IsDownloaded}">
+                                                            <TextBlock Text="✓ Staženo" FontSize="10"
+                                                                       Foreground="{DynamicResource SuccessBrush}"/>
+                                                        </Border>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Description}"
+                                                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                                <!-- Akce: Stáhnout / Zrušit -->
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                                                            VerticalAlignment="Center">
+                                                    <Button Command="{Binding DownloadCommand}"
+                                                            Classes="primary"
+                                                            Padding="12,6"
+                                                            IsVisible="{Binding CanDownload}">
+                                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Download}"
+                                                                             Width="13" Height="13" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="Stáhnout" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <Button Command="{Binding CancelCommand}"
+                                                            Background="#7E2A2A" BorderBrush="#9E3535" BorderThickness="1"
+                                                            Foreground="White"
+                                                            CornerRadius="8" Padding="10,6"
+                                                            IsVisible="{Binding IsDownloading}">
+                                                        <TextBlock Text="Zrušit" FontSize="11"/>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Progress strip — viditelný jen při IsDownloading -->
+                                            <StackPanel Spacing="4" IsVisible="{Binding IsDownloading}">
+                                                <ProgressBar Value="{Binding DownloadProgress}"
+                                                             Minimum="0" Maximum="100"
+                                                             Height="4" CornerRadius="2"
+                                                             Foreground="{DynamicResource AccentBrush}"
+                                                             Background="#1C1C24"/>
+                                                <TextBlock Text="{Binding DownloadStatusLine}"
+                                                           FontSize="10" Foreground="{DynamicResource TextHintBrush}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
                     <!-- ── 1) Pojmenování + base model ── -->
                     <StackPanel Spacing="10" IsEnabled="{Binding IsIdle}">
                         <TextBlock Text="1) ZÁKLADNÍ NASTAVENÍ" Classes="sectionHeader"/>

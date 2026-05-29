@@ -8,6 +8,7 @@ using Serilog;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
 using AIStudio.Core.Services;
+using AIStudio.Infrastructure.Services;
 
 namespace AIStudio.App.ViewModels.Lora;
 
@@ -34,9 +35,11 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     private readonly ISettingsService              _settings;
     private readonly ISystemMonitorService?        _monitor;
     private readonly ILoraCaptionService?          _captionService;
+    private readonly IDownloadService?             _downloadService;
 
     private CancellationTokenSource? _cts;
     private CancellationTokenSource? _captionCts;
+    private readonly Dictionary<string, CancellationTokenSource> _modelDownloadCts = new();
 
     // ── Konfigurace tréninku ──────────────────────────────────────────────────
 
@@ -206,17 +209,19 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         ILoraTrainerService            trainer,
         ILoraTrainerDependencyService  deps,
         ISettingsService               settings,
-        ISystemMonitorService?         monitor        = null,
-        ILoraCaptionService?           captionService = null)
+        ISystemMonitorService?         monitor         = null,
+        ILoraCaptionService?           captionService  = null,
+        IDownloadService?              downloadService = null)
     {
         AvailableBaseModels.CollectionChanged += (_, _) =>
             OnPropertyChanged(nameof(HasAvailableBaseModels));
 
-        _trainer        = trainer;
-        _deps           = deps;
-        _settings       = settings;
-        _monitor        = monitor;
-        _captionService = captionService;
+        _trainer         = trainer;
+        _deps            = deps;
+        _settings        = settings;
+        _monitor         = monitor;
+        _captionService  = captionService;
+        _downloadService = downloadService;
 
         // SystemMonitor sbírá metriky každé 2.5 s, takže Current je při startu
         // null (ještě nestihl odběr). DetectHardware si subscribneme i na
@@ -236,7 +241,164 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         };
 
         DetectHardware();
+        BuildRecommendedBaseModels();
         _ = RefreshBaseModelsAsync();
+    }
+
+    // ── Doporučené base modely (s download akcí) ──────────────────────────────
+
+    /// <summary>
+    /// Curated seznam doporučených SDXL checkpointů pro trénink — jednorázově
+    /// při startu naplníme z <see cref="RecommendedModels"/>. State (downloaded/
+    /// downloading) se refreshuje při změně Available list (RefreshBaseModelsAsync).
+    /// </summary>
+    public ObservableCollection<RecommendedBaseModelViewModel> RecommendedBaseModels { get; } = new();
+
+    /// <summary>True když máme funkční download service v DI — pro UI IsVisible.</summary>
+    public bool IsDownloadSupported => _downloadService is not null;
+
+    private void BuildRecommendedBaseModels()
+    {
+        // Curated picky vhodné pro LoRA trénink. Sdílíme katalog s chat → image gen
+        // recommenderem (RecommendedModels.*), takže přidání modelu do katalogu se
+        // automaticky promítne sem.
+        var picks = new[]
+        {
+            RecommendedModels.SdxlBase10,             // univerzální SDXL pro postavy/scény
+            RecommendedModels.DreamShaperXl_Lightning, // stylizovaný/cinematic
+            RecommendedModels.AnimagineXl31,          // anime
+            RecommendedModels.FluxSchnell_Q4,         // top kvalita (FLUX GGUF)
+        };
+
+        var modelsRoot = AppPaths.ResolveModelsDirectory(_settings.Settings.ModelsDirectory);
+        var ckptDir    = Path.Combine(modelsRoot, "checkpoints");
+
+        foreach (var p in picks)
+        {
+            var targetPath = Path.Combine(ckptDir, p.FileName);
+            var existing   = File.Exists(targetPath) || IsFileInComfyUiCheckpoints(p.FileName);
+            RecommendedBaseModels.Add(new RecommendedBaseModelViewModel(
+                source:              p,
+                targetPath:          targetPath,
+                isDownloaded:        existing,
+                onDownloadRequested: OnRecommendedDownloadRequestedAsync,
+                onCancelRequested:   OnRecommendedDownloadCancelAsync));
+        }
+    }
+
+    /// <summary>Refreshne flag IsDownloaded u doporučených podle aktuálně přítomných checkpointů.</summary>
+    private void RefreshRecommendedDownloadedFlags()
+    {
+        foreach (var rec in RecommendedBaseModels)
+        {
+            if (rec.IsDownloading) continue;   // neměníme stav v průběhu DL
+            rec.IsDownloaded = File.Exists(rec.TargetPath) || IsFileInComfyUiCheckpoints(rec.Source.FileName);
+        }
+    }
+
+    /// <summary>True pokud daný filename existuje v ComfyUI bundle checkpoints/.</summary>
+    private bool IsFileInComfyUiCheckpoints(string fileName)
+    {
+        var comfyDir = _settings.Settings.ComfyUiDirectory;
+        if (string.IsNullOrWhiteSpace(comfyDir)) return false;
+        return File.Exists(Path.Combine(comfyDir, "models", "checkpoints", fileName));
+    }
+
+    private async Task OnRecommendedDownloadRequestedAsync(RecommendedBaseModelViewModel rec)
+    {
+        if (_downloadService is null) return;
+        if (rec.IsDownloading || rec.IsDownloaded) return;
+
+        var cts = new CancellationTokenSource();
+        _modelDownloadCts[rec.Source.Id] = cts;
+
+        rec.IsDownloading      = true;
+        rec.DownloadProgress   = 0;
+        rec.DownloadStatusLine = "Spouštím stahování…";
+
+        var progress = new Progress<DownloadProgressInfo>(p => Dispatcher.UIThread.Post(() =>
+        {
+            rec.DownloadProgress   = p.Percent;
+            var mbps               = p.BytesPerSecond / 1_048_576;
+            rec.DownloadStatusLine = p.Total > 0
+                ? $"{p.Downloaded / 1_048_576} / {p.Total / 1_048_576} MB · {mbps:F1} MB/s"
+                : $"{p.Downloaded / 1_048_576} MB · {mbps:F1} MB/s";
+        }));
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(rec.TargetPath)!);
+
+            var token = rec.Source.RequiresHuggingFaceToken
+                ? _settings.Settings.HuggingFaceToken
+                : null;
+
+            await _downloadService.DownloadFileAsync(
+                rec.Source.DownloadUrl,
+                rec.TargetPath,
+                progress,
+                token,
+                cts.Token,
+                rec.Source.Sha256);
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                rec.IsDownloading      = false;
+                rec.IsDownloaded       = true;
+                rec.DownloadProgress   = 100;
+                rec.DownloadStatusLine = "Hotovo";
+            });
+
+            // Refresh seznamu Available aby se nový model objevil v dropdownu;
+            // a pokud nic není vybrané, auto-select tenhle.
+            await RefreshBaseModelsAsync();
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (string.IsNullOrEmpty(SelectedBaseModel))
+                {
+                    var match = AvailableBaseModels
+                        .FirstOrDefault(n => n.Contains(rec.Source.FileName, StringComparison.OrdinalIgnoreCase));
+                    if (match is not null) SelectedBaseModel = match;
+                }
+            });
+
+            Log.Information("LoraTrainingPane: model {Name} stažen do {Path}",
+                rec.Source.Name, rec.TargetPath);
+        }
+        catch (OperationCanceledException)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                rec.IsDownloading      = false;
+                rec.DownloadStatusLine = "Zrušeno";
+            });
+            try { if (File.Exists(rec.TargetPath)) File.Delete(rec.TargetPath); } catch { }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "LoraTrainingPane: stažení {Name} selhalo", rec.Source.Name);
+            Dispatcher.UIThread.Post(() =>
+            {
+                rec.IsDownloading      = false;
+                rec.DownloadStatusLine = $"❌ {ex.Message}";
+            });
+        }
+        finally
+        {
+            _modelDownloadCts.Remove(rec.Source.Id);
+            cts.Dispose();
+        }
+    }
+
+    private Task OnRecommendedDownloadCancelAsync(RecommendedBaseModelViewModel rec)
+    {
+        if (_modelDownloadCts.TryGetValue(rec.Source.Id, out var cts))
+        {
+            try { cts.Cancel(); }
+            catch (Exception ex) { Log.Warning(ex, "LoraTrainingPane: cancel DL selhal"); }
+        }
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -335,6 +497,10 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             // Auto-select první stažený, pokud žádný není vybraný
             if (string.IsNullOrEmpty(SelectedBaseModel) && AvailableBaseModels.Count > 0)
                 SelectedBaseModel = AvailableBaseModels[0];
+
+            // Sync „Staženo" badge u doporučených karet — soubor mohl nově přibýt
+            // (DL dokončen, externí kopie, atd.)
+            RefreshRecommendedDownloadedFlags();
         });
     }
 

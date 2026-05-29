@@ -79,17 +79,19 @@ public partial class LoraLibraryPageViewModel : ViewModelBase
 
     public LoraLibraryPageViewModel(
         ISettingsService                settings,
-        ILoraTrainerService?            trainer        = null,
-        ILoraTrainerDependencyService?  trainerDeps    = null,
-        ISystemMonitorService?          monitor        = null,
-        ILoraCaptionService?            captionService = null)
+        ILoraTrainerService?            trainer         = null,
+        ILoraTrainerDependencyService?  trainerDeps     = null,
+        ISystemMonitorService?          monitor         = null,
+        ILoraCaptionService?            captionService  = null,
+        IDownloadService?               downloadService = null)
     {
         _settings = settings;
 
         // Trénovací pane je optional — pokud DI neposkytl trainer (např. headless test),
         // tab „Trénovat" zůstane skrytý.
         if (trainer is not null && trainerDeps is not null)
-            TrainingPane = new LoraTrainingPaneViewModel(trainer, trainerDeps, settings, monitor, captionService);
+            TrainingPane = new LoraTrainingPaneViewModel(
+                trainer, trainerDeps, settings, monitor, captionService, downloadService);
 
         // První načtení — fire-and-forget, UI bude zatím prázdné (IsLoading=true)
         _ = LoadAsync();
