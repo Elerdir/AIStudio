@@ -130,19 +130,23 @@ public sealed class BlipCaptionService : ILoraCaptionService
     private static (string Script, string Args) BuildCommand(
         string workDir, string sdScriptsDir, string style)
     {
+        // Spouštíme přes launcher kvůli ComfyUI embedded Pythonu — finetune skripty
+        // taky importují balík `library` (viz SdScriptsLauncher).
+        var launcher = SdScriptsLauncher.EnsureLauncher(sdScriptsDir);
+
         if (string.Equals(style, "wd14", StringComparison.OrdinalIgnoreCase))
         {
             // WD14 tagger pro anime — vrací tagy oddělené čárkami, hodí se pro anime
             // LoRA. Model ~300 MB, auto-stažený při prvním běhu.
             var script = Path.Combine(sdScriptsDir, "finetune", "tag_images_by_wd14_tagger.py");
-            var args   = $"\"{script}\" \"{workDir}\" --caption_extension .txt --batch_size 4 " +
+            var args   = $"\"{launcher}\" \"{script}\" \"{workDir}\" --caption_extension .txt --batch_size 4 " +
                          $"--general_threshold 0.35 --character_threshold 0.35 --max_data_loader_n_workers 2";
             return (script, args);
         }
 
         // BLIP large captioning — vrací 1-2 věty popisu, default pro fotorealistic
         var blipScript = Path.Combine(sdScriptsDir, "finetune", "make_captions.py");
-        var blipArgs   = $"\"{blipScript}\" \"{workDir}\" --caption_extension .txt --batch_size 4 " +
+        var blipArgs   = $"\"{launcher}\" \"{blipScript}\" \"{workDir}\" --caption_extension .txt --batch_size 4 " +
                          $"--max_data_loader_n_workers 2 --beam_search --max_length 75";
         return (blipScript, blipArgs);
     }

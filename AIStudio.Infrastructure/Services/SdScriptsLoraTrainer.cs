@@ -283,6 +283,11 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
     /// <summary>
     /// Vybere správný sd-scripts entrypoint podle base modelu a sestaví CLI
     /// argumenty. SDXL detection podle filename ("xl"/"sdxl") + filesize > 5 GB.
+    ///
+    /// <para>Skript se nespouští přímo, ale přes <see cref="SdScriptsLauncher"/>
+    /// (<c>python _aistudio_launch.py sdxl_train_network.py …</c>), aby se vyřešil
+    /// <c>ModuleNotFoundError: No module named 'library'</c> u ComfyUI embedded
+    /// Pythonu — viz dokumentace launcheru.</para>
     /// </summary>
     private static (string Script, string Args) BuildCommand(
         LoraTrainingRequest r, string workingDir, string sdScriptsDir)
@@ -294,7 +299,8 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         var script = isFlux  ? "flux_train_network.py"
                    : isSdxl  ? "sdxl_train_network.py"
                              : "train_network.py";
-        var scriptPath = Path.Combine(sdScriptsDir, script);
+        var scriptPath  = Path.Combine(sdScriptsDir, script);
+        var launcherPath = SdScriptsLauncher.EnsureLauncher(sdScriptsDir);
 
         var imgRoot = Path.Combine(workingDir, "img");
         var outRoot = Path.Combine(workingDir, "output");
@@ -311,7 +317,9 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             sb.Append(' ').Append(flag).Append(" \"").Append(path).Append('"');
         }
 
-        sb.Append('"').Append(scriptPath).Append('"');
+        // python _aistudio_launch.py "<cílový skript>" …flagy
+        sb.Append('"').Append(launcherPath).Append('"');
+        sb.Append(" \"").Append(scriptPath).Append('"');
 
         Quoted("--pretrained_model_name_or_path", r.BaseModelPath);
         Quoted("--train_data_dir",                imgRoot);
@@ -330,7 +338,10 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         Arg   ("--save_precision",                "fp16");
         Arg   ("--mixed_precision",               p.MixedPrecisionFp16 ? "fp16" : "no");
         Arg   ("--cache_latents");
-        Arg   ("--xformers");
+        // --sdpa = PyTorch 2.x scaled dot-product attention (memory-efficient).
+        // Vestavěné v torch, NEvyžaduje xformers balík (ten není v našich pip
+        // dependencích a jeho build na Windows embedded Pythonu je nespolehlivý).
+        Arg   ("--sdpa");
 
         if (p.GradientCheckpointing) Arg("--gradient_checkpointing");
         if (p.SaveEverySteps > 0)
