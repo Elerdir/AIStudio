@@ -755,6 +755,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             foreach (var imgRef in result.Images)
             {
                 var bytes    = await _comfy.DownloadImageAsync(imgRef.Filename, imgRef.Subfolder, imgRef.Type, cts.Token);
+                // Vepiš AI-provenience do PNG metadat (AI-generated, model, aplikace).
+                bytes        = AIStudio.Core.Services.PngTextMetadata.AddAiProvenance(bytes, SelectedModel, Prompt);
                 var fileName = $"AIStudio_{DateTime.Now:yyyyMMdd_HHmmss}_{imgRef.Filename}";
                 var filePath = Path.Combine(outputDir, fileName);
                 await File.WriteAllBytesAsync(filePath, bytes, cts.Token);

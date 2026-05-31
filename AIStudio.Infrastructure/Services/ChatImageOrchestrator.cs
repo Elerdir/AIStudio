@@ -260,6 +260,8 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
 
         var imgRef    = result.Images[0];
         var bytes     = await _comfy.DownloadImageAsync(imgRef.Filename, imgRef.Subfolder, imgRef.Type, ct);
+        // Vepiš AI-provenience do PNG metadat (že je AI, jaký model, jaká aplikace).
+        bytes         = PngTextMetadata.AddAiProvenance(bytes, modelLabel, intent.EnglishPrompt);
         var outputDir = GetOutputDirectory();
         Directory.CreateDirectory(outputDir);
         var fileName  = $"AIStudio_chat_{DateTime.Now:yyyyMMdd_HHmmss}_{imgRef.Filename}";
@@ -327,7 +329,8 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
                 {
                     var pct = info.Total > 0 ? (int)(100 * info.Downloaded / info.Total) : 0;
                     downloadProgress?.Report(new DownloadStatusUpdate(
-                        "FLUX.1 Kontext", pct, info.Downloaded, info.Total, 0));
+                        "FLUX.1 Kontext", pct, info.Downloaded, info.Total,
+                        MegabytesPerSecond: info.BytesPerSecond / 1_048_576.0));
                 });
                 await _kontext.EnsureAsync(modelsDir, _settings.Settings.HuggingFaceToken, dl, ct);
             }
