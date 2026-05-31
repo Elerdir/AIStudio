@@ -238,7 +238,9 @@ public partial class ChatPageViewModel
         placeholder.ClearUpgradeState();
         placeholder.UpgradeDismissalRequested -= onDismissalRequested;
 
-        Dispatcher.UIThread.Post(() =>
+        // Invoke (ne Post) — musí doběhnout PŘED TrySaveMessageAsync, jinak by se
+        // uložil prázdný placeholder a obrázek by po restartu zmizel (prázdná bublina).
+        Dispatcher.UIThread.Invoke(() =>
         {
             placeholder.IsImageGenerating = false;
 
@@ -375,7 +377,10 @@ public partial class ChatPageViewModel
             downloadProgress: downloadProgress, stageProgress: stageProgress);
 
         placeholder.ClearUpgradeState();
-        Dispatcher.UIThread.Post(() =>
+        // Invoke (ne Post) — musí doběhnout PŘED TrySaveMessageAsync, jinak by se
+        // uložil prázdný placeholder (ImagePath/Content ještě nenastavené) a po
+        // restartu by byla bublina prázdná.
+        Dispatcher.UIThread.Invoke(() =>
         {
             placeholder.IsImageGenerating = false;
             if (result.Success && !string.IsNullOrEmpty(result.ImagePath))
