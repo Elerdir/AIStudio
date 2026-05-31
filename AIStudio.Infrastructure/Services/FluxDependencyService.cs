@@ -39,12 +39,13 @@ public sealed class FluxDependencyService : IFluxDependencyService
 
         new(Label:     "VAE",
             FileName:  "ae.safetensors",
-            // comfyanonymous hostuje pouze text encodery, VAE je od BFL.
-            // FLUX.1-dev má VAE přístupnou přes Apache-2.0 licenci bez nutnosti
-            // přijmout extra podmínky — zkusíme nejdřív bez tokenu;
-            // pokud HF vrátí 401, zkusíme s tokenem (pro uživatele s HF účtem).
-            PublicUrl: "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
-            GatedUrl:  "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors",
+            // VEŘEJNÝ Comfy-Org repackage — stejná FLUX ae.safetensors (335 MB),
+            // ale BEZ HF tokenu. Původně se VAE brala z black-forest-labs/FLUX.1-dev,
+            // jenže to je GATED repo → bez tokenu download tiše padal a VAE chyběla,
+            // což shazovalo FLUX GGUF i Kontext (IsAvailable=false → fallback na
+            // destruktivní img2img). BFL repo zůstává jako gated záloha.
+            PublicUrl: "https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/main/split_files/vae/ae.safetensors",
+            GatedUrl:  "https://huggingface.co/black-forest-labs/FLUX.1-dev/resolve/main/ae.safetensors",
             Subdir:    "vae"),
 
         new(Label:     "T5",
