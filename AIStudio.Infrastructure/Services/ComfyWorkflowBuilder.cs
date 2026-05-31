@@ -869,7 +869,10 @@ public static class ComfyWorkflowBuilder
             // ── PuLID stack ──
             ["4"] = Node("PulidFluxModelLoader", new() { ["pulid_file"] = pulidFile }),
             ["5"] = Node("PulidFluxEvaClipLoader", new()),
-            ["6"] = Node("PulidFluxInsightFaceLoader", new() { ["provider"] = "CUDA" }),
+            // provider="CPU" — ComfyUI portable má jen onnxruntime (CPU); detekce
+            // obličeje (antelopev2) je malá a na CPU rychlá, hlavní PuLID výpočet
+            // jede stejně na GPU přes torch. "CUDA" by spadlo (chybí CUDAExecutionProvider).
+            ["6"] = Node("PulidFluxInsightFaceLoader", new() { ["provider"] = "CPU" }),
             ["7"] = Node("LoadImage", new()
             {
                 ["image"]  = uploadedFaceImage,
