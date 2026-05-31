@@ -25,8 +25,11 @@ jobs:
       - name: Restore
         run: dotnet restore
 
+      # Stavíme Tests projekt — ten transitivně postaví App + Core + Infrastructure
+      # (App nereferencuje Tests, takže build App by Tests.dll nevyrobil a
+      # `dotnet test --no-build` by ho nenašel). Tím je App build i nadále hard gate.
       - name: Build
-        run: dotnet build AIStudio.App/AIStudio.App.csproj -c Release --no-restore
+        run: dotnet build AIStudio.Tests/AIStudio.Tests.csproj -c Release --no-restore
 
       - name: Run tests
         run: dotnet test AIStudio.Tests/AIStudio.Tests.csproj -c Release --no-build --logger "trx;LogFileName=test-results.trx"
@@ -64,8 +67,12 @@ jobs:
       # Pure-logic testy běží i na macOS — TokenProtection / TokenEstimator /
       # MacOsGpuDetectorTests (parser JSON, žádný shell call). Real-system
       # tests (system_profiler) by chybu nereportovaly i bez Mac runneru.
+      #
+      # BEZ --no-build: hlavní build výše je -r osx-arm64 (kvůli .app publish),
+      # takže Tests.dll v plain net10.0/ neexistuje. `dotnet test` si Tests
+      # postaví sám (pro default RID).
       - name: Run tests
-        run: dotnet test AIStudio.Tests/AIStudio.Tests.csproj -c Release --no-build --logger "trx;LogFileName=test-results-macos.trx"
+        run: dotnet test AIStudio.Tests/AIStudio.Tests.csproj -c Release --logger "trx;LogFileName=test-results-macos.trx"
 
       - name: Upload test results
         if: always()

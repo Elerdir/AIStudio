@@ -200,12 +200,12 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
 
     // Když uživatel ručně sáhne na parametr, zrušíme zvýraznění presetu
     // (hodnota už neodpovídá presetu — je „vlastní").
-    partial void OnRankChanged(int v)          => ClearPresetIfManual();
-    partial void OnAlphaChanged(int v)         => ClearPresetIfManual();
-    partial void OnStepsChanged(int v)         => ClearPresetIfManual();
-    partial void OnLearningRateChanged(double v) => ClearPresetIfManual();
-    partial void OnBatchSizeChanged(int v)     => ClearPresetIfManual();
-    partial void OnSelectedOptimizerChanged(string v) => ClearPresetIfManual();
+    partial void OnRankChanged(int value)            => ClearPresetIfManual();
+    partial void OnAlphaChanged(int value)           => ClearPresetIfManual();
+    partial void OnStepsChanged(int value)           => ClearPresetIfManual();
+    partial void OnLearningRateChanged(double value) => ClearPresetIfManual();
+    partial void OnBatchSizeChanged(int value)       => ClearPresetIfManual();
+    partial void OnSelectedOptimizerChanged(string value) => ClearPresetIfManual();
 
     /// <summary>Guard proti rekurzi: ApplyPreset nastavuje hodnoty, nechceme aby to hned shodilo preset.</summary>
     private bool _applyingPreset;
