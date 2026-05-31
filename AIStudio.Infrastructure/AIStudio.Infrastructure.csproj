@@ -11,11 +11,6 @@
   <ItemGroup>
     <!-- Cross-platform packages -->
     <PackageReference Include="LLamaSharp" Version="0.27.0" />
-    <!-- Cpu backend je tranzitivní závislost — vyloučíme native assets aby nedošlo
-         ke konfliktu AVX variant (avx/avx2/avx512/noavx) při dotnet publish -->
-    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0">
-      <ExcludeAssets>native</ExcludeAssets>
-    </PackageReference>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
@@ -29,6 +24,11 @@
        per-platform varianty: LLamaSharp.Backend.Vulkan (AMD/Intel),
        LLamaSharp.Backend.Metal (Apple Silicon). -->
   <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
+    <!-- Cpu backend na Windows BEZ native assets — akceleraci dodá Cuda12/Vulkan
+         a ponechání Cpu native by kolidovalo s AVX variantami při publish. -->
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0">
+      <ExcludeAssets>native</ExcludeAssets>
+    </PackageReference>
     <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.27.0" />
     <!-- Vulkan backend — cross-vendor (NVIDIA / AMD / Intel). Pro AMD a Intel
          karty je to jediná akcelerace, kterou LLamaSharp na Windows nabízí.
@@ -63,12 +63,13 @@
        runtime (OperatingSystem.IsMacOS() guard v App.axaml.cs).
        Tím pádem mohou cross-referencovat z App vrstvy bez konfliktu. -->
 
-  <!-- macOS-only packages — LLamaSharp.Backend.Metal je nutný pro Apple Silicon
-       Metal akceleraci. Na Windows / Linux ho nepotřebujeme a NuGet by ho ani
-       neuměl resolvnut (osx-arm64 / osx-x64 RID).
-       Detekce přes MSBuild predikát funguje na Windows i POSIX shells. -->
-  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-    <PackageReference Include="LLamaSharp.Backend.Metal" Version="0.27.0" />
+  <!-- macOS / Linux: Cpu backend S native assets. Na osx-arm64 jsou binárky
+       LLamaSharp.Backend.Cpu kompilované s Metal podporou, takže to je zároveň
+       Metal akcelerace pro Apple Silicon — samostatný balíček
+       "LLamaSharp.Backend.Metal" NEEXISTUJE na nuget.org (NU1101), proto ho
+       nereferencujeme. Mimo Windows nehrozí AVX konflikt (žádný Cuda/Vulkan). -->
+  <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" />
   </ItemGroup>
 
   <PropertyGroup>
