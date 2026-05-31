@@ -11,6 +11,11 @@
   <ItemGroup>
     <!-- Cross-platform packages -->
     <PackageReference Include="LLamaSharp" Version="0.27.0" />
+    <!-- DPAPI (ProtectedData) — používá TokenProtection.cs na Windows. Typ musí
+         existovat i při kompilaci na macOS/Linux (runtime guard OperatingSystem.
+         IsWindows() zařídí, že se tam nezavolá). Na Windows byl dosud tranzitivní,
+         explicitní reference ho zpřístupní i pro non-Windows build. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.7" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
