@@ -5,6 +5,7 @@
              xmlns:miKind="using:Material.Icons"
              xmlns:ctrl="using:AIStudio.App.Controls"
              xmlns:conv="using:AIStudio.App.Converters"
+             xmlns:models="using:AIStudio.Core.Models"
              x:Class="AIStudio.App.Views.Chat.ChatPageView"
              x:DataType="vm:ChatPageViewModel">
 
@@ -470,9 +471,9 @@
                     Background="{DynamicResource VeryDeepBgBrush}"
                     BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1"
                     Padding="20,10,20,12">
-                <Grid RowDefinitions="Auto,8,Auto" >
+                <Grid RowDefinitions="Auto,6,Auto,6,Auto,6,Auto" >
                     <!-- Hlavička panelu -->
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" Foreground="{DynamicResource TextWeakBrush}" VerticalAlignment="Center"/>
                             <TextBlock Text="SYSTÉMOVÝ PROMPT"
@@ -482,7 +483,18 @@
                                        FontSize="10" Foreground="{DynamicResource CardHoverBgBrush}"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
+                        <!-- Uložit aktuální prompt jako preset -->
                         <Button Grid.Column="1"
+                                Background="Transparent" BorderThickness="0"
+                                Padding="6,2" Height="22" CornerRadius="6"
+                                Command="{Binding BeginSavePresetCommand}"
+                                ToolTip.Tip="Uložit tento systémový prompt jako vlastní preset">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentSaveOutline}" Width="12" Height="12" Foreground="{DynamicResource AccentLightBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Uložit preset" FontSize="10" Foreground="{DynamicResource AccentLightBrush}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="2"
                                 Background="Transparent" BorderThickness="0"
                                 Padding="4" Width="22" Height="22" CornerRadius="6"
                                 Command="{Binding ToggleSystemPromptCommand}"
@@ -490,10 +502,43 @@
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="{DynamicResource TextDisabledBrush}"/>
                         </Button>
                     </Grid>
-                    <!-- TextBox -->
-                    <TextBox Grid.Row="2"
+
+                    <!-- Čipy presetů — klik naplní prompt; × smaže vlastní -->
+                    <ItemsControl Grid.Row="2" ItemsSource="{Binding SystemPromptPresets}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:SystemPromptPreset">
+                                <Border Background="{DynamicResource CardBgBrush}"
+                                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                        CornerRadius="14" Margin="0,0,6,6">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="{Binding Name}"
+                                                Command="{ReflectionBinding $parent[ItemsControl].DataContext.ApplySystemPromptPresetCommand}"
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent" BorderThickness="0"
+                                                Foreground="{DynamicResource TextLightBrush}" FontSize="11"
+                                                Padding="10,4"
+                                                ToolTip.Tip="Použít tento preset"/>
+                                        <Button IsVisible="{Binding !IsBuiltIn}"
+                                                Command="{ReflectionBinding $parent[ItemsControl].DataContext.DeletePresetCommand}"
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent" BorderThickness="0"
+                                                Width="20" Height="20" Padding="0" Margin="0,0,4,0"
+                                                ToolTip.Tip="Smazat preset">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="10" Height="10" Foreground="{DynamicResource ErrorBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- TextBox systémového promptu -->
+                    <TextBox Grid.Row="4"
                              Text="{Binding SelectedConversation.SystemPrompt}"
-                             PlaceholderText="Instrukce pro model (např. 'Odpovídej vždy česky a stručně')…"
+                             PlaceholderText="Instrukce pro model — napiš vlastní jednorázový prompt, nebo klikni na preset výše…"
                              Background="{DynamicResource SidebarBgBrush}"
                              BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                              Foreground="{DynamicResource TextLightBrush}"
@@ -501,10 +546,32 @@
                              Padding="12,8"
                              FontSize="12"
                              AcceptsReturn="True"
-                             MaxLines="6"
-                             MaxLength="2000"
+                             MaxLines="8"
+                             MaxLength="4000"
                              TextWrapping="Wrap"
                              CornerRadius="8"/>
+
+                    <!-- Inline pojmenování při ukládání presetu -->
+                    <Grid Grid.Row="6" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6"
+                          IsVisible="{Binding IsNamingPreset}">
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding NewPresetName}"
+                                 PlaceholderText="Název presetu (např. 'Erotická povídka')…"
+                                 Background="{DynamicResource CardBgBrush}"
+                                 BorderBrush="#7C3AED" BorderThickness="1"
+                                 Foreground="{DynamicResource TextLightBrush}" CaretBrush="#A78BFA"
+                                 Padding="10,5" FontSize="12" CornerRadius="8"/>
+                        <Button Grid.Column="1" Content="Uložit"
+                                Command="{Binding ConfirmSavePresetCommand}"
+                                FontSize="12" Padding="12,5" CornerRadius="8"
+                                Background="#3A1F6A" BorderBrush="#7C3AED" BorderThickness="1"
+                                Foreground="{DynamicResource AccentLighterBrush}"/>
+                        <Button Grid.Column="2" Content="Zrušit"
+                                Command="{Binding CancelSavePresetCommand}"
+                                FontSize="12" Padding="12,5" CornerRadius="8"
+                                Background="Transparent" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                Foreground="{DynamicResource TextMutedBrush}"/>
+                    </Grid>
                 </Grid>
             </Border>
 
