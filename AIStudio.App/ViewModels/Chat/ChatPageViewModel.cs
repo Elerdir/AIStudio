@@ -1494,13 +1494,11 @@ public partial class ChatPageViewModel : ViewModelBase
     // zkonkuruje s tou novou — proto děláme malou kontrolu IsSending na začátku
     // (ne uvnitř streamu, protože LlamaSharp inferenci sériový žádný overlap nesnáší).
 
-    private static readonly System.Text.RegularExpressions.Regex _defaultTitleRx =
-        new(@"^Chat \d+$", System.Text.RegularExpressions.RegexOptions.Compiled);
-
     /// <summary>
     /// Pokud konverzace má default-formátovaný title („Chat N") a má aspoň
     /// jednu výměnu (user + assistant), pošle LLM krátký prompt na pojmenování
-    /// a přepíše Title. Jinak no-op.
+    /// a přepíše Title. Jinak no-op. Pure logika (default-title detekce, prompt,
+    /// čištění výstupu) je v <see cref="AIStudio.Core.Services.ChatTitleGenerator"/>.
     /// </summary>
     private async Task MaybeAutoRenameAsync(ConversationViewModel conv)
     {
@@ -1519,35 +1517,16 @@ public partial class ChatPageViewModel : ViewModelBase
         // by uživatel musel napsat min. dvě zprávy než by se title změnil — moc
         // pozdě pro UX-feeling „chat se sám pojmenoval po první otázce".
         if (conv.Messages.Count < 2) { Log.Debug("Auto-rename: skip (málo zpráv)"); return; }
-        if (!_defaultTitleRx.IsMatch(conv.Title)) { Log.Debug("Auto-rename: skip (custom title)"); return; }
+        if (!AIStudio.Core.Services.ChatTitleGenerator.IsDefaultTitle(conv.Title)) { Log.Debug("Auto-rename: skip (custom title)"); return; }
         if (!_llama.IsLoaded) { Log.Debug("Auto-rename: skip (model neloaded)"); return; }
         if (IsSending) { Log.Debug("Auto-rename: skip (sending — uživatel poslal další zprávu)"); return; }
 
         try
         {
-            // Posbíráme prvních pár výměn jako kontext pro pojmenování. Limit
-            // znaků na 800 každý, jinak by malé llama instance mohly zhltat
-            // celý kontext.
-            var firstUser     = conv.Messages.FirstOrDefault(m => m.Role == MessageRole.User)?.Content      ?? "";
-            var firstAssist   = conv.Messages.FirstOrDefault(m => m.Role == MessageRole.Assistant)?.Content ?? "";
+            var firstUser   = conv.Messages.FirstOrDefault(m => m.Role == MessageRole.User)?.Content      ?? "";
+            var firstAssist = conv.Messages.FirstOrDefault(m => m.Role == MessageRole.Assistant)?.Content ?? "";
 
-            var systemPrompt =
-                "Jsi nástroj pro pojmenování konverzace. Vrátíš JEN 2-4 slovní český " +
-                "název odpovídající tématu. Žádné uvozovky, žádné vysvětlení, žádný " +
-                "markdown, žádné slovo \"chat\" nebo \"konverzace\". Ideálně " +
-                "podstatná jména. Pouze samotný název.";
-
-            var userPrompt =
-                $"Konverzace:\n\n" +
-                $"Uživatel: {Truncate(firstUser, 800)}\n\n" +
-                $"Asistent: {Truncate(firstAssist, 800)}\n\n" +
-                $"Krátký název:";
-
-            var prompt = new (string Role, string Content)[]
-            {
-                ("system", systemPrompt),
-                ("user",   userPrompt)
-            };
+            var prompt = AIStudio.Core.Services.ChatTitleGenerator.BuildPrompt(firstUser, firstAssist);
 
             var sb = new StringBuilder();
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -1559,30 +1538,13 @@ public partial class ChatPageViewModel : ViewModelBase
                 if (sb.Length > 100) break;
             }
 
-            var raw = sb.ToString().Trim();
+            // Čištění LLM výstupu (uvozovky, prefixy, délka) je pure logika v Core.
+            var title = AIStudio.Core.Services.ChatTitleGenerator.CleanResponse(sb.ToString());
+            if (title is null) return;
 
-            // Cleanup — vyhodit uvozovky, zalomy, koncové tečky/dvojtečky
-            raw = raw.Trim('"', '\'', '«', '»', '„', '"', ' ', '\n', '\r', '\t', ':', '.', '-')
-                     .Split('\n', '\r')[0]      // jen první řádek
-                     .Trim();
+            Log.Information("Auto-rename: '{Old}' → '{New}' (conv {Id})", conv.Title, title, conv.Id);
 
-            // Klasický LLM výpadek: někdy začne „Název:" nebo „Title:" — odřízneme
-            foreach (var prefix in new[] { "Název:", "Title:", "Pojmenování:" })
-            {
-                if (raw.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    raw = raw[prefix.Length..].Trim();
-                }
-            }
-
-            // Sanity guards
-            if (string.IsNullOrWhiteSpace(raw)) return;
-            if (raw.Length > 60) raw = raw[..60].Trim();
-            if (raw.Length < 2)  return;
-
-            Log.Information("Auto-rename: '{Old}' → '{New}' (conv {Id})", conv.Title, raw, conv.Id);
-
-            Dispatcher.UIThread.Post(() => conv.Title = raw);
+            Dispatcher.UIThread.Post(() => conv.Title = title);
             await TrySaveConversationAsync(conv);
         }
         catch (OperationCanceledException) { /* timeout — ok */ }
@@ -1591,8 +1553,4 @@ public partial class ChatPageViewModel : ViewModelBase
             Log.Warning(ex, "MaybeAutoRename: selhalo pro {Conv}", conv.Id);
         }
     }
-
-    private static string Truncate(string s, int max) =>
-        string.IsNullOrEmpty(s) ? "" :
-        s.Length <= max ? s : s[..max] + "…";
 }
