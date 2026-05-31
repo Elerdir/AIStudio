@@ -588,6 +588,119 @@ public static class ComfyWorkflowBuilder
     public static double CreativityToDenoise(double creativity)
         => Math.Clamp(0.50 + creativity * 0.47, 0.50, 0.97);
 
+    // ── FLUX.1 Kontext (instrukční editace) ──────────────────────────────────
+
+    /// <summary>
+    /// FLUX.1 Kontext [dev] — instrukční editace obrázku. Na rozdíl od klasického
+    /// img2img (kde referenci jen zašumíme a denoise rozhoduje o věrnosti) Kontext
+    /// vkládá referenci do CONDITIONINGU přes uzel <c>ReferenceLatent</c> — model
+    /// „vidí" originál a aplikuje textovou instrukci („dej mu klobouk", „udělej z
+    /// toho noční scénu") při zachování zbytku obrázku. Nejbližší lokální ekvivalent
+    /// editace obrázku v ChatGPT.
+    ///
+    /// <para>Vyžaduje separátní soubory (jako GGUF): UNET
+    /// (<c>flux1-dev-kontext_fp8_scaled.safetensors</c>), DualCLIP (clip_l + t5xxl)
+    /// a VAE (<c>ae.safetensors</c>) — ty samé, co sdílí ostatní FLUX workflow.</para>
+    ///
+    /// <para>Reference se VAE-enkóduje jednou a použije <b>jak</b> pro
+    /// <c>ReferenceLatent</c>, <b>tak</b> jako <c>latent_image</c> KSampleru s
+    /// <c>denoise=1.0</c> — tím výstup automaticky drží rozměry vstupu, aniž
+    /// bychom při buildu znali scaled rozlišení z <c>FluxKontextImageScale</c>.</para>
+    /// </summary>
+    public static Dictionary<string, object> BuildFluxKontext(
+        string unetFile,
+        string clipLFile,
+        string t5File,
+        string vaeFile,
+        string uploadedImageName,
+        string instructionPrompt,
+        int    steps,
+        double guidance,
+        long   seed,
+        string sampler   = DefaultSamplerFlux,
+        string scheduler = DefaultSchedulerFlux)
+    {
+        return new Dictionary<string, object>
+        {
+            ["1"] = Node("UNETLoader", new()
+            {
+                ["unet_name"]    = unetFile,
+                ["weight_dtype"] = "default",
+            }),
+            ["2"] = Node("DualCLIPLoader", new()
+            {
+                ["clip_name1"] = clipLFile,
+                ["clip_name2"] = t5File,
+                ["type"]       = "flux",
+            }),
+            ["3"] = Node("VAELoader", new()
+            {
+                ["vae_name"] = vaeFile,
+            }),
+            ["4"] = Node("LoadImage", new()
+            {
+                ["image"]  = uploadedImageName,
+                ["upload"] = "image",
+            }),
+            // Kontext byl trénovaný na konkrétních rozlišeních — přeškáluje vstup
+            // na nejbližší podporovaný bucket (lepší kvalita než libovolný rozměr).
+            ["5"] = Node("FluxKontextImageScale", new()
+            {
+                ["image"] = Ref("4", 0),
+            }),
+            ["6"] = Node("VAEEncode", new()
+            {
+                ["pixels"] = Ref("5", 0),
+                ["vae"]    = Ref("3", 0),
+            }),
+            ["7"] = Node("CLIPTextEncode", new()
+            {
+                ["text"] = instructionPrompt,
+                ["clip"] = Ref("2", 0),
+            }),
+            // ReferenceLatent vloží originál do conditioningu — srdce Kontextu.
+            ["8"] = Node("ReferenceLatent", new()
+            {
+                ["conditioning"] = Ref("7", 0),
+                ["latent"]       = Ref("6", 0),
+            }),
+            ["9"] = Node("FluxGuidance", new()
+            {
+                ["conditioning"] = Ref("8", 0),
+                ["guidance"]     = guidance,
+            }),
+            // FLUX jede cfg=1.0 → negative se nepoužije, ale KSampler ho vyžaduje.
+            ["10"] = Node("CLIPTextEncode", new()
+            {
+                ["text"] = "",
+                ["clip"] = Ref("2", 0),
+            }),
+            ["11"] = Node("KSampler", new()
+            {
+                ["seed"]         = seed,
+                ["steps"]        = steps,
+                ["cfg"]          = 1.0,
+                ["sampler_name"] = sampler,
+                ["scheduler"]    = scheduler,
+                ["denoise"]      = 1.0,
+                ["model"]        = Ref("1", 0),
+                ["positive"]     = Ref("9", 0),
+                ["negative"]     = Ref("10", 0),
+                ["latent_image"] = Ref("6", 0),
+            }),
+            ["12"] = Node("VAEDecode", new()
+            {
+                ["samples"] = Ref("11", 0),
+                ["vae"]     = Ref("3", 0),
+            }),
+            ["13"] = Node("SaveImage", new()
+            {
+                ["filename_prefix"] = "AIStudio",
+                ["images"]          = Ref("12", 0),
+            }),
+        };
+    }
+
     // ── LoRA injection ────────────────────────────────────────────────────────
 
     /// <summary>
@@ -684,6 +797,16 @@ public static class ComfyWorkflowBuilder
     /// <summary>True pro GGUF kvantizace — vyžadují <c>UnetLoaderGGUF</c> custom node.</summary>
     public static bool IsGgufModel(string modelName) =>
         modelName.EndsWith(".gguf", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True pro FLUX.1 Kontext model — instrukční editace přes <c>ReferenceLatent</c>
+    /// workflow (<see cref="BuildFluxKontext"/>), ne klasický denoise img2img.
+    /// </summary>
+    public static bool IsKontextModel(string modelName) =>
+        modelName.Contains("kontext", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Výchozí steps + guidance pro FLUX Kontext editaci (dev varianta).</summary>
+    public static (int Steps, double Guidance) KontextDefaults => (20, 2.5);
 
     /// <summary>Odhadne rozumné výchozí hodnoty steps a guidance pro FLUX Schnell vs Dev.</summary>
     public static (int Steps, double Guidance) FluxDefaults(string modelName) =>

@@ -116,6 +116,80 @@ public class ComfyWorkflowBuilderTests
         inputs["type"].Should().Be("flux");
     }
 
+    // ── BuildFluxKontext (instrukční editace) ─────────────────────────────────
+
+    private static Dictionary<string, object> KontextWf() =>
+        ComfyWorkflowBuilder.BuildFluxKontext(
+            "flux1-dev-kontext_fp8_scaled.safetensors",
+            "clip_l.safetensors", "t5xxl_fp8.safetensors", "ae.safetensors",
+            "input.png", "add a red hat", steps: 20, guidance: 2.5, seed: 42);
+
+    private static Dictionary<string, object> FindNode(Dictionary<string, object> wf, string classType) =>
+        wf.Values.Cast<Dictionary<string, object>>()
+          .First(n => n.TryGetValue("class_type", out var t) && (string)t == classType);
+
+    [Fact]
+    public void BuildFluxKontext_HasReferenceLatentAndKontextScaleNodes()
+    {
+        var wf = KontextWf();
+
+        wf.Values.Cast<Dictionary<string, object>>()
+          .Should().Contain(n => (string)n["class_type"] == "ReferenceLatent")
+          .And.Contain(n => (string)n["class_type"] == "FluxKontextImageScale")
+          .And.Contain(n => (string)n["class_type"] == "UNETLoader");
+    }
+
+    [Fact]
+    public void BuildFluxKontext_ReferenceLatent_WiredToTextEncodeAndVaeEncode()
+    {
+        var wf  = KontextWf();
+        var rl  = (Dictionary<string, object>)FindNode(wf, "ReferenceLatent")["inputs"];
+
+        // conditioning ← CLIPTextEncode (instrukce), latent ← VAEEncode (reference)
+        var cond   = (object[])rl["conditioning"];
+        var latent = (object[])rl["latent"];
+
+        ((string)((Dictionary<string, object>)wf[(string)cond[0]])["class_type"]).Should().Be("CLIPTextEncode");
+        ((string)((Dictionary<string, object>)wf[(string)latent[0]])["class_type"]).Should().Be("VAEEncode");
+    }
+
+    [Fact]
+    public void BuildFluxKontext_KSampler_PositiveFromGuidance_CfgAndDenoiseOne()
+    {
+        var wf  = KontextWf();
+        var ks  = (Dictionary<string, object>)FindNode(wf, "KSampler")["inputs"];
+
+        ks["cfg"].Should().Be(1.0);
+        ((double)ks["denoise"]).Should().Be(1.0);
+
+        var pos = (object[])ks["positive"];
+        ((string)((Dictionary<string, object>)wf[(string)pos[0]])["class_type"]).Should().Be("FluxGuidance");
+    }
+
+    [Fact]
+    public void BuildFluxKontext_FluxGuidance_UsesGivenGuidance()
+    {
+        var wf = KontextWf();
+        var fg = (Dictionary<string, object>)FindNode(wf, "FluxGuidance")["inputs"];
+        ((double)fg["guidance"]).Should().Be(2.5);
+    }
+
+    [Theory]
+    [InlineData("flux1-dev-kontext_fp8_scaled.safetensors", true)]
+    [InlineData("FLUX.1 Kontext dev",                       true)]
+    [InlineData("flux1-dev.safetensors",                    false)]
+    [InlineData("dreamshaper_xl.safetensors",               false)]
+    public void IsKontextModel_CorrectlyIdentifiesKontext(string name, bool expected) =>
+        ComfyWorkflowBuilder.IsKontextModel(name).Should().Be(expected);
+
+    [Fact]
+    public void KontextDefaults_Are20StepsGuidance2_5()
+    {
+        var (steps, guidance) = ComfyWorkflowBuilder.KontextDefaults;
+        steps.Should().Be(20);
+        guidance.Should().Be(2.5);
+    }
+
     // ── InjectReferenceImages ─────────────────────────────────────────────────
 
     [Fact]
