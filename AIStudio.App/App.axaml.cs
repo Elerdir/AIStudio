@@ -171,6 +171,9 @@ public partial class App : Application
         // Vision LLM (Stage 3) — chat „vidí" přiložený obrázek a odpoví na otázku.
         // Vlastní Qwen2.5-VL 7B GGUF + mmproj, auto-download (~6 GB) při prvním použití.
         services.AddSingleton<IVisionService, LlamaVisionService>();
+        // PuLID-Flux — identita osoby z fotky obličeje bez tréninku. Plně automatická
+        // instalace (custom node + insightface + PuLID model + antelopev2) při prvním použití.
+        services.AddSingleton<IPuLIDService, PuLIDDependencyService>();
 
         // LoRA trénink — reuse-uje ComfyUI Python venv (žádný druhý Python pro uživatele).
         // Closure pro python.exe: spočítáme cestu z ComfyInstaller.DetectExisting nad
