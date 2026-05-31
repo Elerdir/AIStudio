@@ -84,6 +84,20 @@ public partial class ChatPageViewModel : ViewModelBase
     [ObservableProperty] private string                 _modelStatusText      = string.Empty;
     [ObservableProperty] private bool                   _canRegenerate;
 
+    /// <summary>True dokud běží compact (shrnutí starší části konverzace LLM-em).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCompactConversation))]
+    private bool _isCompacting;
+
+    /// <summary>
+    /// True pokud lze konverzaci „compactnout" — shrnout starší zprávy a uvolnit
+    /// kontext. Vyžaduje dost zpráv (viz <see cref="AIStudio.Core.Services.ConversationCompactor"/>)
+    /// a žádnou rozběhnutou operaci. Řídí visibility tlačítka v hlavičce.
+    /// </summary>
+    public bool CanCompactConversation =>
+        !IsSending && !IsCompacting && SelectedConversation is not null &&
+        AIStudio.Core.Services.ConversationCompactor.CanCompact(SelectedConversation.Messages.Count);
+
     // ImageMode + 🎨 toggle + ImageGen orchestration → ChatPageViewModel.ImageGen.cs (partial)
 
     [ObservableProperty] private bool                   _isSystemPromptVisible;
@@ -582,6 +596,11 @@ public partial class ChatPageViewModel : ViewModelBase
                      && conv.Messages.Count > 0
                      && conv.Messages[^1].Role == MessageRole.Assistant
                      && !string.IsNullOrEmpty(conv.Messages[^1].Content);
+
+        // Compact tlačítko závisí na stejných vstupech (počet zpráv + IsSending),
+        // proto ho notifikujeme tady — UpdateCanRegenerate běží na messages změnách,
+        // IsSending změnách i přepnutí konverzace.
+        OnPropertyChanged(nameof(CanCompactConversation));
     }
 
     /// <summary>
@@ -1201,6 +1220,102 @@ public partial class ChatPageViewModel : ViewModelBase
         MessageRole.System    => "system",
         _                     => "user",
     };
+
+    // ── Compact conversation (shrnutí starší historie) ────────────────────────
+    //
+    // Obdoba /compact v Claude Code: starší zprávy se LLM-em shrnou do jednoho
+    // kompaktního summary (System zpráva s hlavičkou). Tím prudce klesne počet
+    // tokenů posílaných do kontextu, ale model si „pamatuje" o čem byla řeč —
+    // okno tak může zůstat otevřené mnohem déle, než narazí na limit kontextu.
+    //
+    // Pure logika (rozdělení zpráv, prompt, formátování) je v Core.ConversationCompactor;
+    // tady jen orchestrace LLM streamu a přepisu zpráv v UI + DB.
+
+    [RelayCommand]
+    private async Task CompactConversationAsync()
+    {
+        var conv = SelectedConversation;
+        if (conv is null || IsSending || IsCompacting) return;
+        if (!AIStudio.Core.Services.ConversationCompactor.CanCompact(conv.Messages.Count)) return;
+
+        Log.Information("Compact: start conv={Id} msgs={Count}", conv.Id, conv.Messages.Count);
+
+        // Rozděl zprávy: starší k shrnutí, posledních pár doslovně.
+        var snapshot = conv.Messages
+            .Select(m => new AIStudio.Core.Services.ConversationCompactor.Message(
+                RoleToString(m.Role), m.Content))
+            .ToList();
+        var (toSummarize, toKeep) =
+            AIStudio.Core.Services.ConversationCompactor.Split(snapshot);
+        if (toSummarize.Count == 0) return;
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        _sendCts     = cts;
+        IsSending    = true;   // blokuje odesílání během compactu
+        IsCompacting = true;
+        ModelStatusText = "Shrnuji konverzaci…";
+
+        // Dummy placeholder — EnsureModelLoadedAsync do něj píše jen při chybě
+        // „model není stažen"; nepřidáváme ho do konverzace.
+        var probe = new ChatMessage { Role = MessageRole.Assistant };
+
+        try
+        {
+            await EnsureModelLoadedAsync(conv, probe, cts.Token);
+
+            var prompt = AIStudio.Core.Services.ConversationCompactor.BuildSummaryPrompt(toSummarize);
+
+            var sb = new StringBuilder();
+            await foreach (var token in _llama.ChatAsync(prompt, maxTokens: 1024, temperature: 0.3f, cts.Token))
+                sb.Append(token);
+
+            var summaryContent = AIStudio.Core.Services.ConversationCompactor.FormatSummary(sb.ToString());
+
+            // Přepiš in-memory zprávy: summary (System) + ponechané doslovné.
+            var keptMessages = conv.Messages.Skip(toSummarize.Count).ToList();
+            var summaryMsg   = new ChatMessage { Role = MessageRole.System, Content = summaryContent };
+
+            conv.Messages.Clear();
+            conv.Messages.Add(summaryMsg);
+            foreach (var m in keptMessages) conv.Messages.Add(m);
+
+            // Přepiš i DB: smaž vše a ulož znovu s novými order indexy.
+            try
+            {
+                await _repo.DeleteMessagesFromIndexAsync(conv.Id, 0);
+                for (var i = 0; i < conv.Messages.Count; i++)
+                    await _repo.SaveMessageAsync(conv.Messages[i].ToRecord(conv.Id, i));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Compact: přepis zpráv v DB selhal pro {Id}", conv.Id);
+            }
+
+            _ = TrySaveConversationAsync(conv);
+            Log.Information("Compact: hotovo conv={Id}, {Old} → {New} zpráv",
+                conv.Id, snapshot.Count, conv.Messages.Count);
+        }
+        catch (ModelNotAvailableException)
+        {
+            Log.Warning("Compact: model {Model} není dostupný", conv.SelectedModelName);
+        }
+        catch (OperationCanceledException)
+        {
+            Log.Information("Compact: zrušeno / timeout");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Compact: selhalo");
+        }
+        finally
+        {
+            _sendCts     = null;
+            IsSending    = false;
+            IsCompacting = false;
+            ModelStatusText = string.Empty;
+            UpdateEstimatedTokens();
+        }
+    }
 
     // ── Clear conversation ────────────────────────────────────────────────────
 

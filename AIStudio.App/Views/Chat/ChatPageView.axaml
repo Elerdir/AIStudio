@@ -189,7 +189,7 @@
                     <Panel VerticalAlignment="Center">
 
                         <!-- View mode -->
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4"
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="4"
                               IsVisible="{Binding !IsEditingTitle}">
                             <TextBlock Grid.Column="0"
                                        Text="{Binding SelectedConversation.Title}"
@@ -243,8 +243,21 @@
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CommentTextOutline}" Width="14" Height="14" IsVisible="{Binding IsSystemPromptVisible}" Foreground="{DynamicResource AccentLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Panel>
                             </Button>
-                            <!-- Vymazat zprávy konverzace -->
+                            <!-- Compact: shrnout starší zprávy a uvolnit kontext (jako /compact) -->
                             <Button Grid.Column="5"
+                                    Background="Transparent" BorderThickness="0"
+                                    Padding="4" Width="26" Height="26" CornerRadius="6"
+                                    Command="{Binding CompactConversationCommand}"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding CanCompactConversation}"
+                                    ToolTip.Tip="Shrnout starší zprávy a uvolnit kontext — okno tak zůstane funkční déle a bere míň tokenů">
+                                <Panel>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ArrowCollapseVertical}" Width="14" Height="14" IsVisible="{Binding !IsCompacting}" Foreground="{DynamicResource AccentLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Timer}" Width="14" Height="14" IsVisible="{Binding IsCompacting}" Foreground="{DynamicResource WarningBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Panel>
+                            </Button>
+                            <!-- Vymazat zprávy konverzace -->
+                            <Button Grid.Column="6"
                                     Background="Transparent" BorderThickness="0"
                                     Padding="4" Width="26" Height="26" CornerRadius="6"
                                     Command="{Binding ClearConversationCommand}"
@@ -1025,6 +1038,42 @@
                                             </StackPanel>
                                             </StackPanel>
                                             </Panel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Systémová / compact summary zpráva (přes celou šířku, centrovaná).
+                                         Vzniká po kliknutí na „Shrnout" — shrne starší část konverzace,
+                                         aby kontext nepřetekl. Vizuálně decentní, ať není zaměnitelná
+                                         s běžnou odpovědí. -->
+                                    <Border Grid.Column="0" Grid.ColumnSpan="3"
+                                            HorizontalAlignment="Center"
+                                            MaxWidth="720"
+                                            Margin="0,4"
+                                            Background="#15131C"
+                                            BorderBrush="#2A2050" BorderThickness="1"
+                                            CornerRadius="12"
+                                            Padding="16,12"
+                                            IsVisible="{Binding Role, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:MessageRole.System}}">
+                                        <StackPanel Spacing="6">
+                                            <ctrl:MarkdownViewer Markdown="{Binding Content}" Padding="0"/>
+                                            <Border Height="1" Background="#2A2050" Opacity="0.6"/>
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Grid.Column="0"
+                                                           Text="Starší zprávy byly shrnuty pro úsporu kontextu"
+                                                           FontSize="11" Foreground="{DynamicResource TextWeakBrush}"
+                                                           VerticalAlignment="Center"/>
+                                                <Button Grid.Column="1" Classes="msgAction"
+                                                        Command="{Binding CopyContentCommand}"
+                                                        ToolTip.Tip="Kopírovat shrnutí"
+                                                        Width="24" Height="24" Padding="0"
+                                                        CornerRadius="6"
+                                                        Background="Transparent" BorderThickness="0">
+                                                    <Panel>
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="14" Height="14" Foreground="{DynamicResource TextLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
+                                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="{DynamicResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
+                                                    </Panel>
+                                                </Button>
+                                            </Grid>
                                         </StackPanel>
                                     </Border>
 

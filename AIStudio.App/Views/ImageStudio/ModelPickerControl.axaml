@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AIStudio.App.ViewModels.ImageStudio"
+             xmlns:conv="using:AIStudio.App.Converters"
+             x:Class="AIStudio.App.Views.ImageStudio.ModelPickerControl"
+             x:DataType="vm:ImageGeneratorViewModel">
+
+    <!--
+        Sdílený checkpoint/model picker pro Smart i Manuální mód Image Studia.
+        Dřív byl tenhle blok (header „MODEL" + ComboBox checkpointů) zkopírovaný
+        2× v ImageStudioPageView.axaml. Teď jeden control.
+
+        DataContext = ImageGeneratorViewModel (control se vkládá do Row 4, který
+        má DataContext="{Binding ActiveGenerator}"). Viditelnost (Smart vs Manuál)
+        řídí volající přes IsVisible na instanci.
+    -->
+
+    <UserControl.Resources>
+        <conv:FileNameWithoutExtensionConverter x:Key="FileNameNoExt"/>
+    </UserControl.Resources>
+
+    <StackPanel Spacing="6">
+        <TextBlock Text="MODEL" Classes="sectionHeader"/>
+        <ComboBox ItemsSource="{Binding AvailableCheckpoints}"
+                  SelectedItem="{Binding SelectedModel}"
+                  HorizontalAlignment="Stretch"
+                  Background="{DynamicResource CardBgBrush}"
+                  Foreground="{DynamicResource TextPrimaryBrush}"
+                  BorderBrush="{DynamicResource AppBorderBrush}"
+                  CornerRadius="8"
+                  FontSize="13"
+                  PlaceholderText="Vybrat checkpoint…">
+            <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="x:String">
+                    <TextBlock Text="{Binding Converter={StaticResource FileNameNoExt}}"/>
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+    </StackPanel>
+</UserControl>

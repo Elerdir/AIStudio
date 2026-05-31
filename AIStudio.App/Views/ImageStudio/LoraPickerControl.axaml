@@ -1,0 +1,130 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AIStudio.App.ViewModels.ImageStudio"
+             xmlns:conv="using:AIStudio.App.Converters"
+             xmlns:models="using:AIStudio.Core.Models"
+             x:Class="AIStudio.App.Views.ImageStudio.LoraPickerControl"
+             x:DataType="vm:ImageGeneratorViewModel">
+
+    <!--
+        Sdílený LoRA picker pro Smart i Manuální mód Image Studia. Dřív byl tenhle
+        ~100řádkový blok zkopírovaný 2× v ImageStudioPageView.axaml (stejné bindingy,
+        stejný item template) — jakákoliv změna se musela dělat dvakrát. Teď jeden
+        control.
+
+        DataContext = ImageGeneratorViewModel (control se vkládá do Row 4, který má
+        DataContext="{Binding ActiveGenerator}"). Bindingy AvailableLoras / AddLora /
+        LoraStrength / SelectedLoras / HasLoras jsou tedy přímo na generátoru.
+        RemoveLoraCommand uvnitř item-template chodí přes $parent[UserControl] —
+        nejbližší UserControl je TENTO control, jehož DataContext je generátor.
+
+        Viditelnost (Smart vs Manuál) řídí volající přes IsVisible na instanci.
+    -->
+
+    <UserControl.Resources>
+        <conv:FileNameWithoutExtensionConverter x:Key="FileNameNoExt"/>
+    </UserControl.Resources>
+
+    <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0"
+                       Text="LORA ADAPTERY"
+                       Classes="sectionHeader"
+                       VerticalAlignment="Center"/>
+            <Button Grid.Column="1"
+                    Classes="secondary"
+                    Padding="8,4"
+                    FontSize="11"
+                    Command="{Binding LoadLorasCommand}"
+                    ToolTip.Tip="Načíst dostupné LoRA soubory">
+                ↻ Načíst
+            </Button>
+        </Grid>
+
+        <!-- Řádek 1: výběr LoRA + přidat -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+            <ComboBox Grid.Column="0"
+                      ItemsSource="{Binding AvailableLoras}"
+                      SelectedItem="{Binding SelectedLoraToAdd}"
+                      HorizontalAlignment="Stretch"
+                      Background="{DynamicResource CardBgBrush}"
+                      Foreground="{DynamicResource TextPrimaryBrush}"
+                      BorderBrush="{DynamicResource AppBorderBrush}"
+                      CornerRadius="8"
+                      FontSize="12"
+                      PlaceholderText="Vybrat LoRA…">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                        <TextBlock Text="{Binding Converter={StaticResource FileNameNoExt}}"/>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Grid.Column="1"
+                    Classes="secondary"
+                    Padding="10,5"
+                    FontSize="12"
+                    Command="{Binding AddLoraCommand}"
+                    ToolTip.Tip="Přidat LoRA do fronty">
+                + Přidat
+            </Button>
+        </Grid>
+
+        <!-- Řádek 2: síla LoRA (vlastní řádek — NumericUpDown se ve
+             zmáčknutém gridu nezobrazoval) -->
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <TextBlock Grid.Column="0"
+                       Text="Síla"
+                       FontSize="11"
+                       Foreground="{DynamicResource TextHintBrush}"
+                       VerticalAlignment="Center"/>
+            <NumericUpDown Grid.Column="1"
+                           Value="{Binding LoraStrength}"
+                           Minimum="0.0" Maximum="2.0"
+                           Increment="0.05"
+                           FormatString="0.00"
+                           HorizontalAlignment="Left"
+                           MinWidth="150"
+                           FontSize="12"
+                           Background="{DynamicResource CardBgBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           ToolTip.Tip="Síla LoRA — 1.0 plný efekt, 0.7-0.8 jemnější, 1.1-1.3 silnější"/>
+        </Grid>
+
+        <!-- Aktivní LoRA seznam -->
+        <ItemsControl ItemsSource="{Binding SelectedLoras}"
+                      IsVisible="{Binding HasLoras}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="models:LoraItem">
+                    <Border Background="{DynamicResource CardBgBrush}"
+                            CornerRadius="6"
+                            Padding="8,5"
+                            Margin="0,2">
+                        <Grid ColumnDefinitions="*,Auto,Auto">
+                            <TextBlock Grid.Column="0"
+                                       Text="{Binding Name, Converter={StaticResource FileNameNoExt}}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource AccentLightBrush}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Grid.Column="1"
+                                       Margin="6,0"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       VerticalAlignment="Center">
+                                <Run Text="×"/>
+                                <Run Text="{Binding StrengthModel, StringFormat='{}{0:0.00}'}"/>
+                            </TextBlock>
+                            <Button Grid.Column="2"
+                                    Classes="secondary"
+                                    Padding="4,2"
+                                    FontSize="10"
+                                    Content="✕"
+                                    Command="{ReflectionBinding $parent[UserControl].DataContext.RemoveLoraCommand}"
+                                    CommandParameter="{Binding}"/>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>
