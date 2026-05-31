@@ -849,10 +849,14 @@ public partial class ChatPageViewModel : ViewModelBase
 
         var conv = SelectedConversation;
 
-        // Pokud je přiložen obrázek, vlož ho jako markdown obrázek před text
-        var content = string.IsNullOrEmpty(AttachedImagePath)
+        // Pokud je přiložen obrázek, vlož ho jako markdown obrázek před text.
+        // Cestu si navíc podržíme (attachedImagePath) — pokud zpráva půjde do
+        // image gen, použije se přiložená fotka jako reference (img2img), takže
+        // funguje „přilož fotku + napiš co s ní udělat".
+        var attachedImagePath = AttachedImagePath;
+        var content = string.IsNullOrEmpty(attachedImagePath)
             ? text
-            : $"![obrázek]({AttachedImagePath})\n{text}";
+            : $"![obrázek]({attachedImagePath})\n{text}";
         AttachedImagePath = string.Empty;
 
         var userMsg = new ChatMessage { Role = MessageRole.User, Content = content };
@@ -878,10 +882,10 @@ public partial class ChatPageViewModel : ViewModelBase
         // Před LLM voláním zkusíme, jestli uživatel nechce vygenerovat obrázek.
         // Pokud ano, větvíme do image flow (Comfy + galerie); jinak standardní
         // LLM stream. UI override (ImageMode) přebije auto detekci.
-        var classifiedIntent = ClassifyIntent(conv, text);
+        var classifiedIntent = ClassifyIntent(conv, text, hasAttachment: !string.IsNullOrEmpty(attachedImagePath));
         if (classifiedIntent != ChatImageIntent.Chat && _imageOrch is not null)
         {
-            await RunImageGenerationAsync(conv, text, classifiedIntent, cts.Token);
+            await RunImageGenerationAsync(conv, text, classifiedIntent, attachedImagePath, cts.Token);
             _sendCts  = null;
             IsSending = false;
             UpdateEstimatedTokens();

@@ -74,7 +74,7 @@ public partial class ChatPageViewModel
     /// assistant zpráva s obrázkem — jinak se downgradne na GenerateImage
     /// (kdyby detektor zachytil edit-keywords ale není co editovat).</para>
     /// </summary>
-    private ChatImageIntent ClassifyIntent(ConversationViewModel conv, string userText)
+    private ChatImageIntent ClassifyIntent(ConversationViewModel conv, string userText, bool hasAttachment)
     {
         if (_imageIntent is null || _imageOrch is null)
             return ChatImageIntent.Chat;
@@ -84,10 +84,16 @@ public partial class ChatPageViewModel
         return ImageMode switch
         {
             ChatImageMode.ForceChat  => ChatImageIntent.Chat,
-            ChatImageMode.ForceImage => lastHadImage
+            ChatImageMode.ForceImage => (lastHadImage || hasAttachment)
                 ? ChatImageIntent.EditPreviousImage
                 : ChatImageIntent.GenerateImage,
-            _ /* Auto */             => _imageIntent.Detect(userText, lastHadImage),
+            // Auto: přiložená fotka je jednoznačný signál pro práci s obrázkem —
+            // routujeme do img2img s přílohou jako referencí ("přilož + uprav").
+            // Bez přílohy rozhoduje keyword detektor. (Skutečné „popovídej si
+            // o fotce" přijde s vision LLM ve Stage 3.)
+            _ /* Auto */             => hasAttachment
+                ? ChatImageIntent.EditPreviousImage
+                : _imageIntent.Detect(userText, lastHadImage),
         };
     }
 
@@ -119,14 +125,21 @@ public partial class ChatPageViewModel
         ConversationViewModel conv,
         string                userText,
         ChatImageIntent       intent,
+        string?               attachedImagePath,
         CancellationToken     ct)
     {
         if (_imageOrch is null) return;  // sanity check, klasifikátor by sem neměl pustit
 
-        // Reference pro img2img — null pokud GenerateImage
-        var referencePath = intent == ChatImageIntent.EditPreviousImage
-            ? FindLastAssistantImage(conv)?.ImagePath
-            : null;
+        // Reference pro img2img — přednost má uživatelem přiložená fotka (📎),
+        // ta je nejsilnější signál „pracuj s tímhle obrázkem". Když příloha není,
+        // padáme na poslední vygenerovaný obrázek konverzace (follow-up edit).
+        // null = txt2img od nuly.
+        var referencePath =
+            !string.IsNullOrEmpty(attachedImagePath) && File.Exists(attachedImagePath)
+                ? attachedImagePath
+                : intent == ChatImageIntent.EditPreviousImage
+                    ? FindLastAssistantImage(conv)?.ImagePath
+                    : null;
 
         // Placeholder startuje ve fázi Recommending — orchestrátor přepne na
         // Generating, jakmile recommender + případný download jsou hotové.
