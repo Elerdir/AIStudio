@@ -49,6 +49,25 @@ public class ChatImageIntentDetectorTests
     public void IsImageQuestion_EditInstructions_False(string message) =>
         _detector.IsImageQuestion(message).Should().BeFalse();
 
+    // ── IsPersonGeneration — routing prilohy obliceje do PuLID ───────────────
+
+    [Theory]
+    [InlineData("Vytvoř fotorealistický portrét ženy na pláži")]
+    [InlineData("vygeneruj ji jako modelku")]
+    [InlineData("vytvoř mi obrázek kde stojí v lese")]
+    [InlineData("create a portrait of her on the beach")]
+    [InlineData("generate her in a city scene")]
+    public void IsPersonGeneration_CreationRequests_True(string message) =>
+        _detector.IsPersonGeneration(message).Should().BeTrue();
+
+    [Theory]
+    [InlineData("udělej ji černobílou")]   // editace → Kontext, ne PuLID
+    [InlineData("co je na fotce")]          // otázka → vision
+    [InlineData("uprav pozadí")]
+    [InlineData("")]
+    public void IsPersonGeneration_NonCreation_False(string message) =>
+        _detector.IsPersonGeneration(message).Should().BeFalse();
+
     // ── Silná slovesa stačí sama (nakresli, namaluj, draw, paint) ─────────────
 
     [Theory]

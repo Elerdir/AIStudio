@@ -329,6 +329,69 @@ public partial class ChatPageViewModel
         }
     }
 
+    // ── PuLID — generování osoby z fotky obličeje (identita bez tréninku) ─────
+
+    /// <summary>
+    /// PuLID flow — uživatel přiložil fotku obličeje a chce osobu v nové scéně
+    /// („vytvoř ji na pláži"). Při prvním použití se PuLID stack auto-instaluje
+    /// (node + deps + model + antelopev2). Stav jde přes placeholder bublinu.
+    /// </summary>
+    private async Task RunPersonGenerationAsync(
+        ConversationViewModel conv, string userText, string faceImagePath, CancellationToken ct)
+    {
+        if (_imageOrch is null) return;
+
+        var placeholder = new ChatMessage
+        {
+            Role                  = MessageRole.Assistant,
+            Content               = "",
+            IsSearchingForUpgrade = true,
+            ImageReferencePath    = faceImagePath,
+        };
+        conv.Messages.Add(placeholder);
+        try { await _repo.SaveMessageAsync(placeholder.ToRecord(conv.Id, conv.Messages.Count - 1)); }
+        catch (Exception ex) { Log.Warning(ex, "PuLID: uložení placeholderu selhalo"); }
+
+        var downloadProgress = new Progress<DownloadStatusUpdate>(u => placeholder.UpdateDownloadStatus(u));
+        var stageProgress = new Progress<ChatImageGenStage>(stage =>
+            Dispatcher.UIThread.Post(() =>
+            {
+                switch (stage)
+                {
+                    case ChatImageGenStage.Recommending:
+                        placeholder.IsSearchingForUpgrade = true;  placeholder.IsImageGenerating = false; break;
+                    case ChatImageGenStage.Generating:
+                        placeholder.IsSearchingForUpgrade = false; placeholder.IsImageGenerating = true;  break;
+                }
+            }));
+
+        var result = await _imageOrch.GeneratePersonAsync(
+            userText, faceImagePath, progress: null, ct,
+            downloadProgress: downloadProgress, stageProgress: stageProgress);
+
+        placeholder.ClearUpgradeState();
+        Dispatcher.UIThread.Post(() =>
+        {
+            placeholder.IsImageGenerating = false;
+            if (result.Success && !string.IsNullOrEmpty(result.ImagePath))
+            {
+                placeholder.ImagePath = result.ImagePath;
+                placeholder.Content   = $"_{result.ModelUsed}_ · {result.Reasoning}".Trim();
+            }
+            else
+            {
+                placeholder.IsImageFailed = true;
+                placeholder.IsError       = true;
+                placeholder.Content       = $"❌ {result.ErrorMessage ?? "Generování osoby selhalo"}";
+            }
+        });
+
+        try { await TrySaveMessageAsync(placeholder, conv); }
+        catch (Exception ex) { Log.Warning(ex, "PuLID: finální save selhalo"); }
+        _ = TrySaveConversationAsync(conv);
+        _ = MaybeAutoRenameAsync(conv);
+    }
+
     // ── Vision LLM (Stage 3) — „popovídej si o přiloženém obrázku" ────────────
 
     /// <summary>

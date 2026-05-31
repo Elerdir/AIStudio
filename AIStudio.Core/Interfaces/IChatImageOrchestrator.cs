@@ -54,6 +54,19 @@ public interface IChatImageOrchestrator
         Func<ModelUpgradeOffer, CancellationToken, Task<UpgradeChoice>>? askForUpgrade    = null,
         IProgress<DownloadStatusUpdate>?                              downloadProgress  = null,
         IProgress<ChatImageGenStage>?                                 stageProgress     = null);
+
+    /// <summary>
+    /// Vygeneruje osobu z referenční fotky obličeje v nové scéně dle promptu —
+    /// PuLID-Flux, identita BEZ tréninku LoRA. Při prvním použití auto-instaluje
+    /// PuLID stack. Když PuLID není dostupný / selže, vrátí <c>Success=false</c>.
+    /// </summary>
+    Task<ChatImageGenerationResult> GeneratePersonAsync(
+        string                            czechPrompt,
+        string                            faceImagePath,
+        IProgress<int>?                   progress,
+        CancellationToken                 ct,
+        IProgress<DownloadStatusUpdate>?  downloadProgress = null,
+        IProgress<ChatImageGenStage>?     stageProgress    = null);
 }
 
 /// <summary>

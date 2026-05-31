@@ -141,6 +141,23 @@ public sealed class ChatImageIntentDetector : IChatImageIntentDetector
         return !string.IsNullOrEmpty(firstWord) && Array.IndexOf(QuestionStartWords, firstWord) >= 0;
     }
 
+    // Creation intent — žádost o vytvoření osoby v nové scéně (PuLID), ne editace.
+    private static readonly string[] PersonGenKeywords =
+    {
+        // CZ tvoření
+        "vytvoř", "vytvor", "vygeneruj", "vyrob", "vyrobit", "vytvořit", "vytvorit",
+        "udělej fotku", "udelej fotku", "udělej obrázek", "udelej obrazek",
+        "udělej portrét", "udelej portret", "portrét", "portret",
+        // EN
+        "create", "generate", "make a photo", "make an image", "make a portrait", "portrait",
+    };
+
+    public bool IsPersonGeneration(string userMessage)
+    {
+        if (string.IsNullOrWhiteSpace(userMessage)) return false;
+        return ContainsAnyWord(userMessage.ToLowerInvariant(), PersonGenKeywords);
+    }
+
     public ChatImageIntent Detect(string userMessage, bool lastAssistantHadImage)
     {
         if (string.IsNullOrWhiteSpace(userMessage))

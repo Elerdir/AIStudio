@@ -29,4 +29,11 @@ public interface IChatImageIntentDetector
     /// otazník, tázací slovo na začátku a popisná slovesa.
     /// </summary>
     bool IsImageQuestion(string userMessage);
+
+    /// <summary>
+    /// True pokud zpráva vypadá jako žádost o VYTVOŘENÍ osoby v nové scéně
+    /// („vytvoř ji na pláži", „vygeneruj portrét") — ne editace přiložené fotky.
+    /// Slouží k routingu přílohy s obličejem do PuLID (identita bez tréninku).
+    /// </summary>
+    bool IsPersonGeneration(string userMessage);
 }

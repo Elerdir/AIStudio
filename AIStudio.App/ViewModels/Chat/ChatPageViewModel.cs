@@ -918,6 +918,19 @@ public partial class ChatPageViewModel : ViewModelBase
         // Před LLM voláním zkusíme, jestli uživatel nechce vygenerovat obrázek.
         // Pokud ano, větvíme do image flow (Comfy + galerie); jinak standardní
         // LLM stream. UI override (ImageMode) přebije auto detekci.
+        // ── PuLID: příloha (obličej) + creation intent → generuj osobu v nové scéně ──
+        // „vytvoř ji na pláži" → PuLID (identita bez tréninku), na rozdíl od editace
+        // („udělej černobílou" → Kontext) nebo otázky („co je na fotce" → vision).
+        if (!string.IsNullOrEmpty(attachedImagePath) && _imageOrch is not null && _imageIntent is not null
+            && _imageIntent.IsPersonGeneration(text) && !_imageIntent.IsImageQuestion(text))
+        {
+            await RunPersonGenerationAsync(conv, text, attachedImagePath, cts.Token);
+            _sendCts  = null;
+            IsSending = false;
+            UpdateEstimatedTokens();
+            return;
+        }
+
         var classifiedIntent = ClassifyIntent(conv, text, hasAttachment: !string.IsNullOrEmpty(attachedImagePath));
         if (classifiedIntent != ChatImageIntent.Chat && _imageOrch is not null)
         {

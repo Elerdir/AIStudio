@@ -31,6 +31,8 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
     // (padá na klasický denoise img2img). Optional kvůli existujícím testům, které
     // orchestrátor konstruují bez něj.
     private readonly IKontextService?         _kontext;
+    // Optional — PuLID-Flux identita osoby bez tréninku. Null = person-gen se neprovede.
+    private readonly IPuLIDService?           _pulid;
     private readonly string?                  _outputDirOverride;
     private readonly string?                  _modelsDirOverride;
 
@@ -42,9 +44,10 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         IImageRepository       repo,
         ISettingsService       settings,
         IDownloadService       downloader,
-        IKontextService?       kontext = null)
+        IKontextService?       kontext = null,
+        IPuLIDService?         pulid   = null)
         : this(parser, matcher, recommender, comfy, repo, settings, downloader,
-               outputDirOverride: null, modelsDirOverride: null, kontext: kontext) { }
+               outputDirOverride: null, modelsDirOverride: null, kontext: kontext, pulid: pulid) { }
 
     /// <summary>
     /// Test-only overload — umožňuje přesměrovat výstupní složku mimo
@@ -61,9 +64,11 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         IDownloadService       downloader,
         string?                outputDirOverride,
         string?                modelsDirOverride,
-        IKontextService?       kontext = null)
+        IKontextService?       kontext = null,
+        IPuLIDService?         pulid   = null)
     {
         _kontext           = kontext;
+        _pulid             = pulid;
         _parser            = parser;
         _matcher           = matcher;
         _recommender       = recommender;
@@ -233,6 +238,114 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         {
             Log.Error(ex, "ChatImageOrchestrator: neočekávaná chyba");
             return Fail($"Chyba: {ex.Message}");
+        }
+    }
+
+    // ── PuLID — generování osoby z fotky obličeje (identita bez tréninku) ─────
+
+    public async Task<ChatImageGenerationResult> GeneratePersonAsync(
+        string                            czechPrompt,
+        string                            faceImagePath,
+        IProgress<int>?                   progress,
+        CancellationToken                 ct,
+        IProgress<DownloadStatusUpdate>?  downloadProgress = null,
+        IProgress<ChatImageGenStage>?     stageProgress    = null)
+    {
+        try
+        {
+            if (_pulid is null)
+                return Fail("PuLID není k dispozici.");
+            if (string.IsNullOrEmpty(faceImagePath) || !File.Exists(faceImagePath))
+                return Fail("Referenční fotka obličeje nebyla nalezena.");
+
+            stageProgress?.Report(ChatImageGenStage.Recommending);
+
+            // 1) ComfyUI běží
+            if (!_comfy.IsRunning && !await _comfy.StartAsync(ct))
+                return Fail("ComfyUI se nepodařilo spustit.");
+
+            // 2) PuLID stack — auto-install při prvním použití (node + deps + model + antelopev2)
+            if (!_pulid.IsAvailable())
+            {
+                Log.Information("ChatImageOrchestrator: PuLID se instaluje (první použití)");
+                var dl = new Progress<DownloadProgressInfo>(info =>
+                {
+                    var pct = info.Total > 0 ? (int)(100 * info.Downloaded / info.Total) : 0;
+                    downloadProgress?.Report(new DownloadStatusUpdate(
+                        "PuLID", pct, info.Downloaded, info.Total, info.BytesPerSecond / 1_048_576.0));
+                });
+                await _pulid.EnsureAsync(dl, ct);
+                if (!_pulid.IsAvailable())
+                    return Fail("PuLID se nepodařilo nainstalovat — zkus to znovu (viz log).");
+            }
+
+            // 3) FLUX UNET — preferuj plain flux1-dev, fallback na cokoliv flux (i kontext).
+            var modelsDir = ResolveModelsDirectory();
+            var unetFile  = FindFluxUnet(modelsDir);
+            if (unetFile is null)
+                return Fail("Nenašel jsem FLUX UNET model pro PuLID. Stáhni FLUX.1 dev.");
+
+            // 4) Parse intent — český → EN prompt + aspekt
+            var intent = await _parser.ParseAsync(czechPrompt, ct);
+
+            // 5) Upload reference + sestav PuLID workflow
+            stageProgress?.Report(ChatImageGenStage.Generating);
+            string uploadedFace;
+            try { uploadedFace = await _comfy.UploadImageAsync(faceImagePath, ct); }
+            catch (Exception ex) { Log.Warning(ex, "PuLID: upload reference selhal"); return Fail("Nahrání fotky do ComfyUI selhalo."); }
+
+            var (width, height) = AspectToResolution(intent.Aspect, isFlux: true);
+            var (steps, guidance) = ComfyWorkflowBuilder.FluxDefaults(unetFile);
+            var seed = Random.Shared.NextInt64();
+
+            var workflow = ComfyWorkflowBuilder.BuildFluxPuLID(
+                unetFile,
+                ComfyWorkflowBuilder.DefaultFluxClipL,
+                ComfyWorkflowBuilder.DefaultFluxT5,
+                ComfyWorkflowBuilder.DefaultFluxVae,
+                _pulid.PulidModelFileName,
+                uploadedFace, intent.EnglishPrompt,
+                width, height, steps, guidance, seed);
+
+            Log.Information("ChatImageOrchestrator: PuLID generování (UNET={Unet}, {W}x{H})", unetFile, width, height);
+
+            return await QueueAndFinishAsync(
+                workflow, intent, "PuLID-Flux", seed, width, height, steps, 1.0,
+                ComfyWorkflowBuilder.DefaultSamplerFlux, ComfyWorkflowBuilder.DefaultSchedulerFlux,
+                progress, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            return Fail("Generování zrušeno.");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "ChatImageOrchestrator: PuLID generování selhalo");
+            return Fail($"Chyba: {ex.Message}");
+        }
+    }
+
+    /// <summary>Najde FLUX UNET v Models (unet/ i root). Preferuje plain flux1-dev před kontext variantou.</summary>
+    private static string? FindFluxUnet(string modelsDir)
+    {
+        try
+        {
+            var unetDir = Path.Combine(modelsDir, "unet");
+            var scanDir = Directory.Exists(unetDir) ? unetDir : modelsDir;
+            var files = Directory
+                .EnumerateFiles(scanDir, "*.safetensors", SearchOption.AllDirectories)
+                .Where(f => Path.GetFileName(f).Contains("flux", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (files.Count == 0) return null;
+
+            var plain = files.FirstOrDefault(f =>
+                !Path.GetFileName(f).Contains("kontext", StringComparison.OrdinalIgnoreCase));
+            return Path.GetFileName(plain ?? files[0]);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "FindFluxUnet: sken {Dir} selhal", modelsDir);
+            return null;
         }
     }
 
