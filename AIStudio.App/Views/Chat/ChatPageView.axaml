@@ -620,7 +620,28 @@
 
                                             <!-- Zobrazení (normální stav) -->
                                             <StackPanel Spacing="0" IsVisible="{Binding !IsEditing}">
-                                                <SelectableTextBlock Text="{Binding Content}"
+                                                <!-- Přiložené obrázky — náhledy (bez možnosti smazat, zpráva už je odeslaná) -->
+                                                <ItemsControl ItemsSource="{Binding AttachmentPaths}"
+                                                              IsVisible="{Binding HasAttachments}"
+                                                              Margin="0,0,0,8">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel Orientation="Horizontal"/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="x:String">
+                                                            <Border CornerRadius="8" ClipToBounds="True"
+                                                                    Margin="0,0,8,8" MaxWidth="200"
+                                                                    Background="#1C1530">
+                                                                <Image Stretch="Uniform" MaxHeight="180"
+                                                                       Source="{Binding Converter={x:Static conv:ImagePathToThumbnailConverter.Instance}}"/>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <SelectableTextBlock Text="{Binding DisplayText}"
+                                                           IsVisible="{Binding DisplayText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                                            Foreground="#E8E0FF"
                                                            FontSize="14" LineHeight="22"
                                                            TextWrapping="Wrap"/>

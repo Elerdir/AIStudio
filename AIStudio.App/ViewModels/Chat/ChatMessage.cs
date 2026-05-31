@@ -36,8 +36,41 @@ public partial class ChatMessage : ObservableObject
     public DateTime    Timestamp { get; init; } = DateTime.UtcNow;   // UTC, konvertuj při zobrazení
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TokenHint))]
+    [NotifyPropertyChangedFor(nameof(TokenHint), nameof(AttachmentPaths), nameof(DisplayText), nameof(HasAttachments))]
     private string _content = string.Empty;
+
+    // ── Přiložené obrázky (uživatelská zpráva) ────────────────────────────────
+    //
+    // Uživatelské přílohy jsou v Contentu jako markdown ![obrázek](cesta). Pro
+    // zobrazení je parsujeme zvlášť (náhledy) a z textu vyřízneme, ať bublina
+    // neukazuje syrovou cestu. Persistence zůstává přes Content (žádná DB změna).
+
+    private static readonly System.Text.RegularExpressions.Regex AttachmentRx =
+        new(@"!\[[^\]]*\]\(([^)]+)\)", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>Cesty k obrázkům přiloženým uživatelem (parsované z Content).</summary>
+    public System.Collections.Generic.IReadOnlyList<string> AttachmentPaths => ParseAttachmentPaths(Content);
+
+    /// <summary>True pokud zpráva nese aspoň jeden přiložený obrázek.</summary>
+    public bool HasAttachments => AttachmentPaths.Count > 0;
+
+    /// <summary>Text zprávy bez markdown obrázků — náhledy se renderují zvlášť.</summary>
+    public string DisplayText => StripAttachmentMarkdown(Content);
+
+    public static System.Collections.Generic.List<string> ParseAttachmentPaths(string? content)
+    {
+        var list = new System.Collections.Generic.List<string>();
+        if (string.IsNullOrEmpty(content)) return list;
+        foreach (System.Text.RegularExpressions.Match m in AttachmentRx.Matches(content))
+        {
+            var p = m.Groups[1].Value.Trim();
+            if (p.Length > 0) list.Add(p);
+        }
+        return list;
+    }
+
+    public static string StripAttachmentMarkdown(string? content)
+        => string.IsNullOrEmpty(content) ? string.Empty : AttachmentRx.Replace(content, string.Empty).Trim();
 
     /// <summary>Hrubý odhad počtu tokenů zprávy pro zobrazení v UI.</summary>
     public string TokenHint

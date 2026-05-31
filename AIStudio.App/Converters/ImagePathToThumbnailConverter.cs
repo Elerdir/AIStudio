@@ -16,7 +16,7 @@ public sealed class ImagePathToThumbnailConverter : IValueConverter
 {
     public static readonly ImagePathToThumbnailConverter Instance = new();
 
-    private const int ThumbWidth = 120;
+    private const int ThumbWidth = 240;
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
