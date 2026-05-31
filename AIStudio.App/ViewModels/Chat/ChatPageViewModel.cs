@@ -243,12 +243,33 @@ public partial class ChatPageViewModel : ViewModelBase
     [ObservableProperty] private bool   _isComparePickerVisible;
     [ObservableProperty] private string _compareModelName = string.Empty;
 
-    // ── Image attachment ──────────────────────────────────────────────────────
+    // ── Image attachments (multi) ─────────────────────────────────────────────
+    //
+    // Více obrázků: uživatel může přiložit / přetáhnout několik fotek najednou
+    // (📎 picker i drag&drop z jiného okna). UI ukáže náhledy s křížkem pro rychlé
+    // odebrání. Při odeslání se všechny vloží do zprávy.
 
-    [ObservableProperty] private string _attachedImagePath = string.Empty;
-    public bool HasAttachedImage => !string.IsNullOrEmpty(AttachedImagePath);
+    public ObservableCollection<string> AttachedImages { get; } = new();
+    public bool HasAttachedImages => AttachedImages.Count > 0;
 
-    partial void OnAttachedImagePathChanged(string value) => OnPropertyChanged(nameof(HasAttachedImage));
+    private static readonly HashSet<string> AttachmentExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp" };
+
+    /// <summary>
+    /// Přidá obrázky z pickeru i drag&drop. Filtruje na obrázkové přípony,
+    /// deduplikuje a ověří existenci souboru. Volá se i z code-behind (drop handler).
+    /// </summary>
+    public void AddAttachments(IEnumerable<string> paths)
+    {
+        foreach (var p in paths)
+        {
+            if (string.IsNullOrWhiteSpace(p)) continue;
+            if (!AttachmentExtensions.Contains(Path.GetExtension(p))) continue;
+            if (!File.Exists(p)) continue;
+            if (AttachedImages.Contains(p)) continue;
+            AttachedImages.Add(p);
+        }
+    }
 
     // ── Available models ──────────────────────────────────────────────────────
 
@@ -320,6 +341,9 @@ public partial class ChatPageViewModel : ViewModelBase
 
         // Při změně Conversations přepočítej filtrovaný seznam
         Conversations.CollectionChanged += (_, _) => UpdateFilteredConversations();
+
+        // Náhledy příloh — HasAttachedImages řídí viditelnost stripu v inputu
+        AttachedImages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAttachedImages));
 
         // Když ModelManager stáhne / přidá / smaže model, obnov picker
         _settings.ModelLibraryChanged += () =>
@@ -861,15 +885,15 @@ public partial class ChatPageViewModel : ViewModelBase
 
         var conv = SelectedConversation;
 
-        // Pokud je přiložen obrázek, vlož ho jako markdown obrázek před text.
-        // Cestu si navíc podržíme (attachedImagePath) — pokud zpráva půjde do
-        // image gen, použije se přiložená fotka jako reference (img2img), takže
-        // funguje „přilož fotku + napiš co s ní udělat".
-        var attachedImagePath = AttachedImagePath;
-        var content = string.IsNullOrEmpty(attachedImagePath)
+        // Přiložené obrázky vložíme jako markdown před text (zobrazí se v bublině).
+        // První si podržíme jako primární referenci — pokud zpráva půjde do image
+        // gen/editace/vision, použije se ta („přilož fotku + napiš co s ní udělat").
+        var attachedImages    = AttachedImages.ToList();
+        var attachedImagePath = attachedImages.FirstOrDefault() ?? string.Empty;
+        var content = attachedImages.Count == 0
             ? text
-            : $"![obrázek]({attachedImagePath})\n{text}";
-        AttachedImagePath = string.Empty;
+            : string.Concat(attachedImages.Select(p => $"![obrázek]({p})\n")) + text;
+        AttachedImages.Clear();
 
         var userMsg = new ChatMessage { Role = MessageRole.User, Content = content };
         conv.Messages.Add(userMsg);
@@ -1548,8 +1572,8 @@ public partial class ChatPageViewModel : ViewModelBase
 
         var files = await win.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title         = "Přiložit obrázek",
-            AllowMultiple = false,
+            Title         = "Přiložit obrázky",
+            AllowMultiple = true,
             FileTypeFilter =
             [
                 new FilePickerFileType("Obrázky")
@@ -1560,11 +1584,15 @@ public partial class ChatPageViewModel : ViewModelBase
         });
 
         if (files.Count > 0)
-            AttachedImagePath = files[0].Path.LocalPath;
+            AddAttachments(files.Select(f => f.Path.LocalPath));
     }
 
     [RelayCommand]
-    private void RemoveAttachment() => AttachedImagePath = string.Empty;
+    private void RemoveAttachment(string? path)
+    {
+        if (!string.IsNullOrEmpty(path))
+            AttachedImages.Remove(path);
+    }
 
     private async Task TrySaveConversationAsync(ConversationViewModel conv)
     {

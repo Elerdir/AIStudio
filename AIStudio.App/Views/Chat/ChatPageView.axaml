@@ -4,6 +4,7 @@
              xmlns:mi="using:Material.Icons.Avalonia"
              xmlns:miKind="using:Material.Icons"
              xmlns:ctrl="using:AIStudio.App.Controls"
+             xmlns:conv="using:AIStudio.App.Converters"
              x:Class="AIStudio.App.Views.Chat.ChatPageView"
              x:DataType="vm:ChatPageViewModel">
 
@@ -1217,42 +1218,49 @@
 
             </StackPanel>
 
-            <!-- ── Row 5: Input area ── -->
+            <!-- ── Row 5: Input area (drag&drop obrázků sem) ── -->
             <Border Grid.Row="5"
+                    Name="InputDropArea"
+                    DragDrop.AllowDrop="True"
                     Padding="20,10,20,18"
                     BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0"
                     Background="{DynamicResource AppBgBrush}">
                 <StackPanel Spacing="8">
 
-                    <!-- Přiložený obrázek — náhled -->
-                    <Border IsVisible="{Binding HasAttachedImage}"
-                            Background="{DynamicResource HoverBgBrush}" BorderBrush="#2A2A30" BorderThickness="1"
-                            CornerRadius="8" Padding="8">
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                            <!-- Náhled obrázku -->
-                            <Border Grid.Column="0" Width="56" Height="56"
-                                    CornerRadius="6" ClipToBounds="True"
-                                    Background="#111118">
-                                <Image Name="AttachmentPreview"
-                                       Stretch="UniformToFill"/>
-                            </Border>
-                            <!-- Název souboru -->
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding AttachedImagePath}"
-                                       FontSize="12" Foreground="{DynamicResource TextHintBrush}"
-                                       VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"/>
-                            <!-- Odebrat přílohu -->
-                            <Button Grid.Column="2"
-                                    Command="{Binding RemoveAttachmentCommand}"
-                                    Background="Transparent" BorderThickness="0"
-                                    Width="24" Height="24" Padding="0" CornerRadius="6"
-                                    VerticalAlignment="Center"
-                                    ToolTip.Tip="Odebrat přílohu">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="{DynamicResource ErrorBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Button>
-                        </Grid>
-                    </Border>
+                    <!-- Přiložené obrázky — strip náhledů s křížkem (multi + drag&drop) -->
+                    <ItemsControl ItemsSource="{Binding AttachedImages}"
+                                  IsVisible="{Binding HasAttachedImages}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Border Width="64" Height="64" Margin="0,0,8,8"
+                                        CornerRadius="8" ClipToBounds="True"
+                                        Background="#111118"
+                                        BorderBrush="#2A2A30" BorderThickness="1">
+                                    <Panel>
+                                        <!-- Náhled (dekódovaný na ~120 px) -->
+                                        <Image Stretch="UniformToFill"
+                                               Source="{Binding Converter={x:Static conv:ImagePathToThumbnailConverter.Instance}}"
+                                               ToolTip.Tip="{Binding}"/>
+                                        <!-- Křížek pro odebrání (vpravo nahoře) -->
+                                        <Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                Width="20" Height="20" Padding="0" Margin="2"
+                                                CornerRadius="10"
+                                                Background="#CC1A1A1F" BorderThickness="0"
+                                                Command="{ReflectionBinding $parent[ItemsControl].DataContext.RemoveAttachmentCommand}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="Odebrat obrázek">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="11" Height="11" Foreground="{DynamicResource ErrorBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Button>
+                                    </Panel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
                     <!-- Input řádek: attach + image-mode toggle + textbox + regenerate/compare + send/stop -->
                     <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="8">

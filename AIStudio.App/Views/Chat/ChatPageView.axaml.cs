@@ -3,6 +3,7 @@ using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using AIStudio.App.ViewModels.Chat;
 
@@ -44,6 +45,16 @@ public partial class ChatPageView : UserControl
         //                                rozhodnout (pokud doscrolloval na konec, znova zapne)
         scroll.AddHandler(PointerWheelChangedEvent, OnChatWheelTunnel,
                           Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
+        // Drag & drop obrázků do input oblasti — přetáhni fotky z Průzkumníka /
+        // jiného okna a pustí se jako přílohy (multi). Handlery na pojmenovaném
+        // Borderu kolem celé input oblasti, ať je drop zóna velká.
+        var dropArea = this.FindControl<Border>("InputDropArea");
+        if (dropArea is not null)
+        {
+            dropArea.AddHandler(DragDrop.DragOverEvent, OnInputDragOver);
+            dropArea.AddHandler(DragDrop.DropEvent,     OnInputDrop);
+        }
     }
 
     private void OnChatWheelTunnel(object? sender, Avalonia.Input.PointerWheelEventArgs e)
@@ -128,16 +139,10 @@ public partial class ChatPageView : UserControl
         ScrollToBottom();
     }
 
-    // ── Attachment preview ────────────────────────────────────────────────────
+    // ── Conversation switch ───────────────────────────────────────────────────
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ChatPageViewModel.AttachedImagePath))
-        {
-            UpdateAttachmentPreview();
-            return;
-        }
-
         if (e.PropertyName != nameof(ChatPageViewModel.SelectedConversation)) return;
 
         // Přepnout CollectionChanged + per-message PropertyChanged odběr na novou konverzaci
@@ -164,25 +169,33 @@ public partial class ChatPageView : UserControl
         FocusInputBox();
     }
 
-    private void UpdateAttachmentPreview()
-    {
-        var preview = this.FindControl<Image>("AttachmentPreview");
-        if (preview is null || _vm is null) return;
+    // ── Drag & drop obrázků do inputu (multi) ─────────────────────────────────
 
-        var path = _vm.AttachedImagePath;
-        if (!string.IsNullOrEmpty(path) && File.Exists(path))
-        {
-            try
-            {
-                using var stream = File.OpenRead(path);
-                preview.Source = new Bitmap(stream);
-            }
-            catch { preview.Source = null; }
-        }
-        else
-        {
-            preview.Source = null;
-        }
+    private static readonly System.Collections.Generic.HashSet<string> _dropExtensions =
+        new(System.StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp" };
+
+    private void OnInputDragOver(object? sender, DragEventArgs e)
+    {
+        var files = e.DataTransfer.TryGetFiles();
+        e.DragEffects = files is not null && files.Any(f =>
+            f.TryGetLocalPath() is { } p && _dropExtensions.Contains(Path.GetExtension(p)))
+            ? DragDropEffects.Copy
+            : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnInputDrop(object? sender, DragEventArgs e)
+    {
+        var files = e.DataTransfer.TryGetFiles();
+        if (files is null || _vm is null) return;
+
+        var paths = files
+            .Select(f => f.TryGetLocalPath())
+            .Where(p => p is not null && _dropExtensions.Contains(Path.GetExtension(p)))
+            .Cast<string>();
+
+        _vm.AddAttachments(paths);
+        e.Handled = true;
     }
 
     private void OnMessagesChanged(object? sender, NotifyCollectionChangedEventArgs e)
