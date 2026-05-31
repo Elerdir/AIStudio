@@ -814,4 +814,105 @@ public static class ComfyWorkflowBuilder
         modelName.Contains("schnell", StringComparison.OrdinalIgnoreCase)
             ? (4, 0.0)      // Schnell: 4 kroky, bez guidance
             : (20, 3.5);    // Dev: 20 kroků, guidance 3.5
+
+    // ── PuLID-Flux (identita osoby bez tréninku) ─────────────────────────────
+
+    /// <summary>Soubor PuLID-Flux modelu (ComfyUI/models/pulid/).</summary>
+    public const string DefaultPulidFluxFile = "pulid_flux_v0.9.1.safetensors";
+
+    /// <summary>
+    /// FLUX txt2img s PuLID identitou — z referenční fotky obličeje vygeneruje
+    /// osobu v nové scéně dle promptu, BEZ tréninku LoRA. Nejbližší lokální
+    /// ekvivalent ChatGPT „nahraj fotky osoby → vytvoř ji jinde".
+    ///
+    /// <para>Vyžaduje custom node <c>ComfyUI_PuLID_Flux_ll</c> + modely: PuLID-Flux
+    /// (models/pulid/), EVA-CLIP, InsightFace antelopev2. <c>ApplyPulidFlux</c>
+    /// modifikuje FLUX model embeddingem obličeje z reference; zbytek je standardní
+    /// FLUX txt2img.</para>
+    ///
+    /// <para>POZOR: přesné názvy vstupů PuLID nodů (model/pulid_flux/eva_clip/
+    /// face_analysis/image/weight/start_at/end_at) odpovídají balazik/lldacing
+    /// implementaci — runtime ověření nutné, custom node API se může lišit dle verze.</para>
+    /// </summary>
+    public static Dictionary<string, object> BuildFluxPuLID(
+        string unetFile,
+        string clipLFile,
+        string t5File,
+        string vaeFile,
+        string pulidFile,
+        string uploadedFaceImage,
+        string prompt,
+        int    width,
+        int    height,
+        int    steps,
+        double guidance,
+        long   seed,
+        double identityWeight = 0.9,
+        string sampler   = DefaultSamplerFlux,
+        string scheduler = DefaultSchedulerFlux)
+    {
+        return new Dictionary<string, object>
+        {
+            ["1"] = Node("UNETLoader", new()
+            {
+                ["unet_name"]    = unetFile,
+                ["weight_dtype"] = "default",
+            }),
+            ["2"] = Node("DualCLIPLoader", new()
+            {
+                ["clip_name1"] = clipLFile,
+                ["clip_name2"] = t5File,
+                ["type"]       = "flux",
+            }),
+            ["3"] = Node("VAELoader", new() { ["vae_name"] = vaeFile }),
+
+            // ── PuLID stack ──
+            ["4"] = Node("PulidFluxModelLoader", new() { ["pulid_file"] = pulidFile }),
+            ["5"] = Node("PulidFluxEvaClipLoader", new()),
+            ["6"] = Node("PulidFluxInsightFaceLoader", new() { ["provider"] = "CUDA" }),
+            ["7"] = Node("LoadImage", new()
+            {
+                ["image"]  = uploadedFaceImage,
+                ["upload"] = "image",
+            }),
+            // ApplyPulidFlux vloží identitu obličeje do FLUX modelu.
+            ["8"] = Node("ApplyPulidFlux", new()
+            {
+                ["model"]         = Ref("1", 0),
+                ["pulid_flux"]    = Ref("4", 0),
+                ["eva_clip"]      = Ref("5", 0),
+                ["face_analysis"] = Ref("6", 0),
+                ["image"]         = Ref("7", 0),
+                ["weight"]        = identityWeight,
+                ["start_at"]      = 0.0,
+                ["end_at"]        = 1.0,
+            }),
+
+            // ── Standardní FLUX txt2img na modifikovaném modelu ──
+            ["9"]  = Node("CLIPTextEncode", new() { ["text"] = prompt, ["clip"] = Ref("2", 0) }),
+            ["10"] = Node("CLIPTextEncode", new() { ["text"] = "",     ["clip"] = Ref("2", 0) }),
+            ["11"] = Node("FluxGuidance",   new() { ["conditioning"] = Ref("9", 0), ["guidance"] = guidance }),
+            ["12"] = Node("EmptyLatentImage", new()
+            {
+                ["width"]      = width,
+                ["height"]     = height,
+                ["batch_size"] = 1,
+            }),
+            ["13"] = Node("KSampler", new()
+            {
+                ["seed"]         = seed,
+                ["steps"]        = steps,
+                ["cfg"]          = 1.0,
+                ["sampler_name"] = sampler,
+                ["scheduler"]    = scheduler,
+                ["denoise"]      = 1.0,
+                ["model"]        = Ref("8", 0),   // model s PuLID identitou
+                ["positive"]     = Ref("11", 0),
+                ["negative"]     = Ref("10", 0),
+                ["latent_image"] = Ref("12", 0),
+            }),
+            ["14"] = Node("VAEDecode", new() { ["samples"] = Ref("13", 0), ["vae"] = Ref("3", 0) }),
+            ["15"] = Node("SaveImage", new() { ["filename_prefix"] = "AIStudio", ["images"] = Ref("14", 0) }),
+        };
+    }
 }

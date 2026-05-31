@@ -190,6 +190,52 @@ public class ComfyWorkflowBuilderTests
         guidance.Should().Be(2.5);
     }
 
+    // ── BuildFluxPuLID (identita osoby bez tréninku) ──────────────────────────
+
+    private static Dictionary<string, object> PulidWf() =>
+        ComfyWorkflowBuilder.BuildFluxPuLID(
+            "flux1-dev.safetensors", "clip_l.safetensors", "t5xxl.safetensors", "ae.safetensors",
+            ComfyWorkflowBuilder.DefaultPulidFluxFile,
+            "face.png", "cinematic portrait of a woman on a beach",
+            832, 1216, 20, 3.5, seed: 7);
+
+    [Fact]
+    public void BuildFluxPuLID_HasPulidStackNodes()
+    {
+        var wf = PulidWf();
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+
+        types.Should().Contain("PulidFluxModelLoader")
+             .And.Contain("PulidFluxEvaClipLoader")
+             .And.Contain("PulidFluxInsightFaceLoader")
+             .And.Contain("ApplyPulidFlux");
+    }
+
+    [Fact]
+    public void BuildFluxPuLID_ApplyPulid_WiredToModelAndFace()
+    {
+        var wf  = PulidWf();
+        var ap  = (Dictionary<string, object>)FindNode(wf, "ApplyPulidFlux")["inputs"];
+
+        // model ← UNETLoader, image ← LoadImage
+        var model = (object[])ap["model"];
+        var image = (object[])ap["image"];
+        ((string)((Dictionary<string, object>)wf[(string)model[0]])["class_type"]).Should().Be("UNETLoader");
+        ((string)((Dictionary<string, object>)wf[(string)image[0]])["class_type"]).Should().Be("LoadImage");
+    }
+
+    [Fact]
+    public void BuildFluxPuLID_KSampler_UsesPulidModelOutput()
+    {
+        var wf = PulidWf();
+        var ks = (Dictionary<string, object>)FindNode(wf, "KSampler")["inputs"];
+
+        // KSampler musí brát model z ApplyPulidFlux (ne přímo z UNETLoaderu)
+        var model = (object[])ks["model"];
+        ((string)((Dictionary<string, object>)wf[(string)model[0]])["class_type"]).Should().Be("ApplyPulidFlux");
+        ks["cfg"].Should().Be(1.0);
+    }
+
     // ── InjectReferenceImages ─────────────────────────────────────────────────
 
     [Fact]
