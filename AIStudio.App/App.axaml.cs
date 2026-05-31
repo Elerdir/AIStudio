@@ -164,6 +164,10 @@ public partial class App : Application
         // Orchestrátor pro chat → image: parser → recommender → matcher → comfy → galerie.
         services.AddSingleton<IChatImageOrchestrator, ChatImageOrchestrator>();
         services.AddSingleton<IFluxDependencyService, FluxDependencyService>();
+        // FLUX.1 Kontext — instrukční editace obrázku (přilož + uprav). Orchestrátor
+        // si ho vyzvedne (optional dep) a použije pro editaci s referencí; auto-download
+        // UNET (~12 GB) + sdílené FLUX závislosti při prvním použití.
+        services.AddSingleton<IKontextService, KontextDependencyService>();
 
         // LoRA trénink — reuse-uje ComfyUI Python venv (žádný druhý Python pro uživatele).
         // Closure pro python.exe: spočítáme cestu z ComfyInstaller.DetectExisting nad

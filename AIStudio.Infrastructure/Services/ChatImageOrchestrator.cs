@@ -27,6 +27,10 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
     private readonly IImageRepository         _repo;
     private readonly ISettingsService         _settings;
     private readonly IDownloadService         _downloader;
+    // Optional — FLUX.1 Kontext instrukční editace. Null = Kontext se přeskočí
+    // (padá na klasický denoise img2img). Optional kvůli existujícím testům, které
+    // orchestrátor konstruují bez něj.
+    private readonly IKontextService?         _kontext;
     private readonly string?                  _outputDirOverride;
     private readonly string?                  _modelsDirOverride;
 
@@ -37,8 +41,10 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         IComfyService          comfy,
         IImageRepository       repo,
         ISettingsService       settings,
-        IDownloadService       downloader)
-        : this(parser, matcher, recommender, comfy, repo, settings, downloader, outputDirOverride: null, modelsDirOverride: null) { }
+        IDownloadService       downloader,
+        IKontextService?       kontext = null)
+        : this(parser, matcher, recommender, comfy, repo, settings, downloader,
+               outputDirOverride: null, modelsDirOverride: null, kontext: kontext) { }
 
     /// <summary>
     /// Test-only overload — umožňuje přesměrovat výstupní složku mimo
@@ -54,8 +60,10 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         ISettingsService       settings,
         IDownloadService       downloader,
         string?                outputDirOverride,
-        string?                modelsDirOverride)
+        string?                modelsDirOverride,
+        IKontextService?       kontext = null)
     {
+        _kontext           = kontext;
         _parser            = parser;
         _matcher           = matcher;
         _recommender       = recommender;
@@ -92,6 +100,20 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
             // 2) Parse intent — vytáhne český → EN prompt + kind + aspect
             Log.Information("ChatImageOrchestrator: parsing intent pro: {Prompt}", Truncate(czechPrompt, 80));
             var intent = await _parser.ParseAsync(czechPrompt, ct);
+
+            // 2.5) FLUX.1 Kontext — instrukční editace. Když máme referenci (uživatel
+            //      přiložil fotku nebo edituje předchozí obrázek) a Kontext je k
+            //      dispozici (nebo se ho podaří stáhnout), použijeme ho MÍSTO klasického
+            //      denoise img2img — výsledek zachovává originál a aplikuje instrukci
+            //      (blíž ChatGPT editaci). Bypassuje výběr checkpointu (Kontext má vlastní
+            //      UNET). Když to nevyjde, padáme dál na klasický checkpoint img2img.
+            if (!string.IsNullOrEmpty(referenceImagePath) && File.Exists(referenceImagePath))
+            {
+                var kontextResult = await TryKontextAsync(
+                    referenceImagePath, intent, progress, downloadProgress, stageProgress, ct);
+                if (kontextResult is not null)
+                    return kontextResult;
+            }
 
             // 3) Match model — z dostupných checkpointů vybereme nejvhodnější + zkusíme upgrade
             var available = await _comfy.GetCheckpointsAsync(ct);
@@ -191,54 +213,11 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
                                           width, height, steps, cfg, seed, denoise: 0.78, 1, sampler, scheduler),
             };
 
-            // 5) Queue + wait
+            // 5–7) Queue → wait → download → uložit do galerie (sdíleno s Kontext cestou)
             Log.Information("ChatImageOrchestrator: queuing prompt (model={Model}, {W}x{H}, steps={Steps})",
                             model, width, height, steps);
-            var promptId = await _comfy.QueuePromptAsync(workflow, ct);
-
-            var result = await _comfy.WaitForResultAsync(promptId, progress, ct);
-            if (result is null || result.Images.Count == 0)
-                return Fail("ComfyUI nevrátil žádný obrázek (zrušeno nebo timeout).");
-
-            // 6) Download první obrázek a uložit na disk
-            var imgRef    = result.Images[0];
-            var bytes     = await _comfy.DownloadImageAsync(imgRef.Filename, imgRef.Subfolder, imgRef.Type, ct);
-            var outputDir = GetOutputDirectory();
-            Directory.CreateDirectory(outputDir);
-            var fileName  = $"AIStudio_chat_{DateTime.Now:yyyyMMdd_HHmmss}_{imgRef.Filename}";
-            var filePath  = Path.Combine(outputDir, fileName);
-            await File.WriteAllBytesAsync(filePath, bytes, ct);
-
-            // 7) Persist do SQLite galerie — uživatel ho najde i v Image Studiu
-            var id = Guid.NewGuid().ToString();
-            var record = new ImageRecord(
-                Id:          id,
-                FilePath:    filePath,
-                Prompt:      intent.EnglishPrompt,
-                ModelName:   model,
-                Seed:        seed,
-                Width:       width,
-                Height:      height,
-                Steps:       steps,
-                Cfg:         cfg,
-                Sampler:     sampler,
-                Scheduler:   scheduler,
-                GeneratedAt: DateTime.Now);
-
-            try { await _repo.SaveImageAsync(record); }
-            catch (Exception ex) { Log.Warning(ex, "ChatImageOrchestrator: SaveImageAsync selhalo — soubor je na disku, jen není v galerii"); }
-
-            Log.Information("ChatImageOrchestrator: hotovo → {Path}", filePath);
-            return new ChatImageGenerationResult(
-                Success:       true,
-                ImagePath:     filePath,
-                ImageId:       id,
-                ModelUsed:     model,
-                EnglishPrompt: intent.EnglishPrompt,
-                Reasoning:     intent.Reasoning,
-                Seed:          (int)(seed & int.MaxValue),
-                Width:         width,
-                Height:        height);
+            return await QueueAndFinishAsync(
+                workflow, intent, model, seed, width, height, steps, cfg, sampler, scheduler, progress, ct);
         }
         catch (OperationCanceledException)
         {
@@ -253,6 +232,153 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Sdílený konec generování: zařadí workflow do ComfyUI, počká na výsledek,
+    /// stáhne obrázek na disk a zapíše ho do galerie. Používá ho jak klasická
+    /// txt2img/img2img cesta, tak Kontext editace.
+    /// </summary>
+    private async Task<ChatImageGenerationResult> QueueAndFinishAsync(
+        Dictionary<string, object> workflow,
+        ImageIntent       intent,
+        string            modelLabel,
+        long              seed,
+        int               width,
+        int               height,
+        int               steps,
+        double            cfg,
+        string            sampler,
+        string            scheduler,
+        IProgress<int>?   progress,
+        CancellationToken ct)
+    {
+        var promptId = await _comfy.QueuePromptAsync(workflow, ct);
+
+        var result = await _comfy.WaitForResultAsync(promptId, progress, ct);
+        if (result is null || result.Images.Count == 0)
+            return Fail("ComfyUI nevrátil žádný obrázek (zrušeno nebo timeout).");
+
+        var imgRef    = result.Images[0];
+        var bytes     = await _comfy.DownloadImageAsync(imgRef.Filename, imgRef.Subfolder, imgRef.Type, ct);
+        var outputDir = GetOutputDirectory();
+        Directory.CreateDirectory(outputDir);
+        var fileName  = $"AIStudio_chat_{DateTime.Now:yyyyMMdd_HHmmss}_{imgRef.Filename}";
+        var filePath  = Path.Combine(outputDir, fileName);
+        await File.WriteAllBytesAsync(filePath, bytes, ct);
+
+        var id = Guid.NewGuid().ToString();
+        var record = new ImageRecord(
+            Id:          id,
+            FilePath:    filePath,
+            Prompt:      intent.EnglishPrompt,
+            ModelName:   modelLabel,
+            Seed:        seed,
+            Width:       width,
+            Height:      height,
+            Steps:       steps,
+            Cfg:         cfg,
+            Sampler:     sampler,
+            Scheduler:   scheduler,
+            GeneratedAt: DateTime.Now);
+
+        try { await _repo.SaveImageAsync(record); }
+        catch (Exception ex) { Log.Warning(ex, "ChatImageOrchestrator: SaveImageAsync selhalo — soubor je na disku, jen není v galerii"); }
+
+        Log.Information("ChatImageOrchestrator: hotovo → {Path}", filePath);
+        return new ChatImageGenerationResult(
+            Success:       true,
+            ImagePath:     filePath,
+            ImageId:       id,
+            ModelUsed:     modelLabel,
+            EnglishPrompt: intent.EnglishPrompt,
+            Reasoning:     intent.Reasoning,
+            Seed:          (int)(seed & int.MaxValue),
+            Width:         width,
+            Height:        height);
+    }
+
+    /// <summary>
+    /// Zkusí editaci přes FLUX.1 Kontext. Vrátí výsledek při úspěchu, nebo
+    /// <c>null</c> pokud Kontext není k dispozici / nepodaří se stáhnout / cokoliv
+    /// selže — pak volající padá zpět na klasický denoise img2img.
+    ///
+    /// <para>Když Kontext není stažený, pokusí se ho stáhnout (uživatel zvolil
+    /// „vše automaticky"). První edit tak může chvíli trvat (~12 GB), další jsou
+    /// okamžité. Progress jde přes <paramref name="downloadProgress"/>.</para>
+    /// </summary>
+    private async Task<ChatImageGenerationResult?> TryKontextAsync(
+        string                            referenceImagePath,
+        ImageIntent                       intent,
+        IProgress<int>?                   progress,
+        IProgress<DownloadStatusUpdate>?  downloadProgress,
+        IProgress<ChatImageGenStage>?     stageProgress,
+        CancellationToken                 ct)
+    {
+        if (_kontext is null) return null;
+
+        var modelsDir = ResolveModelsDirectory();
+
+        if (!_kontext.IsAvailable(modelsDir))
+        {
+            Log.Information("ChatImageOrchestrator: Kontext není stažený, zkouším auto-download");
+            try
+            {
+                var dl = new Progress<DownloadProgressInfo>(info =>
+                {
+                    var pct = info.Total > 0 ? (int)(100 * info.Downloaded / info.Total) : 0;
+                    downloadProgress?.Report(new DownloadStatusUpdate(
+                        "FLUX.1 Kontext", pct, info.Downloaded, info.Total, 0));
+                });
+                await _kontext.EnsureAsync(modelsDir, _settings.Settings.HuggingFaceToken, dl, ct);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "ChatImageOrchestrator: Kontext auto-download selhal, padám na klasický img2img");
+                return null;
+            }
+
+            if (!_kontext.IsAvailable(modelsDir))
+            {
+                Log.Information("ChatImageOrchestrator: Kontext stále nedostupný po download pokusu, padám na img2img");
+                return null;
+            }
+        }
+
+        // Reference nahrajeme do ComfyUI a postavíme Kontext workflow
+        string uploadedRef;
+        try
+        {
+            uploadedRef = await _comfy.UploadImageAsync(referenceImagePath, ct);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ChatImageOrchestrator: upload reference pro Kontext selhal, padám na img2img");
+            return null;
+        }
+
+        stageProgress?.Report(ChatImageGenStage.Generating);
+
+        var (steps, guidance) = ComfyWorkflowBuilder.KontextDefaults;
+        var seed     = Random.Shared.NextInt64();
+        var workflow = ComfyWorkflowBuilder.BuildFluxKontext(
+            _kontext.UnetFileName,
+            ComfyWorkflowBuilder.DefaultFluxClipL,
+            ComfyWorkflowBuilder.DefaultFluxT5,
+            ComfyWorkflowBuilder.DefaultFluxVae,
+            uploadedRef, intent.EnglishPrompt, steps, guidance, seed);
+
+        Log.Information("ChatImageOrchestrator: Kontext editace (UNET={Unet})", _kontext.UnetFileName);
+
+        // Rozměry výstupu řeší FluxKontextImageScale za běhu — pro metadata galerie
+        // je předem neznáme, dáme 0 (uživatelsky nepodstatné).
+        return await QueueAndFinishAsync(
+            workflow, intent, "FLUX.1 Kontext",
+            seed, width: 0, height: 0, steps: steps, cfg: 1.0,
+            sampler:   ComfyWorkflowBuilder.DefaultSamplerFlux,
+            scheduler: ComfyWorkflowBuilder.DefaultSchedulerFlux,
+            progress, ct);
+    }
 
     /// <summary>
     /// Mapuje aspect na konkrétní rozlišení. SD/SDXL = 1024×*, FLUX = 1024×*
