@@ -1457,29 +1457,9 @@ public partial class ChatPageViewModel : ViewModelBase
 
     private string GetModelPath(string modelName)
     {
-        var custom    = _settings.Settings.ModelsDirectory;
-        var modelsDir = string.IsNullOrWhiteSpace(custom)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                           "AIStudio", "Models")
-            : custom;
-
-        if (ModelFileNames.TryGetValue(modelName, out var fileName))
-        {
-            var exact = Path.Combine(modelsDir, fileName);
-            if (File.Exists(exact)) return exact;
-        }
-
-        if (Directory.Exists(modelsDir))
-        {
-            var safe  = modelName.Replace(" ", "_").Replace("/", "_");
-            var found = Directory.EnumerateFiles(modelsDir, "*.gguf", SearchOption.AllDirectories)
-                .FirstOrDefault(f => Path.GetFileNameWithoutExtension(f)
-                    .Contains(safe, StringComparison.OrdinalIgnoreCase));
-            if (found is not null) return found;
-        }
-
-        return Path.Combine(modelsDir,
-            ModelFileNames.GetValueOrDefault(modelName, $"{modelName}.gguf"));
+        var modelsDir = AIStudio.Core.Services.AppPaths.ResolveModelsDirectory(
+            _settings.Settings.ModelsDirectory);
+        return ModelPathResolver.Resolve(modelsDir, modelName);
     }
 
     // ── Auto-rename ────────────────────────────────────────────────────────────
