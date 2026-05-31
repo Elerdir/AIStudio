@@ -1256,50 +1256,28 @@ public partial class ChatPageViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Sestaví historii zpráv pro LlamaSharp.
-    /// Pořadí: systémový prompt → zprávy konverzace bez posledního (asistentský placeholder).
+    /// Sestaví historii zpráv pro LlamaSharp. Mapuje UI typy (ChatMessage) na
+    /// primitivy a deleguje na <see cref="AIStudio.Core.Services.ChatPromptBuilder"/>
+    /// (pure logika system promptu + Qwen3 thinking, unit-testovaná v Core).
+    /// Pořadí: systémový prompt → zprávy konverzace bez posledního (placeholder).
     /// </summary>
     private List<(string Role, string Content)> BuildHistory(ConversationViewModel conv)
     {
-        var history = new List<(string Role, string Content)>();
+        var prior = conv.Messages
+            .Take(conv.Messages.Count - 1)
+            .Select(m => (RoleToString(m.Role), m.Content));
 
-        // Systémový prompt: vlastní per-konverzaci prompt má přednost před výchozím
-        var sysPrompt = string.IsNullOrWhiteSpace(conv.SystemPrompt)
-            ? GetDefaultSystemPrompt()
-            : conv.SystemPrompt;
-
-        // Qwen3 thinking mode: /no_think zakáže interní přemýšlení (kratší odpovědi, rychlejší)
-        if (IsQwen3Model(conv.SelectedModelName) && !conv.IsThinkingEnabled)
-            sysPrompt = "/no_think\n" + sysPrompt;
-
-        if (!string.IsNullOrEmpty(sysPrompt))
-            history.Add(("system", sysPrompt));
-
-        // Zprávy konverzace — vše kromě posledního assistant placeholderu
-        foreach (var msg in conv.Messages.Take(conv.Messages.Count - 1))
-        {
-            if (msg.Role is not (MessageRole.User or MessageRole.Assistant or MessageRole.System))
-                Log.Warning("BuildHistory: neznámá role {Role} u zprávy {Id}, fallback na 'user'",
-                    msg.Role, msg.Id);
-
-            var role = msg.Role switch
-            {
-                MessageRole.User      => "user",
-                MessageRole.Assistant => "assistant",
-                MessageRole.System    => "system",
-                _                     => "user"
-            };
-            history.Add((role, msg.Content));
-        }
-
-        return history;
+        return AIStudio.Core.Services.ChatPromptBuilder.BuildHistory(
+            conv.SystemPrompt, conv.SelectedModelName, conv.IsThinkingEnabled, prior);
     }
 
-    private static bool IsQwen3Model(string name) =>
-        name.Contains("qwen3", StringComparison.OrdinalIgnoreCase);
-
-    private static string GetDefaultSystemPrompt() =>
-        "Jsi AI asistent. Odpovídáš přesně, stručně a v jazyce uživatele.";
+    private static string RoleToString(MessageRole role) => role switch
+    {
+        MessageRole.User      => "user",
+        MessageRole.Assistant => "assistant",
+        MessageRole.System    => "system",
+        _                     => "user",
+    };
 
     // ── Clear conversation ────────────────────────────────────────────────────
 
