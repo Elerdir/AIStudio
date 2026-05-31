@@ -55,6 +55,10 @@
     <Compile Remove="Services\SystemMonitorService.cs" />
     <!-- Soubor stále ComfyInstaller.cs (class přejmenována v Phase A.3) -->
     <Compile Remove="Services\ComfyInstaller.cs" />
+    <!-- LibreHardwareMonitor wrappery — LHM je Windows-only balíček, na non-Windows
+         by tyto soubory neměly typy (CS0246). DI je registruje jen na Windows. -->
+    <Compile Remove="Services\WindowsGpuMemoryProbe.cs" />
+    <Compile Remove="Services\WindowsLiveGpuMonitor.cs" />
   </ItemGroup>
 
   <!-- macOS-specifické implementace mají [SupportedOSPlatform("macos")]
