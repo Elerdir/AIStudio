@@ -47,7 +47,7 @@ public sealed class LlamaVisionService : IVisionService
     private volatile bool   _isBusy;
     private volatile bool   _isDownloading;
     private volatile string _statusLine = string.Empty;
-    private int _runningFlag;
+    private readonly SemaphoreSlim _downloadLock = new(1, 1);
 
     public LlamaVisionService(IDownloadService downloader) => _downloader = downloader;
 
@@ -73,15 +73,13 @@ public sealed class LlamaVisionService : IVisionService
         if (string.IsNullOrWhiteSpace(modelsDir)) return;
         if (IsModelAvailable(modelsDir)) return;
 
-        if (Interlocked.CompareExchange(ref _runningFlag, 1, 0) != 0)
-        {
-            Log.Debug("LlamaVisionService.EnsureModelAsync: stahování již probíhá, přeskakuji");
-            return;
-        }
-
-        _isDownloading = true;
+        // Souběžné volání počká na probíhající stahování (ne skip → fallback).
+        await _downloadLock.WaitAsync(ct);
         try
         {
+            if (IsModelAvailable(modelsDir)) return;   // mezitím dostáhl jiný caller
+
+            _isDownloading = true;
             var dir = Path.Combine(modelsDir, Subdir);
             Directory.CreateDirectory(dir);
 
@@ -93,7 +91,7 @@ public sealed class LlamaVisionService : IVisionService
         {
             _isDownloading = false;
             _statusLine    = string.Empty;
-            Interlocked.Exchange(ref _runningFlag, 0);
+            _downloadLock.Release();
         }
     }
 

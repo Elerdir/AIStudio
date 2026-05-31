@@ -201,16 +201,21 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
             var sampler   = isFlux ? ComfyWorkflowBuilder.DefaultSamplerFlux   : ComfyWorkflowBuilder.DefaultSamplerSd;
             var scheduler = isFlux ? ComfyWorkflowBuilder.DefaultSchedulerFlux : ComfyWorkflowBuilder.DefaultSchedulerSd;
 
+            // Fallback img2img denoise — tohle běží jen když se NEpoužil Kontext
+            // (ten je primární pro editaci). V chatu reference = editace, takže
+            // nízký denoise (0.45) ZACHOVÁ vstupní fotku a jen ji posune dle promptu.
+            // Dřív 0.78 = skoro regenerace z promptu → vznikal nesouvisející obrázek.
+            const double EditDenoise = 0.45;
             var workflow = (isFlux, uploadedRef) switch
             {
                 (true,  null)        => ComfyWorkflowBuilder.BuildFlux(model, intent.EnglishPrompt,
                                           width, height, steps, cfg, seed, 1, sampler, scheduler),
                 (true,  string r)    => ComfyWorkflowBuilder.BuildFluxImg2Img(model, r, intent.EnglishPrompt,
-                                          width, height, steps, cfg, seed, denoise: 0.78, 1, sampler, scheduler),
+                                          width, height, steps, cfg, seed, denoise: EditDenoise, 1, sampler, scheduler),
                 (false, null)        => ComfyWorkflowBuilder.BuildStandard(model, intent.EnglishPrompt, intent.NegativePrompt,
                                           width, height, steps, cfg, seed, 1, sampler, scheduler),
                 (false, string r)    => ComfyWorkflowBuilder.BuildStandardImg2Img(model, r, intent.EnglishPrompt, intent.NegativePrompt,
-                                          width, height, steps, cfg, seed, denoise: 0.78, 1, sampler, scheduler),
+                                          width, height, steps, cfg, seed, denoise: EditDenoise, 1, sampler, scheduler),
             };
 
             // 5–7) Queue → wait → download → uložit do galerie (sdíleno s Kontext cestou)

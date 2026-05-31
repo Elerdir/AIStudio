@@ -26,7 +26,7 @@ public sealed class KontextDependencyService : IKontextService
 
     private volatile bool   _isDownloading;
     private volatile string _statusLine = string.Empty;
-    private int _runningFlag; // 0 = idle, 1 = running
+    private readonly SemaphoreSlim _downloadLock = new(1, 1);
 
     public KontextDependencyService(IDownloadService downloader, IFluxDependencyService fluxDeps)
     {
@@ -59,16 +59,16 @@ public sealed class KontextDependencyService : IKontextService
         if (string.IsNullOrWhiteSpace(modelsDir)) return;
         if (IsAvailable(modelsDir)) return;
 
-        // Brání souběžnému dvojitému spuštění (uživatel pošle 2 edity rychle po sobě)
-        if (Interlocked.CompareExchange(ref _runningFlag, 1, 0) != 0)
-        {
-            Log.Debug("KontextDependencyService.EnsureAsync: stahování již probíhá, přeskakuji");
-            return;
-        }
-
-        _isDownloading = true;
+        // Souběžné volání NEpřeskakujeme — POČKÁME na probíhající stahování a pak
+        // (až je model k dispozici) se vrátíme. Dřív druhý edit guard přeskočil,
+        // IsAvailable zůstal false a generování spadlo na destruktivní fallback
+        // img2img, který ignoruje vstupní fotku (vygeneroval nesouvisející obrázek).
+        await _downloadLock.WaitAsync(ct);
         try
         {
+            if (IsAvailable(modelsDir)) return;   // mezitím dostáhl jiný caller
+
+            _isDownloading = true;
             // 1) Sdílené FLUX závislosti (clip_l, t5, ae) — reuse existující služby
             if (!_fluxDeps.AreDependenciesPresent(modelsDir))
             {
@@ -122,7 +122,7 @@ public sealed class KontextDependencyService : IKontextService
         {
             _isDownloading = false;
             _statusLine    = string.Empty;
-            Interlocked.Exchange(ref _runningFlag, 0);
+            _downloadLock.Release();
         }
     }
 
