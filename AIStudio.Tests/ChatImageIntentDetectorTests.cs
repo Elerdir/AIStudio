@@ -22,6 +22,33 @@ public class ChatImageIntentDetectorTests
                  .Should().Be(ChatImageIntent.Chat);
     }
 
+    // ── IsImageQuestion — routing přílohy: otázka (vision) vs editace ─────────
+
+    [Theory]
+    [InlineData("Co je na téhle fotce?")]
+    [InlineData("co vidíš na obrázku")]
+    [InlineData("popiš mi tenhle obrázek")]
+    [InlineData("Přečti text z obrázku")]
+    [InlineData("Kolik je tam lidí?")]
+    [InlineData("jaké barvy převažují")]
+    [InlineData("what is this")]
+    [InlineData("describe the image")]
+    [InlineData("how many cats are there?")]
+    public void IsImageQuestion_Questions_True(string message) =>
+        _detector.IsImageQuestion(message).Should().BeTrue();
+
+    [Theory]
+    [InlineData("udělej ji černobílou")]          // regrese: tohle padalo do vision
+    [InlineData("přidej mu klobouk")]
+    [InlineData("změň pozadí na les")]
+    [InlineData("udělej z toho noční scénu")]
+    [InlineData("vylepši kvalitu")]
+    [InlineData("make it black and white")]
+    [InlineData("add a red hat")]
+    [InlineData("")]
+    public void IsImageQuestion_EditInstructions_False(string message) =>
+        _detector.IsImageQuestion(message).Should().BeFalse();
+
     // ── Silná slovesa stačí sama (nakresli, namaluj, draw, paint) ─────────────
 
     [Theory]

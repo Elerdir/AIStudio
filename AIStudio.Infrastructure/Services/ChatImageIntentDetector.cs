@@ -98,6 +98,49 @@ public sealed class ChatImageIntentDetector : IChatImageIntentDetector
         "instead", "now with", "again but",
     };
 
+    // Tázací slova — pokud jimi zpráva ZAČÍNÁ, jde skoro jistě o otázku.
+    // (Uprostřed věty je nehodnotíme, ať „udělej z toho co nejlepší kvalitu"
+    // nespadne falešně do otázky kvůli slovu „co".)
+    private static readonly string[] QuestionStartWords =
+    {
+        // CZ
+        "co", "kdo", "kde", "kdy", "kolik", "proč", "proc", "jak", "jaký", "jaka", "jaká",
+        "jaké", "jake", "jakou", "jakého", "jakeho", "čí", "ci", "který", "ktery", "která",
+        "ktera", "které", "ktere", "kterou", "umíš", "umis", "můžeš", "muzes", "dokážeš", "dokazes",
+        // EN
+        "what", "whats", "who", "where", "when", "why", "how", "which", "whose",
+        "is", "are", "can", "could", "does", "do", "describe", "tell",
+    };
+
+    // Popisné fráze/slovesa kdekoliv ve zprávě — jasná žádost o porozumění obrázku.
+    private static readonly string[] QuestionPhrases =
+    {
+        // CZ
+        "popiš", "popis", "popsat", "přečti", "precti", "přečíst", "precist", "co je na",
+        "co je to", "co to je", "co vidíš", "co vidis", "co je v", "identifikuj", "rozpoznej",
+        "vysvětli", "vysvetli", "analyzuj", "co znamená", "co znamena", "kolik je", "co obsahuje",
+        // EN
+        "describe", "what is", "what's", "whats in", "how many", "read this", "read the",
+        "identify", "explain", "tell me", "what do you see", "can you see",
+    };
+
+    public bool IsImageQuestion(string userMessage)
+    {
+        if (string.IsNullOrWhiteSpace(userMessage)) return false;
+
+        var lower = userMessage.ToLowerInvariant().TrimStart();
+
+        // Otazník = jednoznačná otázka
+        if (lower.Contains('?')) return true;
+
+        // Popisné fráze kdekoliv
+        if (ContainsAnyWord(lower, QuestionPhrases)) return true;
+
+        // Tázací slovo na ZAČÁTKU zprávy
+        var firstWord = new string(lower.TakeWhile(char.IsLetter).ToArray());
+        return !string.IsNullOrEmpty(firstWord) && Array.IndexOf(QuestionStartWords, firstWord) >= 0;
+    }
+
     public ChatImageIntent Detect(string userMessage, bool lastAssistantHadImage)
     {
         if (string.IsNullOrWhiteSpace(userMessage))

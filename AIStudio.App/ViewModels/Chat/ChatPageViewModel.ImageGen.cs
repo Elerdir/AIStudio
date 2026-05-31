@@ -89,10 +89,15 @@ public partial class ChatPageViewModel
             ChatImageMode.ForceImage => (lastHadImage || hasAttachment)
                 ? ChatImageIntent.EditPreviousImage
                 : ChatImageIntent.GenerateImage,
-            // Auto: necháme rozhodnout keyword detektor. Příloha zapne edit-detekci
-            // (lastHadImage=true), takže „uprav na noc" → editace (Kontext/img2img),
-            // ale „co je na fotce?" → Chat → SendMessageAsync to pošle do vision LLM.
-            _ /* Auto */             => _imageIntent.Detect(userText, lastHadImage || hasAttachment),
+            // Auto: u přílohy je default EDITACE (imperativ „udělej černobílou",
+            // „přidej klobouk"…) — do vision (Chat) jdeme JEN u jasné otázky
+            // („co je na fotce?", „popiš"). Bez přílohy rozhoduje běžný keyword
+            // detektor (generování od nuly).
+            _ /* Auto */ when hasAttachment =>
+                _imageIntent.IsImageQuestion(userText)
+                    ? ChatImageIntent.Chat
+                    : ChatImageIntent.EditPreviousImage,
+            _ /* Auto */             => _imageIntent.Detect(userText, lastHadImage),
         };
     }
 

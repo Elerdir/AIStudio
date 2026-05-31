@@ -21,4 +21,12 @@ public interface IChatImageIntentDetector
     /// barvu"), vrátí <see cref="ChatImageIntent.EditPreviousImage"/>.
     /// </summary>
     ChatImageIntent Detect(string userMessage, bool lastAssistantHadImage);
+
+    /// <summary>
+    /// True pokud zpráva vypadá jako OTÁZKA o obrázku / žádost o popis (ne instrukce
+    /// k editaci). Slouží k routingu přílohy: otázka → vision LLM („co je na fotce"),
+    /// cokoliv jiného (imperativ) → editace („udělej ji černobílou"). Heuristika přes
+    /// otazník, tázací slovo na začátku a popisná slovesa.
+    /// </summary>
+    bool IsImageQuestion(string userMessage);
 }
