@@ -204,35 +204,8 @@ public sealed class BlipCaptionService : ILoraCaptionService
         IProgress<CaptionProgress>? progress,
         CancellationToken           ct)
     {
-        var psi = new ProcessStartInfo
+        void Handle(string line)
         {
-            FileName               = pythonExe,
-            Arguments              = $"\"{scriptPath}\"",
-            WorkingDirectory       = workDir,
-            UseShellExecute        = false,
-            CreateNoWindow         = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError  = true,
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding  = Encoding.UTF8,
-        };
-        psi.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
-        psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
-        psi.EnvironmentVariables["PYTHONUTF8"]       = "1";
-
-        using var p = new Process { StartInfo = psi };
-
-        var tail = new System.Collections.Generic.Queue<string>(64);
-        void Capture(string line)
-        {
-            lock (tail) { if (tail.Count >= 64) tail.Dequeue(); tail.Enqueue(line); }
-        }
-
-        void Handle(string? line)
-        {
-            if (string.IsNullOrEmpty(line)) return;
-            Capture(line);
-
             // Chybové/diagnostické řádky na Warning, ať jsou vidět
             if (line.StartsWith("IMPORT_ERROR", StringComparison.Ordinal) ||
                 line.StartsWith("ERR ", StringComparison.Ordinal) ||
@@ -257,34 +230,26 @@ public sealed class BlipCaptionService : ILoraCaptionService
             }
         }
 
-        p.OutputDataReceived += (_, e) => Handle(e.Data);
-        p.ErrorDataReceived  += (_, e) => Handle(e.Data);
+        var result = await ProcessRunner.RunAsync(
+            new ProcessRunOptions
+            {
+                FileName         = pythonExe,
+                Arguments        = $"\"{scriptPath}\"",
+                WorkingDirectory = workDir,
+                TailSize         = 64,
+            },
+            onLine: Handle,
+            ct:     ct);
 
-        p.Start();
-        p.BeginOutputReadLine();
-        p.BeginErrorReadLine();
-
-        try { await p.WaitForExitAsync(ct); }
-        catch (OperationCanceledException)
+        if (!result.Success)
         {
-            try { if (!p.HasExited) p.Kill(entireProcessTree: true); } catch { }
-            throw;
-        }
-
-        List<string> tailSnapshot;
-        lock (tail) tailSnapshot = tail.ToList();
-
-        if (p.ExitCode != 0)
-        {
-            var tailText = tailSnapshot.Count > 0
-                ? "\nVýstup:\n" + string.Join('\n', tailSnapshot)
-                : string.Empty;
-            Log.Warning("BlipCaptionService: skript exit code {Code}.{Tail}", p.ExitCode, tailText);
+            var tailText = result.TailLines.Count > 0 ? "\nVýstup:\n" + result.TailText : string.Empty;
+            Log.Warning("BlipCaptionService: skript exit code {Code}.{Tail}", result.ExitCode, tailText);
             throw new InvalidOperationException(
-                $"Captioning skript selhal (exit code {p.ExitCode}).{tailText}");
+                $"Captioning skript selhal (exit code {result.ExitCode}).{tailText}");
         }
 
-        return tailSnapshot;
+        return result.TailLines;
     }
 
     private static string Truncate(string s, int max) =>

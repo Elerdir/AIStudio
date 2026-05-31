@@ -386,9 +386,9 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
     };
 
     /// <summary>
-    /// Spustí Python subprocess, parsuje progress, drží ring buffer posledních
-    /// řádků pro diagnostiku, eskaluje chybové řádky na Warning level.
-    /// Vrací (exitCode, tailLines).
+    /// Spustí Python subprocess přes <see cref="ProcessRunner"/>, parsuje progress
+    /// a eskaluje chybové řádky na Warning level. Tail buffer + UTF-8 + cancellation
+    /// řeší ProcessRunner. Vrací (exitCode, tailLines).
     /// </summary>
     private async Task<(int ExitCode, IReadOnlyList<string> Tail)> RunTrainingProcessAsync(
         string                            pythonExe,
@@ -400,57 +400,12 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         IProgress<LoraTrainingProgress>?  progress,
         CancellationToken                 ct)
     {
-        var psi = new ProcessStartInfo
+        void HandleLine(string line)
         {
-            FileName               = pythonExe,
-            Arguments              = args,
-            WorkingDirectory       = sdScriptsDir,
-            UseShellExecute        = false,
-            CreateNoWindow         = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError  = true,
-            // UTF-8 čtení v C# — sd-scripts tiskne japonské/čínské/korejské
-            // řetězce (学習開始 atd.), které by default Windows codepage nedekódovala.
-            StandardOutputEncoding = Encoding.UTF8,
-            StandardErrorEncoding  = Encoding.UTF8,
-        };
-        // PYTHONUNBUFFERED=1 → tqdm progress flushuje real-time, jinak by se output
-        // zobrazoval jen po dokončení (buffered).
-        psi.EnvironmentVariables["PYTHONUNBUFFERED"] = "1";
-        // KRITICKÉ: PYTHONIOENCODING + PYTHONUTF8 donutí Python psát stdout/stderr
-        // v UTF-8. Bez toho sd-scripts spadne na UnicodeEncodeError při tisku
-        // japonských stringů (学習開始 = „začátek tréninku"), protože default
-        // stdout encoding je Windows locale codepage (cp1250 na české Windows),
-        // která tyto znaky neumí. Byli jsme krok od startu tréninku.
-        psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
-        psi.EnvironmentVariables["PYTHONUTF8"]       = "1";
-
-        using var p = new Process { StartInfo = psi };
-
-        // Ring buffer posledních ~50 řádků pro post-mortem diagnostiku. Pokud
-        // subprocess spadne, vrátíme tail caller-u jako součást error zprávy.
-        var tail = new Queue<string>(TailBufferSize);
-        var tailLock = new object();
-
-        void Capture(string line)
-        {
-            lock (tailLock)
-            {
-                if (tail.Count >= TailBufferSize) tail.Dequeue();
-                tail.Enqueue(line);
-            }
-        }
-
-        void HandleLine(string? line)
-        {
-            if (string.IsNullOrEmpty(line)) return;
-
             OutputLog?.Invoke(line);
-            Capture(line);
 
             // Eskalace logging level pro chybové řádky — bez toho byl Debug výpis
-            // tichý při Serilog Information minimum a uživatel viděl jen
-            // „exit code N", nic víc.
+            // tichý při Serilog Information minimum a uživatel viděl jen „exit code N".
             var lower = line.ToLowerInvariant();
             if (ErrorKeywords.Any(k => lower.Contains(k)))
                 Log.Warning("[sd-scripts] {Line}", line);
@@ -473,26 +428,17 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
                 $"Krok {step} / {total}" + (loss.HasValue ? $" (loss {loss:F4})" : "")));
         }
 
-        p.OutputDataReceived += (_, e) => HandleLine(e.Data);
-        // sd-scripts tqdm bary chodí typicky do stderr — taky parsujeme
-        p.ErrorDataReceived  += (_, e) => HandleLine(e.Data);
+        var result = await ProcessRunner.RunAsync(
+            new ProcessRunOptions
+            {
+                FileName         = pythonExe,
+                Arguments        = args,
+                WorkingDirectory = sdScriptsDir,
+                TailSize         = TailBufferSize,
+            },
+            onLine: HandleLine,
+            ct:     ct);
 
-        p.Start();
-        p.BeginOutputReadLine();
-        p.BeginErrorReadLine();
-
-        try
-        {
-            await p.WaitForExitAsync(ct);
-        }
-        catch (OperationCanceledException)
-        {
-            try { if (!p.HasExited) p.Kill(entireProcessTree: true); } catch { }
-            throw;
-        }
-
-        List<string> tailSnapshot;
-        lock (tailLock) tailSnapshot = tail.ToList();
-        return (p.ExitCode, tailSnapshot);
+        return (result.ExitCode, result.TailLines);
     }
 }

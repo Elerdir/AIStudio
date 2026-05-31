@@ -270,58 +270,38 @@ public sealed class LoraTrainerDependencyService : ILoraTrainerDependencyService
         var args = "-m pip install --upgrade --no-warn-script-location " +
                    string.Join(" ", packages.Select(p => $"\"{p}\""));
 
-        var psi = new ProcessStartInfo
+        void OnLine(string line)
         {
-            FileName               = pythonExe,
-            Arguments              = args,
-            UseShellExecute        = false,
-            CreateNoWindow         = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError  = true,
-        };
-
-        using var p = new Process { StartInfo = psi };
-        var stderr = new System.Text.StringBuilder();
-        p.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data is null) return;
-            Log.Information("[pip] {Line}", e.Data);
+            Log.Information("[pip] {Line}", line);
             // Heuristika: "Collecting X" / "Installing collected packages: X"
-            // → vrátíme uživateli aktuální stage
-            if (e.Data.StartsWith("Collecting ", StringComparison.Ordinal) ||
-                e.Data.StartsWith("Installing ", StringComparison.Ordinal) ||
-                e.Data.StartsWith("Downloading ", StringComparison.Ordinal))
+            // / "Downloading X" → vrátíme uživateli aktuální stage do UI.
+            if (line.StartsWith("Collecting ", StringComparison.Ordinal) ||
+                line.StartsWith("Installing ", StringComparison.Ordinal) ||
+                line.StartsWith("Downloading ", StringComparison.Ordinal))
             {
-                progress?.Report(new LoraTrainerInstallProgress(e.Data.Trim(), null));
+                progress?.Report(new LoraTrainerInstallProgress(line.Trim(), null));
             }
-        };
-        p.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data is null) return;
-            stderr.AppendLine(e.Data);
-            Log.Warning("[pip-err] {Line}", e.Data);
-        };
-
-        p.Start();
-        p.BeginOutputReadLine();
-        p.BeginErrorReadLine();
-
-        try
-        {
-            await p.WaitForExitAsync(ct);
-        }
-        catch (OperationCanceledException)
-        {
-            try { if (!p.HasExited) p.Kill(true); } catch { }
-            throw;
         }
 
-        if (p.ExitCode != 0)
+        // Pip nepotřebuje UTF-8 Python env (output je ASCII), ale tail buffer
+        // z ProcessRunneru nám dá diagnostiku při selhání.
+        var result = await ProcessRunner.RunAsync(
+            new ProcessRunOptions
+            {
+                FileName   = pythonExe,
+                Arguments  = args,
+                Utf8Python = false,
+                TailSize   = 40,
+            },
+            onLine: OnLine,
+            ct:     ct);
+
+        if (!result.Success)
         {
-            var msg = stderr.ToString().Trim();
+            var tail = result.TailText;
             throw new InvalidOperationException(
-                $"pip install selhal (exit code {p.ExitCode}). Detail v logu. " +
-                (string.IsNullOrEmpty(msg) ? "" : $"Stderr: {msg[..Math.Min(msg.Length, 300)]}"));
+                $"pip install selhal (exit code {result.ExitCode}). Detail v logu. " +
+                (string.IsNullOrEmpty(tail) ? "" : $"Konec výstupu: {tail[..Math.Min(tail.Length, 400)]}"));
         }
     }
 
@@ -355,32 +335,18 @@ public sealed class LoraTrainerDependencyService : ILoraTrainerDependencyService
     {
         try
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName               = "git",
-                Arguments              = $"clone --depth 1 \"{SdScriptsRepoUrl}\" \"{SdScriptsRoot}\"",
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-            };
-            using var p = new Process { StartInfo = psi };
+            var result = await ProcessRunner.RunAsync(
+                new ProcessRunOptions
+                {
+                    FileName   = "git",
+                    Arguments  = $"clone --depth 1 \"{SdScriptsRepoUrl}\" \"{SdScriptsRoot}\"",
+                    Utf8Python = false,
+                    TailSize   = 20,
+                },
+                onLine: line => Log.Information("[git] {Line}", line),
+                ct:     ct);
 
-            p.OutputDataReceived += (_, e) => { if (e.Data is not null) Log.Information("[git] {Line}", e.Data); };
-            p.ErrorDataReceived  += (_, e) => { if (e.Data is not null) Log.Information("[git] {Line}", e.Data); };
-
-            p.Start();
-            p.BeginOutputReadLine();
-            p.BeginErrorReadLine();
-
-            try { await p.WaitForExitAsync(ct); }
-            catch (OperationCanceledException)
-            {
-                try { if (!p.HasExited) p.Kill(true); } catch { }
-                throw;
-            }
-
-            if (p.ExitCode == 0 &&
+            if (result.Success &&
                 File.Exists(Path.Combine(SdScriptsRoot, "sdxl_train_network.py")))
             {
                 progress?.Report(new LoraTrainerInstallProgress("sd-scripts naklonováno", 90));
@@ -389,7 +355,7 @@ public sealed class LoraTrainerDependencyService : ILoraTrainerDependencyService
 
             // Klonování selhalo — uklidíme polovičatou složku ať fallback může začít
             try { if (Directory.Exists(SdScriptsRoot)) Directory.Delete(SdScriptsRoot, recursive: true); }
-            catch { }
+            catch (Exception ex) { Log.Debug(ex, "LoraTrainerDependency: úklid po neúspěšném git clone"); }
             return false;
         }
         catch (System.ComponentModel.Win32Exception)
