@@ -365,6 +365,11 @@ public partial class ChatPageViewModel
                 }
             }));
 
+        // KRITICKÉ: načti chat LLM, aby SmartParser přeložil český popis na anglický
+        // prompt pro FLUX. Bez toho parser propadne na fallback a scéna („na pláži")
+        // se ztratí — vznikne osoba, ale ne v požadovaném prostředí.
+        await TryEnsureChatLlmForImageParserAsync(conv, placeholder, ct);
+
         var result = await _imageOrch.GeneratePersonAsync(
             userText, faceImagePath, progress: null, ct,
             downloadProgress: downloadProgress, stageProgress: stageProgress);
