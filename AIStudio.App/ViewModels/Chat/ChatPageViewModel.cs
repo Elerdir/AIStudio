@@ -741,27 +741,13 @@ public partial class ChatPageViewModel : ViewModelBase
         var clipboard = Avalonia.Controls.TopLevel.GetTopLevel(win)?.Clipboard;
         if (clipboard is null) return;
 
-        // Plain text: každá zpráva ve formátu „Role: obsah" oddělená prázdným řádkem.
-        // Pro export do MD/TXT existuje samostatný command — tohle je rychlá varianta
-        // pro paste třeba do Slacku / Notion / mailu.
-        var sb = new StringBuilder();
-        foreach (var m in conv.Messages)
-        {
-            var roleLabel = m.Role switch
-            {
-                MessageRole.User      => "Já",
-                MessageRole.Assistant => "Asistent",
-                MessageRole.System    => "Systém",
-                _                     => "?"
-            };
-            sb.AppendLine($"{roleLabel}:");
-            sb.AppendLine(m.Content);
-            sb.AppendLine();
-        }
+        // Pure formátování v Core.ConversationExporter (testovatelné). Pro export
+        // do MD/TXT existuje samostatný command — tohle je rychlá clipboard varianta.
+        var text = AIStudio.Core.Services.ConversationExporter.ToClipboardText(ToExportMessages(conv));
 
         try
         {
-            await clipboard.SetTextAsync(sb.ToString().TrimEnd());
+            await clipboard.SetTextAsync(text);
             IsConversationCopied = true;
             await Task.Delay(1500);
             IsConversationCopied = false;
@@ -787,7 +773,7 @@ public partial class ChatPageViewModel : ViewModelBase
         var result = await win.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
             Title             = "Exportovat konverzaci",
-            SuggestedFileName = SanitizeFileName(conv.Title),
+            SuggestedFileName = AIStudio.Core.Services.ConversationExporter.SanitizeFileName(conv.Title),
             DefaultExtension  = "md",
             FileTypeChoices =
             [
@@ -798,89 +784,26 @@ public partial class ChatPageViewModel : ViewModelBase
 
         if (result is null) return;
 
-        var path    = result.Path.LocalPath;
-        var isMd    = path.EndsWith(".md", StringComparison.OrdinalIgnoreCase);
-        var content = isMd ? BuildMarkdownExport(conv) : BuildTextExport(conv);
+        var path     = result.Path.LocalPath;
+        var isMd     = path.EndsWith(".md", StringComparison.OrdinalIgnoreCase);
+        var messages = ToExportMessages(conv);
+        var now      = DateTime.Now;
+
+        var content = isMd
+            ? AIStudio.Core.Services.ConversationExporter.ToMarkdown(
+                conv.Title, conv.SelectedModelName, conv.SystemPrompt, now, messages)
+            : AIStudio.Core.Services.ConversationExporter.ToPlainText(
+                conv.Title, conv.SelectedModelName, conv.SystemPrompt, now, messages);
 
         await File.WriteAllTextAsync(path, content, Encoding.UTF8);
     }
 
-    private static string BuildMarkdownExport(ConversationViewModel conv)
-    {
-        var sb  = new StringBuilder();
-        var now = DateTime.Now;
-
-        sb.AppendLine($"# {conv.Title}");
-        sb.AppendLine();
-        sb.AppendLine($"**Model:** {conv.SelectedModelName}  ");
-        sb.AppendLine($"**Exportováno:** {now:d. M. yyyy HH:mm}");
-        sb.AppendLine();
-
-        if (!string.IsNullOrEmpty(conv.SystemPrompt))
-        {
-            sb.AppendLine("## Systémový prompt");
-            sb.AppendLine();
-            sb.AppendLine(conv.SystemPrompt.TrimEnd());
-            sb.AppendLine();
-        }
-
-        foreach (var msg in conv.Messages)
-        {
-            sb.AppendLine("---");
-            sb.AppendLine();
-
-            var roleLabel = msg.Role == MessageRole.User
-                ? $"### 👤 Uživatel · {msg.Timestamp:HH:mm}"
-                : $"### 🤖 Asistent · {msg.Timestamp:HH:mm}";
-
-            sb.AppendLine(roleLabel);
-            sb.AppendLine();
-            sb.AppendLine(msg.Content.TrimEnd());
-            sb.AppendLine();
-        }
-
-        return sb.ToString();
-    }
-
-    private static string BuildTextExport(ConversationViewModel conv)
-    {
-        var sb   = new StringBuilder();
-        var line = new string('═', 72);
-        var div  = new string('─', 72);
-        var now  = DateTime.Now;
-
-        sb.AppendLine($"Chat:        {conv.Title}");
-        sb.AppendLine($"Model:       {conv.SelectedModelName}");
-        sb.AppendLine($"Exportováno: {now:d. M. yyyy HH:mm}");
-        sb.AppendLine(line);
-        sb.AppendLine();
-
-        if (!string.IsNullOrEmpty(conv.SystemPrompt))
-        {
-            sb.AppendLine("[Systémový prompt]");
-            sb.AppendLine(div);
-            sb.AppendLine(conv.SystemPrompt.TrimEnd());
-            sb.AppendLine();
-        }
-
-        foreach (var msg in conv.Messages)
-        {
-            var roleLabel = msg.Role == MessageRole.User ? "Uživatel" : "Asistent";
-            sb.AppendLine($"[{roleLabel}]  {msg.Timestamp:HH:mm}");
-            sb.AppendLine(div);
-            sb.AppendLine(msg.Content.TrimEnd());
-            sb.AppendLine();
-        }
-
-        return sb.ToString();
-    }
-
-    private static string SanitizeFileName(string title)
-    {
-        var invalid = Path.GetInvalidFileNameChars();
-        var safe    = new string(title.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
-        return safe.Length > 60 ? safe[..60] : safe;
-    }
+    /// <summary>Mapuje UI ChatMessage na primitivní ExportMessage pro Core exportér.</summary>
+    private static List<AIStudio.Core.Services.ExportMessage> ToExportMessages(ConversationViewModel conv) =>
+        conv.Messages
+            .Select(m => new AIStudio.Core.Services.ExportMessage(
+                RoleToString(m.Role), m.Content, m.Timestamp))
+            .ToList();
 
     // ── Send message ──────────────────────────────────────────────────────────
 
