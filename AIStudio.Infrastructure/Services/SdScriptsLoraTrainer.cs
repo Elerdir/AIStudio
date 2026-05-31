@@ -37,9 +37,12 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
     /// <summary>
     /// Regex pro progress řádek z sd-scripts tqdm baru.
     /// Matchuje <c>525/1500</c> a optional <c>avr_loss=0.123</c>.
+    /// POZOR: tqdm dává postfix (avr_loss) DOVNITŘ hranatých závorek
+    /// (<c>[02:14&lt;04:09, 3.91it/s, avr_loss=0.123]</c>), proto se loss
+    /// zachytává před koncovým <c>]</c>, ne za ním.
     /// </summary>
     private static readonly Regex ProgressLineRegex = new(
-        @"steps:\s+\d+%.*?\|\s*(\d+)/(\d+)\s*\[(.*?)\](?:.*?avr_loss=([0-9.eE+\-]+))?",
+        @"steps:\s+\d+%.*?\|\s*(\d+)/(\d+)\s*\[(.*?)(?:avr_loss=([0-9.eE+\-]+))?\]",
         RegexOptions.Compiled);
 
     /// <summary>

@@ -52,7 +52,7 @@ public class ChatTitleGeneratorTests
     [Theory]
     [InlineData("Vaření guláše", "Vaření guláše")]
     [InlineData("\"Vaření guláše\"", "Vaření guláše")]
-    [InlineData("„Vaření guláše"", "Vaření guláše")]
+    [InlineData("„Vaření guláše\"", "Vaření guláše")]
     [InlineData("Vaření guláše.", "Vaření guláše")]
     [InlineData("  Vaření guláše  ", "Vaření guláše")]
     public void CleanResponse_StripsQuotesAndPunctuation(string raw, string expected)
