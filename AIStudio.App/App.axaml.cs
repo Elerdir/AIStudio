@@ -168,6 +168,9 @@ public partial class App : Application
         // si ho vyzvedne (optional dep) a použije pro editaci s referencí; auto-download
         // UNET (~12 GB) + sdílené FLUX závislosti při prvním použití.
         services.AddSingleton<IKontextService, KontextDependencyService>();
+        // Vision LLM (Stage 3) — chat „vidí" přiložený obrázek a odpoví na otázku.
+        // Vlastní Qwen2.5-VL 7B GGUF + mmproj, auto-download (~6 GB) při prvním použití.
+        services.AddSingleton<IVisionService, LlamaVisionService>();
 
         // LoRA trénink — reuse-uje ComfyUI Python venv (žádný druhý Python pro uživatele).
         // Closure pro python.exe: spočítáme cestu z ComfyInstaller.DetectExisting nad

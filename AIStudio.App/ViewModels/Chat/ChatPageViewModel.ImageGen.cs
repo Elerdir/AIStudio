@@ -83,17 +83,16 @@ public partial class ChatPageViewModel
 
         return ImageMode switch
         {
+            // ForceChat = žádné image GEN. Příloha pak (přes routing v SendMessageAsync)
+            // půjde do vision LLM („popovídej si o fotce"), ne do generování.
             ChatImageMode.ForceChat  => ChatImageIntent.Chat,
             ChatImageMode.ForceImage => (lastHadImage || hasAttachment)
                 ? ChatImageIntent.EditPreviousImage
                 : ChatImageIntent.GenerateImage,
-            // Auto: přiložená fotka je jednoznačný signál pro práci s obrázkem —
-            // routujeme do img2img s přílohou jako referencí ("přilož + uprav").
-            // Bez přílohy rozhoduje keyword detektor. (Skutečné „popovídej si
-            // o fotce" přijde s vision LLM ve Stage 3.)
-            _ /* Auto */             => hasAttachment
-                ? ChatImageIntent.EditPreviousImage
-                : _imageIntent.Detect(userText, lastHadImage),
+            // Auto: necháme rozhodnout keyword detektor. Příloha zapne edit-detekci
+            // (lastHadImage=true), takže „uprav na noc" → editace (Kontext/img2img),
+            // ale „co je na fotce?" → Chat → SendMessageAsync to pošle do vision LLM.
+            _ /* Auto */             => _imageIntent.Detect(userText, lastHadImage || hasAttachment),
         };
     }
 
@@ -322,6 +321,78 @@ public partial class ChatPageViewModel
                             "(SDXL může vrátit halucinaci pro český prompt)");
             // Vrátíme placeholder do prázdného stavu — orchestrátor si ho přepíše
             Dispatcher.UIThread.Post(() => placeholder.Content = "");
+        }
+    }
+
+    // ── Vision LLM (Stage 3) — „popovídej si o přiloženém obrázku" ────────────
+
+    /// <summary>
+    /// Vision flow — uživatel přiložil obrázek a ptá se na něj (ne edituje).
+    /// VLM model „vidí" obrázek a streamuje odpověď. Auto-stáhne VLM při prvním
+    /// použití (~6 GB). Volá se z <c>SendMessageAsync</c>, když je příloha a intent
+    /// je Chat (otázka), ne editace.
+    /// </summary>
+    private async Task RunVisionAsync(
+        ConversationViewModel conv, string question, string imagePath, CancellationToken ct)
+    {
+        if (_vision is null) return;
+
+        var assistantMsg = new ChatMessage { Role = MessageRole.Assistant, Content = "", IsStreaming = true };
+        conv.Messages.Add(assistantMsg);
+
+        var modelsDir = AIStudio.Core.Services.AppPaths.ResolveModelsDirectory(_settings.Settings.ModelsDirectory);
+
+        try
+        {
+            // Auto-download VLM pokud chybí (uživatel zvolil „vše automaticky")
+            if (!_vision.IsModelAvailable(modelsDir))
+            {
+                Dispatcher.UIThread.Post(() => assistantMsg.Content = "⏳ Stahuji vision model (poprvé, ~6 GB)…");
+                var dl = new Progress<AIStudio.Core.Models.DownloadProgressInfo>(_ =>
+                    Dispatcher.UIThread.Post(() => assistantMsg.Content = $"⏳ {_vision.DownloadStatusLine}"));
+                await _vision.EnsureModelAsync(modelsDir, _settings.Settings.HuggingFaceToken, dl, ct);
+
+                if (!_vision.IsModelAvailable(modelsDir))
+                {
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        assistantMsg.IsStreaming = false;
+                        assistantMsg.IsError     = true;
+                        assistantMsg.Content     = "❌ Vision model se nepodařilo stáhnout. Zkus to znovu.";
+                    });
+                    await TrySaveMessageAsync(assistantMsg, conv);
+                    return;
+                }
+                Dispatcher.UIThread.Post(() => assistantMsg.Content = "");
+            }
+
+            await StreamIntoMessageAsync(
+                _vision.DescribeAsync(imagePath, question, modelsDir, ct: ct),
+                assistantMsg, ct);
+
+            await TrySaveMessageAsync(assistantMsg, conv);
+            _ = TrySaveConversationAsync(conv);
+            _ = MaybeAutoRenameAsync(conv);
+        }
+        catch (OperationCanceledException)
+        {
+            if (!string.IsNullOrEmpty(assistantMsg.Content))
+            {
+                assistantMsg.Content += " *(přerušeno)*";
+                await TrySaveMessageAsync(assistantMsg, conv);
+            }
+            else conv.Messages.Remove(assistantMsg);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "RunVisionAsync: selhalo");
+            Dispatcher.UIThread.Post(() =>
+            {
+                assistantMsg.IsStreaming = false;
+                assistantMsg.IsError     = true;
+                assistantMsg.Content     = $"❌ Analýza obrázku selhala: {ex.Message}";
+            });
+            await TrySaveMessageAsync(assistantMsg, conv);
         }
     }
 }

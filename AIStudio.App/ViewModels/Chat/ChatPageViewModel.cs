@@ -29,6 +29,10 @@ public partial class ChatPageViewModel : ViewModelBase
     // neposkytne (např. early bootstrap selhání ComfyServices).
     private readonly IChatImageIntentDetector?  _imageIntent;
     private readonly IChatImageOrchestrator?    _imageOrch;
+    // Vision LLM (Stage 3) — „vidí" přiložený obrázek a odpoví na otázku. Nullable
+    // kvůli testovacím konstruktorům; null = vision se přeskočí (příloha + otázka
+    // pak spadne do běžného textového chatu bez porozumění obrázku).
+    private readonly IVisionService?            _vision;
 
     [ObservableProperty] private string                 _inputText            = string.Empty;
     [ObservableProperty] private ConversationViewModel? _selectedConversation;
@@ -272,7 +276,8 @@ public partial class ChatPageViewModel : ViewModelBase
                              INavigationService nav, ISystemPromptPresetService presetService,
                              ISystemMonitorService?    monitor      = null,
                              IChatImageIntentDetector? imageIntent  = null,
-                             IChatImageOrchestrator?   imageOrch    = null)
+                             IChatImageOrchestrator?   imageOrch    = null,
+                             IVisionService?           vision       = null)
     {
         _llama         = llama;
         _repo          = repo;
@@ -282,6 +287,7 @@ public partial class ChatPageViewModel : ViewModelBase
         _monitor       = monitor;
         _imageIntent   = imageIntent;
         _imageOrch     = imageOrch;
+        _vision        = vision;
 
         // Builtin presety jsou immediate-available bez I/O; uživatelské se
         // doplní asynchronně přes LoadPresetsAsync (volá se např. po Load()).
@@ -433,6 +439,12 @@ public partial class ChatPageViewModel : ViewModelBase
                         if (fn.StartsWith("flux", StringComparison.OrdinalIgnoreCase) ||
                             fn.Contains("-flux",  StringComparison.OrdinalIgnoreCase) ||
                             fn.StartsWith("sd",   StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        // Skip vision model + mmproj projektor (vlastní podsložka vision/) —
+                        // to není chat model, spravuje ho IVisionService interně.
+                        if (fn.StartsWith("mmproj", StringComparison.OrdinalIgnoreCase) ||
+                            path.Replace('\\', '/').Contains("/vision/", StringComparison.OrdinalIgnoreCase))
                             continue;
 
                         found.Add(fileToName.TryGetValue(fn, out var name)
@@ -886,6 +898,19 @@ public partial class ChatPageViewModel : ViewModelBase
         if (classifiedIntent != ChatImageIntent.Chat && _imageOrch is not null)
         {
             await RunImageGenerationAsync(conv, text, classifiedIntent, attachedImagePath, cts.Token);
+            _sendCts  = null;
+            IsSending = false;
+            UpdateEstimatedTokens();
+            return;
+        }
+
+        // ── Vision: příloha + otázka (ne editace) → VLM „uvidí" obrázek a odpoví ──
+        // classifiedIntent == Chat znamená, že to není žádost o generování/editaci.
+        // Když je u toho přiložená fotka a máme vision službu, pošleme to do VLM
+        // (popis / OCR / odpověď na otázku o obrázku) místo slepého textového chatu.
+        if (!string.IsNullOrEmpty(attachedImagePath) && _vision is not null)
+        {
+            await RunVisionAsync(conv, text, attachedImagePath, cts.Token);
             _sendCts  = null;
             IsSending = false;
             UpdateEstimatedTokens();
