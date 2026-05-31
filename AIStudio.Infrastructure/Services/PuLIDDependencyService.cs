@@ -93,6 +93,9 @@ public sealed class PuLIDDependencyService : IPuLIDService
                 _statusLine = "Instaluji PuLID custom node…";
                 await InstallNodeAsync(ct);
             }
+            // 1b) Kompat patch — novější ComfyUI posílá do forward_orig 'timestep_zero_index',
+            //     které lldacing node (zatím) nezná. Idempotentní.
+            PatchNodeCompat();
 
             // 2) Python deps
             _statusLine = "Instaluji Python závislosti (insightface…)";
@@ -153,6 +156,42 @@ public sealed class PuLIDDependencyService : IPuLIDService
         finally
         {
             try { if (File.Exists(tmpZip)) File.Delete(tmpZip); } catch { /* ignore */ }
+        }
+    }
+
+    /// <summary>
+    /// Přidá <c>timestep_zero_index=None</c> do signatury <c>pulid_forward_orig</c>
+    /// v <c>PulidFluxHook.py</c>. Novější ComfyUI tuhle keyword posílá do
+    /// <c>forward_orig</c>, ale lldacing node ji (zatím) nemá → <c>TypeError</c>
+    /// při samplingu. PuLID ji v těle nepoužívá, jen ji musí přijmout. Idempotentní.
+    /// </summary>
+    private void PatchNodeCompat()
+    {
+        try
+        {
+            var hook = Path.Combine(NodePath, "PulidFluxHook.py");
+            if (!File.Exists(hook)) return;
+
+            var content = File.ReadAllText(hook);
+            if (content.Contains("timestep_zero_index")) return;   // už OK / kompatibilní verze
+
+            // Cílíme přesně signaturu pulid_forward_orig (guidance → control → transformer_options).
+            foreach (var nl in new[] { "\n", "\r\n" })
+            {
+                var marker = $"    guidance: Tensor = None,{nl}    control = None,{nl}    transformer_options={{}},";
+                if (content.Contains(marker))
+                {
+                    var patched = $"    guidance: Tensor = None,{nl}    control = None,{nl}    timestep_zero_index=None,{nl}    transformer_options={{}},";
+                    File.WriteAllText(hook, content.Replace(marker, patched));
+                    Log.Information("PuLIDDependencyService: PulidFluxHook patchnut (timestep_zero_index) pro novější ComfyUI");
+                    return;
+                }
+            }
+            Log.Warning("PuLIDDependencyService: signatura pulid_forward_orig nenalezena — patch přeskočen (jiná verze node?)");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "PuLIDDependencyService: kompat patch selhal");
         }
     }
 
