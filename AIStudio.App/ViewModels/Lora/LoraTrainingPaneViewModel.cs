@@ -925,7 +925,6 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     [RelayCommand]
     private void DeclineCodeOfConduct() => IsCodeOfConductVisible = false;
 
-    [RelayCommand]
     /// <summary>
     /// Najde FLUX text encodery (clip_l, t5xxl) + VAE (ae) v Models složce —
     /// v podsložkách clip/ a vae/ (kam je ukládá FluxDependencyService) i v rootu.
@@ -949,6 +948,7 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         return (clipL, t5, ae);
     }
 
+    [RelayCommand]
     private async Task StartTrainingAsync()
     {
         if (!CanStartTraining) return;
