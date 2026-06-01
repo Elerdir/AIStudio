@@ -33,6 +33,8 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
     private readonly IKontextService?         _kontext;
     // Optional — PuLID-Flux identita osoby bez tréninku. Null = person-gen se neprovede.
     private readonly IPuLIDService?           _pulid;
+    // Optional — ESRGAN upscale model pro „upscale ikonu". Null = upscale se neprovede.
+    private readonly IUpscaleModelService?    _upscale;
     private readonly string?                  _outputDirOverride;
     private readonly string?                  _modelsDirOverride;
 
@@ -45,9 +47,11 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         ISettingsService       settings,
         IDownloadService       downloader,
         IKontextService?       kontext = null,
-        IPuLIDService?         pulid   = null)
+        IPuLIDService?         pulid   = null,
+        IUpscaleModelService?  upscale = null)
         : this(parser, matcher, recommender, comfy, repo, settings, downloader,
-               outputDirOverride: null, modelsDirOverride: null, kontext: kontext, pulid: pulid) { }
+               outputDirOverride: null, modelsDirOverride: null, kontext: kontext, pulid: pulid,
+               upscale: upscale) { }
 
     /// <summary>
     /// Test-only overload — umožňuje přesměrovat výstupní složku mimo
@@ -65,10 +69,12 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         string?                outputDirOverride,
         string?                modelsDirOverride,
         IKontextService?       kontext = null,
-        IPuLIDService?         pulid   = null)
+        IPuLIDService?         pulid   = null,
+        IUpscaleModelService?  upscale = null)
     {
         _kontext           = kontext;
         _pulid             = pulid;
+        _upscale           = upscale;
         _parser            = parser;
         _matcher           = matcher;
         _recommender       = recommender;
@@ -321,6 +327,68 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         catch (Exception ex)
         {
             Log.Error(ex, "ChatImageOrchestrator: PuLID generování selhalo");
+            return Fail($"Chyba: {ex.Message}");
+        }
+    }
+
+    // ── Upscale hotového obrázku (ESRGAN) ────────────────────────────────────
+
+    public async Task<ChatImageGenerationResult> UpscaleImageAsync(
+        string                            imagePath,
+        IProgress<int>?                   progress,
+        CancellationToken                 ct,
+        IProgress<DownloadStatusUpdate>?  downloadProgress = null)
+    {
+        try
+        {
+            if (_upscale is null)
+                return Fail("Upscale služba není k dispozici.");
+            if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
+                return Fail("Obrázek pro upscale nebyl nalezen.");
+
+            // 1) ComfyUI běží
+            if (!_comfy.IsRunning && !await _comfy.StartAsync(ct))
+                return Fail("ComfyUI se nepodařilo spustit.");
+
+            // 2) ESRGAN model — auto-download při prvním použití
+            var modelsDir = ResolveModelsDirectory();
+            if (!_upscale.IsAvailable(modelsDir))
+            {
+                var dl = new Progress<DownloadProgressInfo>(info =>
+                {
+                    var pct = info.Total > 0 ? (int)(100 * info.Downloaded / info.Total) : 0;
+                    downloadProgress?.Report(new DownloadStatusUpdate(
+                        "Upscale model", pct, info.Downloaded, info.Total, info.BytesPerSecond / 1_048_576.0));
+                });
+                await _upscale.EnsureAsync(modelsDir, dl, ct);
+                if (!_upscale.IsAvailable(modelsDir))
+                    return Fail("Upscale model se nepodařilo stáhnout — zkus to znovu.");
+            }
+
+            // 3) Upload + workflow + dokončení (sdílí QueueAndFinishAsync)
+            string uploaded;
+            try { uploaded = await _comfy.UploadImageAsync(imagePath, ct); }
+            catch (Exception ex) { Log.Warning(ex, "Upscale: upload selhal"); return Fail("Nahrání obrázku do ComfyUI selhalo."); }
+
+            var workflow = ComfyWorkflowBuilder.BuildImageUpscale(uploaded, _upscale.ModelFileName);
+
+            // Syntetický intent — upscale nemá prompt; jen popis pro metadata/galerii.
+            var intent = new ImageIntent(
+                ImageKind.Auto, ImageAspect.Square, ImageQualityHint.HighRes,
+                EnglishPrompt: "upscale (ESRGAN x2)",
+                NegativePrompt: "",
+                Reasoning: "Upscale 2×");
+
+            Log.Information("ChatImageOrchestrator: upscale {Path}", imagePath);
+            return await QueueAndFinishAsync(
+                workflow, intent, "Upscale (ESRGAN ×2)", seed: 0, width: 0, height: 0,
+                steps: 0, cfg: 0, ComfyWorkflowBuilder.DefaultSamplerSd, ComfyWorkflowBuilder.DefaultSchedulerSd,
+                progress, ct);
+        }
+        catch (OperationCanceledException) { return Fail("Upscale zrušen."); }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "ChatImageOrchestrator: upscale selhal");
             return Fail($"Chyba: {ex.Message}");
         }
     }

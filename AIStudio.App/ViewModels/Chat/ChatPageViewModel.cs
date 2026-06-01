@@ -403,6 +403,11 @@ public partial class ChatPageViewModel : ViewModelBase
         // Náhledy příloh — HasAttachedImages řídí viditelnost stripu v inputu
         AttachedImages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasAttachedImages));
 
+        // Akce z obrázkových bublin (Upravit / Upscale) — statické handlery (stejný
+        // vzor jako ChatMessage.DialogService), fungují i pro zprávy načtené z DB.
+        ChatMessage.EditRequestedHandler    = OnEditImageRequested;
+        ChatMessage.UpscaleRequestedHandler = OnUpscaleImageRequested;
+
         // Když ModelManager stáhne / přidá / smaže model, obnov picker
         _settings.ModelLibraryChanged += () =>
             Avalonia.Threading.Dispatcher.UIThread.Post(RefreshAvailableModels);
@@ -971,6 +976,20 @@ public partial class ChatPageViewModel : ViewModelBase
         // Title se z prvního dotazu nepřepisuje — uživatel si ho přejmenovává ručně
         // (F2 nebo ikonkou tužky v hlavičce). UpdatedAt se aktualizuje po dokončení
         // streamu níž přes TrySaveConversationAsync.
+
+        // ── Vyzbrojená editace (klik „Upravit" na obrázku) ────────────────────
+        // Má nejvyšší prioritu — uživatel explicitně řekl „uprav TENHLE obrázek",
+        // takže další zpráva je instrukce k editaci, ne nový obrázek/chat.
+        var pendingEdit = PendingEditImagePath;
+        if (!string.IsNullOrEmpty(pendingEdit) && _imageOrch is not null && File.Exists(pendingEdit))
+        {
+            PendingEditImagePath = null;   // spotřebováno
+            await RunImageGenerationAsync(conv, text, ChatImageIntent.EditPreviousImage, pendingEdit, cts.Token);
+            _sendCts  = null;
+            IsSending = false;
+            UpdateEstimatedTokens();
+            return;
+        }
 
         // ── Klasifikace: chat vs image gen ────────────────────────────────────
         // Před LLM voláním zkusíme, jestli uživatel nechce vygenerovat obrázek.

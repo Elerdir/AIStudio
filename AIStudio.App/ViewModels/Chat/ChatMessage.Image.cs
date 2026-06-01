@@ -148,4 +148,33 @@ public partial class ChatMessage
         try { PlatformShell.Open(ImagePath); }
         catch (Exception ex) { Log.Warning(ex, "ChatMessage: OpenImageExternal selhal"); }
     }
+
+    // ── Akce směřující do ChatPageViewModel ───────────────────────────────────
+    // Statické handlery (stejný vzor jako DialogService) — nastaví je VM jednou
+    // při startu, takže fungují i pro zprávy načtené z DB bez per-message wiringu.
+
+    /// <summary>VM vystaví: „uprav tento obrázek" — vyzbrojí edit režim pro další zprávu.</summary>
+    public static Action<ChatMessage>? EditRequestedHandler { get; set; }
+
+    /// <summary>VM vystaví: „upscale tento obrázek" — spustí ESRGAN upscale na hotovém obrázku.</summary>
+    public static Action<ChatMessage>? UpscaleRequestedHandler { get; set; }
+
+    /// <summary>
+    /// „Upravit" — zacílí editaci na TENTO konkrétní obrázek. VM si zapamatuje jeho
+    /// cestu a další zprávu uživatele použije jako instrukci k editaci (FLUX Kontext).
+    /// </summary>
+    [RelayCommand]
+    private void EditImage()
+    {
+        if (string.IsNullOrEmpty(ImagePath) || !File.Exists(ImagePath)) return;
+        EditRequestedHandler?.Invoke(this);
+    }
+
+    /// <summary>„Upscale" — jedním klikem zvětší a zostří tento obrázek (ESRGAN).</summary>
+    [RelayCommand]
+    private void UpscaleImage()
+    {
+        if (string.IsNullOrEmpty(ImagePath) || !File.Exists(ImagePath)) return;
+        UpscaleRequestedHandler?.Invoke(this);
+    }
 }

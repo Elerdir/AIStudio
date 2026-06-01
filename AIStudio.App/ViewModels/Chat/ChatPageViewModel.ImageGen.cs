@@ -333,6 +333,89 @@ public partial class ChatPageViewModel
         }
     }
 
+    // ── Akce na vygenerovaném obrázku (Upravit / Upscale) ────────────────────
+
+    /// <summary>
+    /// Cesta k obrázku, na kterém uživatel klikl „Upravit". Další odeslaná zpráva
+    /// se použije jako instrukce k editaci TOHOTO obrázku (FLUX Kontext) — přebije
+    /// běžnou klasifikaci. null = žádná čekající editace.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPendingEdit), nameof(PendingEditFileName))]
+    private string? _pendingEditImagePath;
+
+    /// <summary>True když je vyzbrojený edit režim (UI ukáže chip nad inputem).</summary>
+    public bool HasPendingEdit =>
+        !string.IsNullOrEmpty(PendingEditImagePath) && File.Exists(PendingEditImagePath);
+
+    /// <summary>Název souboru editovaného obrázku — pro chip „Upravuji: foo.png ✕".</summary>
+    public string PendingEditFileName =>
+        string.IsNullOrEmpty(PendingEditImagePath) ? string.Empty : Path.GetFileName(PendingEditImagePath);
+
+    /// <summary>Zruší vyzbrojený edit režim (✕ na chipu).</summary>
+    [RelayCommand]
+    private void CancelPendingEdit() => PendingEditImagePath = null;
+
+    /// <summary>Handler pro „Upravit" ikonu na bublině — vyzbrojí edit pro tento obrázek.</summary>
+    private void OnEditImageRequested(ChatMessage msg)
+    {
+        if (string.IsNullOrEmpty(msg.ImagePath) || !File.Exists(msg.ImagePath)) return;
+        PendingEditImagePath = msg.ImagePath;
+        Log.Information("Chat: vyzbrojena editace obrázku {Path}", msg.ImagePath);
+    }
+
+    /// <summary>Handler pro „Upscale" ikonu na bublině — spustí ESRGAN upscale.</summary>
+    private void OnUpscaleImageRequested(ChatMessage msg) => _ = RunUpscaleAsync(msg);
+
+    /// <summary>
+    /// Upscale hotového obrázku — přidá novou bublinu s placeholderem, zavolá
+    /// orchestrátor (ESRGAN ~2×) a doplní výsledek. Při prvním použití se stáhne
+    /// upscale model (~64 MB).
+    /// </summary>
+    private async Task RunUpscaleAsync(ChatMessage source)
+    {
+        if (_imageOrch is null) return;
+        var conv = SelectedConversation;
+        if (conv is null || string.IsNullOrEmpty(source.ImagePath) || !File.Exists(source.ImagePath)) return;
+
+        var placeholder = new ChatMessage
+        {
+            Role               = MessageRole.Assistant,
+            Content            = "",
+            IsImageGenerating  = true,
+            ImageReferencePath = source.ImagePath,
+        };
+        conv.Messages.Add(placeholder);
+        try { await _repo.SaveMessageAsync(placeholder.ToRecord(conv.Id, conv.Messages.Count - 1)); }
+        catch (Exception ex) { Log.Warning(ex, "Upscale: uložení placeholderu selhalo"); }
+
+        var progress         = new Progress<int>(p => Dispatcher.UIThread.Post(() => placeholder.ImageGenProgress = p));
+        var downloadProgress = new Progress<DownloadStatusUpdate>(u => placeholder.UpdateDownloadStatus(u));
+
+        using var cts = new CancellationTokenSource();
+        var result = await _imageOrch.UpscaleImageAsync(source.ImagePath, progress, cts.Token, downloadProgress);
+
+        Dispatcher.UIThread.Invoke(() =>
+        {
+            placeholder.IsImageGenerating = false;
+            if (result.Success && !string.IsNullOrEmpty(result.ImagePath))
+            {
+                placeholder.ImagePath = result.ImagePath;
+                placeholder.Content   = "_Upscale ×2_";
+            }
+            else
+            {
+                placeholder.IsImageFailed = true;
+                placeholder.IsError       = true;
+                placeholder.Content       = $"❌ {result.ErrorMessage ?? "Upscale selhal"}";
+            }
+        });
+
+        try { await TrySaveMessageAsync(placeholder, conv); }
+        catch (Exception ex) { Log.Warning(ex, "Upscale: finální save selhalo"); }
+        _ = TrySaveConversationAsync(conv);
+    }
+
     // ── PuLID — generování osoby z fotky obličeje (identita bez tréninku) ─────
 
     /// <summary>

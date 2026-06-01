@@ -67,6 +67,17 @@ public interface IChatImageOrchestrator
         CancellationToken                 ct,
         IProgress<DownloadStatusUpdate>?  downloadProgress = null,
         IProgress<ChatImageGenStage>?     stageProgress    = null);
+
+    /// <summary>
+    /// Upscale hotového obrázku (ESRGAN, ~2×) — pro „upscale ikonu" v chatu.
+    /// Při prvním použití auto-stáhne upscale model (~64 MB). Nepoužívá LLM ani
+    /// checkpoint. Výsledek se uloží do galerie jako nový obrázek.
+    /// </summary>
+    Task<ChatImageGenerationResult> UpscaleImageAsync(
+        string                            imagePath,
+        IProgress<int>?                   progress,
+        CancellationToken                 ct,
+        IProgress<DownloadStatusUpdate>?  downloadProgress = null);
 }
 
 /// <summary>

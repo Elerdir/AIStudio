@@ -294,6 +294,47 @@ public static class ComfyWorkflowBuilder
         return wf;
     }
 
+    /// <summary>
+    /// Samostatný upscale HOTOVÉHO obrázku (ESRGAN model). LoadImage → UpscaleModelLoader
+    /// → ImageUpscaleWithModel (typicky 4×) → ImageScaleBy zpět na cílový násobek
+    /// (<paramref name="netScale"/>, default 2× = 4× model / 2). Bez diffusion modelu —
+    /// rychlé, nepotřebuje checkpoint ani prompt. Použito pro „upscale ikonu" v chatu.
+    /// </summary>
+    public static Dictionary<string, object> BuildImageUpscale(
+        string uploadedImageName,
+        string upscaleModelName,
+        double netScale = 2.0,
+        double modelScale = 4.0)
+    {
+        return new Dictionary<string, object>
+        {
+            ["1"] = Node("LoadImage", new()
+            {
+                ["image"]  = uploadedImageName,
+                ["upload"] = "image",
+            }),
+            ["2"] = Node("UpscaleModelLoader", new() { ["model_name"] = upscaleModelName }),
+            ["3"] = Node("ImageUpscaleWithModel", new()
+            {
+                ["upscale_model"] = Ref("2", 0),
+                ["image"]         = Ref("1", 0),
+            }),
+            // ESRGAN model dává modelScale× (4×). Doškálujeme na cílový netScale×
+            // (2×) — vyhneme se obřím 4096px souborům, zachováme ostrost.
+            ["4"] = Node("ImageScaleBy", new()
+            {
+                ["image"]          = Ref("3", 0),
+                ["upscale_method"] = "lanczos",
+                ["scale_by"]       = netScale / modelScale,
+            }),
+            ["5"] = Node("SaveImage", new()
+            {
+                ["filename_prefix"] = "AIStudio_upscale",
+                ["images"]          = Ref("4", 0),
+            }),
+        };
+    }
+
     // ── Reference images (img2img / multi-reference blend) ───────────────────
 
     /// <summary>
