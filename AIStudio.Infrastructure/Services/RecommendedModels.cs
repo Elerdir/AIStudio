@@ -58,6 +58,23 @@ public static class RecommendedModels
         Sha256:                   null,
         RequiresHuggingFaceToken: false);
 
+    /// <summary>
+    /// FLUX.1 dev v fp8 (UNET-only, ~11.9 GB) — base model pro FLUX LoRA trénink
+    /// na sd-scripts. Veřejný Kijai repackage (bez HF tokenu / license gate).
+    /// Na rozdíl od FLUX GGUF (netrénovatelný) je tohle plný safetensors, který
+    /// flux_train_network.py umí. NENÍ to all-in-one — clip/t5/ae se řeší zvlášť.
+    /// </summary>
+    public static readonly RecommendedModel FluxDev_Fp8 = new(
+        Id:                       "flux1-dev-fp8",
+        Name:                     "FLUX.1 dev (fp8) — base pro LoRA trénink",
+        Description:              "Plný FLUX.1 dev UNET ve fp8 (~11.9 GB) pro trénink FLUX LoRA. Veřejný, bez tokenu.",
+        Kind:                     RecommendedModelKind.Image,
+        SizeBytes:                11_901_525_888L,
+        DownloadUrl:              "https://huggingface.co/Kijai/flux-fp8/resolve/main/flux1-dev-fp8.safetensors",
+        FileName:                 "flux1-dev-fp8.safetensors",
+        Sha256:                   null,
+        RequiresHuggingFaceToken: false);
+
     // ── Low tier (&lt; 8 GB VRAM, integrovaná GPU, CPU-only) ─────────────────
 
     /// <summary>
