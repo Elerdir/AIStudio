@@ -38,8 +38,18 @@ public partial class ChatMessage
 
     /// <summary>True dokud běží Comfy generování — UI ukáže placeholder.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsImageMessage), nameof(IsImageProgressOnly))]
+    [NotifyPropertyChangedFor(nameof(IsImageMessage), nameof(IsImageProgressOnly),
+                              nameof(ImageGeneratingLabel))]
     private bool _isImageGenerating;
+
+    /// <summary>Progres ComfyUI generování 0–100 (platí jen za IsImageGenerating). 0 = ještě neznámý.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ImageGeneratingLabel))]
+    private int _imageGenProgress;
+
+    /// <summary>Text placeholderu během generování — s procenty, jakmile dorazí první progres.</summary>
+    public string ImageGeneratingLabel =>
+        ImageGenProgress > 0 ? $"Generuji obrázek… {ImageGenProgress} %" : "Generuji obrázek…";
 
     /// <summary>True pokud generování obrázku selhalo — UI ukáže Zkusit znovu.</summary>
     [ObservableProperty] private bool _isImageFailed;

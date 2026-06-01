@@ -36,4 +36,11 @@ public interface IComfyService
                                     string type = "output",
                                     CancellationToken ct = default);
 
+    /// <summary>
+    /// Požádá ComfyUI o uvolnění modelů z VRAM (POST /free, unload_models + free_memory).
+    /// Volá se po dokončení generování v chatu, aby se uvolnila VRAM pro chat LLM
+    /// (FLUX ~12 GB + 24B LLM se na 24 GB najednou nevejdou). Best-effort — chyba
+    /// se zaloguje a spolkne (uvolnění není kritické pro správnost).
+    /// </summary>
+    Task FreeMemoryAsync(CancellationToken ct = default);
 }

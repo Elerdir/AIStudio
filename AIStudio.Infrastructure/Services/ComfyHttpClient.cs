@@ -98,6 +98,17 @@ public sealed class ComfyHttpClient : IComfyHttpClient
         }
     }
 
+    public async Task FreeMemoryAsync(int port, CancellationToken ct = default)
+    {
+        // ComfyUI /free: unload_models uvolní checkpoint/UNET z VRAM, free_memory
+        // spustí GC + torch cache flush. Po chat generování tím vrátíme VRAM LLM.
+        var body = JsonSerializer.Serialize(new { unload_models = true, free_memory = true });
+        using var content = new StringContent(body, Encoding.UTF8, "application/json");
+        using var resp = await _http.PostAsync($"{BaseUrl(port)}/free", content, ct);
+        if (!resp.IsSuccessStatusCode)
+            Log.Debug("ComfyHttpClient: /free vrátilo HTTP {Code}", (int)resp.StatusCode);
+    }
+
     // ── Mutate API ────────────────────────────────────────────────────────────
 
     public async Task<string> QueuePromptAsync(

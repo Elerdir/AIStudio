@@ -175,7 +175,9 @@ public partial class ChatPageViewModel
         // než nic, ale aspoň aplikace nehavaruje.
         await TryEnsureChatLlmForImageParserAsync(conv, placeholder, ct);
 
-        var progress = new Progress<int>(_ => { /* zatím nevyužíváme — UI bublina má jen typing dots */ });
+        // ComfyUI progress 0–100 → bublina ukáže „Generuji obrázek… X %".
+        var progress = new Progress<int>(p =>
+            Dispatcher.UIThread.Post(() => placeholder.ImageGenProgress = p));
 
         // Callback pro upgrade nabídku — orchestrátor zavolá, pokud najde lepší
         // nesažený model. Vystavíme nabídku v placeholder bublině a čekáme na klik.
@@ -372,8 +374,11 @@ public partial class ChatPageViewModel
         // se ztratí — vznikne osoba, ale ne v požadovaném prostředí.
         await TryEnsureChatLlmForImageParserAsync(conv, placeholder, ct);
 
+        var progress = new Progress<int>(p =>
+            Dispatcher.UIThread.Post(() => placeholder.ImageGenProgress = p));
+
         var result = await _imageOrch.GeneratePersonAsync(
-            userText, faceImagePath, progress: null, ct,
+            userText, faceImagePath, progress: progress, ct,
             downloadProgress: downloadProgress, stageProgress: stageProgress);
 
         placeholder.ClearUpgradeState();

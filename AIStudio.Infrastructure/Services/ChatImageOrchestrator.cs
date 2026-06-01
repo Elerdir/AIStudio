@@ -373,6 +373,13 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
         var promptId = await _comfy.QueuePromptAsync(workflow, ct);
 
         var result = await _comfy.WaitForResultAsync(promptId, progress, ct);
+
+        // Po dokončení generování uvolni modely z VRAM — chat sdílí GPU s LLM
+        // (FLUX ~12 GB + 24B LLM se na 24 GB najednou nevejdou). Obrázek je už
+        // v ComfyUI output složce, takže download po unloadu nic neztratí.
+        // CancellationToken.None: uvolnit chceme i když uživatel generování zrušil.
+        await _comfy.FreeMemoryAsync(CancellationToken.None);
+
         if (result is null || result.Images.Count == 0)
             return Fail("ComfyUI nevrátil žádný obrázek (zrušeno nebo timeout).");
 

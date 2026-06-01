@@ -581,6 +581,13 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                                             CancellationToken ct = default) =>
         _httpClient.DownloadImageAsync(Port, filename, subfolder, type, ct);
 
+    public async Task FreeMemoryAsync(CancellationToken ct = default)
+    {
+        if (!IsRunning) return;
+        try { await _httpClient.FreeMemoryAsync(Port, ct); }
+        catch (Exception ex) { Log.Warning(ex, "ComfyService: FreeMemoryAsync selhalo (nekritické)"); }
+    }
+
     // ── Internals ─────────────────────────────────────────────────────────────
 
     private int Port => _settings.Settings.ComfyUiPort;

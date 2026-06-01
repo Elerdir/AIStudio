@@ -78,4 +78,11 @@ public interface IComfyHttpClient
     /// Při chybě vrací -1 (caller nemá rozhodovat podle stavu).
     /// </summary>
     Task<int> GetQueueDepthAsync(int port, CancellationToken ct = default);
+
+    /// <summary>
+    /// POST /free — požádá ComfyUI o uvolnění modelů z VRAM
+    /// (<c>unload_models: true</c>, <c>free_memory: true</c>). Po dokončení chat
+    /// generování uvolní VRAM pro chat LLM.
+    /// </summary>
+    Task FreeMemoryAsync(int port, CancellationToken ct = default);
 }

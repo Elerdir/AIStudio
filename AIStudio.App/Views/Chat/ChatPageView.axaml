@@ -949,12 +949,18 @@
                                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}"
                                                                          Width="28" Height="28" Foreground="{DynamicResource AccentLightBrush}"
                                                                          VerticalAlignment="Center"/>
-                                                        <StackPanel Spacing="4">
-                                                            <TextBlock Text="Generuji obrázek…"
+                                                        <StackPanel Spacing="6" MinWidth="300">
+                                                            <TextBlock Text="{Binding ImageGeneratingLabel}"
                                                                        FontSize="14" FontWeight="SemiBold"
                                                                        Foreground="{DynamicResource AccentLighterBrush}"
                                                                        HorizontalAlignment="Center"/>
-                                                            <TextBlock Text="Může to chvíli trvat. Sleduj pokrok ve stavovém řádku Image Studia."
+                                                            <!-- Živý progress bar z ComfyUI (0–100). -->
+                                                            <ProgressBar Value="{Binding ImageGenProgress}"
+                                                                         Minimum="0" Maximum="100"
+                                                                         Height="6" CornerRadius="3"
+                                                                         Foreground="{DynamicResource AccentLightBrush}"
+                                                                         Background="#221C3A"/>
+                                                            <TextBlock Text="Po dokončení se model uvolní z VRAM."
                                                                        FontSize="11" Foreground="{DynamicResource AccentSubtleBrush}"
                                                                        TextWrapping="Wrap" MaxWidth="360"
                                                                        TextAlignment="Center"/>
