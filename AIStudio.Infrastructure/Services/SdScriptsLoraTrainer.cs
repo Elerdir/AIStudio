@@ -174,6 +174,12 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             File.Move(producedFile, finalPath);
 
             Log.Information("SdScriptsLoraTrainer: hotovo — LoRA uložena do {Path}", finalPath);
+
+            // Úklid dočasného working dir (kopie datasetu + mezi-checkpointy) —
+            // jen po úspěchu. Při chybě ho necháme pro diagnostiku.
+            TryCleanupWorkingDir(workingDir);
+            workingDir = null;   // ať finally neuklidí podruhé
+
             progress?.Report(new LoraTrainingProgress(
                 request.Parameters.Steps, request.Parameters.Steps, null,
                 sw.Elapsed, TimeSpan.Zero, "Hotovo"));
@@ -192,9 +198,9 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         finally
         {
             IsTraining = false;
-            // Working dir s mezi-checkpointy nesmazat — uživatel může chtít
-            // pokračovat / debugnout. Vyčistíme jen pokud uspěl.
-            // (V další iteraci přidáme „Uklidit dočasné soubory" v UI.)
+            // Po úspěchu se workingDir uklidil výše (a nastavil na null). Pokud sem
+            // dorazí ne-null, znamená to chybu/cancel — dir NEcháme pro diagnostiku
+            // (uživatel může chtít kouknout do logu / mezi-checkpointů).
         }
     }
 
@@ -272,9 +278,22 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             var name = $"{i:D4}{ext}";
             File.Copy(item.ImagePath, Path.Combine(datasetDir, name));
 
-            var caption = string.IsNullOrWhiteSpace(item.Caption)
-                ? fallbackToken
-                : item.Caption.Trim();
+            // Trigger token MUSÍ být v KAŽDÉM captionu — jinak LoRA nemá konzistentní
+            // spouštěcí slovo. Dřív byl token jen ve fallbacku (prázdný caption),
+            // takže fotky s BLIP/ručním popiskem token neměly → natrénovaný subjekt
+            // nešel spolehlivě vyvolat (uživatel by v promptu neměl co napsat).
+            string caption;
+            if (string.IsNullOrWhiteSpace(item.Caption))
+            {
+                caption = fallbackToken;
+            }
+            else
+            {
+                var userCaption = item.Caption.Trim();
+                caption = userCaption.StartsWith(fallbackToken, StringComparison.OrdinalIgnoreCase)
+                    ? userCaption
+                    : $"{fallbackToken}, {userCaption}";
+            }
 
             File.WriteAllText(
                 Path.Combine(datasetDir, $"{Path.GetFileNameWithoutExtension(name)}.txt"),
@@ -291,6 +310,21 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         foreach (var c in name)
             sb.Append(char.IsLetterOrDigit(c) || c == '_' || c == '-' ? c : '_');
         return sb.ToString().ToLowerInvariant();
+    }
+
+    /// <summary>Smaže dočasný working dir (best-effort). Nic nehodí — úklid není kritický.</summary>
+    private static void TryCleanupWorkingDir(string? workingDir)
+    {
+        if (string.IsNullOrEmpty(workingDir) || !Directory.Exists(workingDir)) return;
+        try
+        {
+            Directory.Delete(workingDir, recursive: true);
+            Log.Debug("SdScriptsLoraTrainer: working dir uklizen {Dir}", workingDir);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "SdScriptsLoraTrainer: úklid working dir {Dir} selhal", workingDir);
+        }
     }
 
     // ── Sestavení Python příkazu ─────────────────────────────────────────────
@@ -353,6 +387,21 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         Arg   ("--save_precision",                "fp16");
         Arg   ("--mixed_precision",               p.MixedPrecisionFp16 ? "fp16" : "no");
         Arg   ("--cache_latents");
+
+        // Aspect-ratio bucketing — BEZ něj sd-scripts ořízne všechny fotky na
+        // čtverec (resolution×resolution), takže portréty/na výšku přijdou o
+        // hlavu/nohy a identita se zhorší. S bucketingem se obrázky seskupí dle
+        // poměru stran a trénují v nativním tvaru. bucket_no_upscale = malé
+        // obrázky se nenafukují (zachová ostrost).
+        Arg   ("--enable_bucket");
+        Arg   ("--bucket_no_upscale");
+        Arg   ("--min_bucket_reso",               "256");
+        Arg   ("--max_bucket_reso",               "2048");
+
+        // Fixní seed — reprodukovatelný trénink (stejný dataset + parametry =
+        // stejný výsledek). Bez něj je každý běh trochu jiný.
+        Arg   ("--seed",                          "42");
+
         // --sdpa = PyTorch 2.x scaled dot-product attention (memory-efficient).
         // Vestavěné v torch, NEvyžaduje xformers balík (ten není v našich pip
         // dependencích a jeho build na Windows embedded Pythonu je nespolehlivý).
