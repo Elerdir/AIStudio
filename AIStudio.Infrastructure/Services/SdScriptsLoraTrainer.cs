@@ -455,10 +455,12 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             Arg("--fp8_base");             // fp8 base + úspora VRAM (FLUX je velký)
 
             // Block swapping — offload N transformer bloků do CPU RAM během tréninku.
-            // BEZ toho FLUX LoRA potřebuje ~40+ GB VRAM a na 24 GB padá na CUDA OOM.
-            // 18 = bezpečné pro většinu případů (doporučení sd-scripts). Vyžaduje
-            // dost system RAM (~32 GB+). Pro víc VRAM lze snížit (rychlejší).
-            Arg("--blocks_to_swap", "18");
+            // Šetří VRAM, ALE výrazně zpomaluje (bloky se každý krok přesouvají
+            // GPU<->RAM). Hodnota je adaptivní podle VRAM (viz VM): na 24 GB = 0
+            // (gradient_checkpointing + fp8_base se vejde bez swapu → ~3-5 s/krok
+            // místo ~60 s/krok), na slabších kartách 8-24. Vyžaduje dost system RAM.
+            if (p.BlocksToSwap > 0)
+                Arg("--blocks_to_swap", p.BlocksToSwap.ToString());
 
             // Flow-matching parametry — doporučené hodnoty kohya-ss/sd-scripts (sd3 branch).
             Arg("--timestep_sampling",     "shift");

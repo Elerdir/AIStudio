@@ -80,6 +80,14 @@ public sealed record LoraTrainingParameters
     public int SaveEverySteps { get; init; } = 500;
 
     /// <summary>
+    /// FLUX-only: kolik transformer bloků offloadovat do CPU RAM (--blocks_to_swap).
+    /// Šetří VRAM za cenu rychlosti (každý krok přesouvá bloky GPU↔RAM). 0 = vypnuto
+    /// (vejde se díky gradient_checkpointing + fp8_base). VM nastavuje adaptivně dle
+    /// VRAM: 24 GB → 0 (rychlé), 16 GB → 8, 12 GB → 16, méně → 24. Ignorováno pro SD/SDXL.
+    /// </summary>
+    public int BlocksToSwap { get; init; } = 0;
+
+    /// <summary>
     /// Defaults laděné podle základního modelu — SDXL má jiné optimum
     /// než SD 1.5 (resolution, learning rate, doporučené stepy).
     /// </summary>

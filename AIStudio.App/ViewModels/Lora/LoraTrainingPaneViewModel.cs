@@ -205,7 +205,38 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     // (hodnota už neodpovídá presetu — je „vlastní").
     partial void OnRankChanged(int value)            => ClearPresetIfManual();
     partial void OnAlphaChanged(int value)           => ClearPresetIfManual();
-    partial void OnStepsChanged(int value)           => ClearPresetIfManual();
+    partial void OnStepsChanged(int value)
+    {
+        ClearPresetIfManual();
+        // Ruční editace kroků zruší auto-doporučení (aby přidání další fotky
+        // uživateli nepřepsalo jeho vlastní hodnotu).
+        if (!_autoSettingSteps) _userTouchedSteps = true;
+    }
+
+    /// <summary>True když uživatel ručně přepsal počet kroků — pak ho auto-doporučení nepřepisuje.</summary>
+    private bool _userTouchedSteps;
+    /// <summary>Guard: programové nastavení Steps nemá počítat jako ruční editaci.</summary>
+    private bool _autoSettingSteps;
+
+    /// <summary>
+    /// Doporučený počet kroků = ~100 na fotku (osvědčená heuristika pro person/character
+    /// LoRA), ohraničený doporučeným minimem dle base modelu a stropem 4000. Aplikuje se
+    /// jen dokud uživatel kroky ručně nepřepsal.
+    /// </summary>
+    private void UpdateRecommendedSteps()
+    {
+        if (_userTouchedSteps || IsTraining) return;
+
+        var filename = Path.GetFileName(ResolveSelectedBaseModelPath() ?? SelectedBaseModel ?? string.Empty);
+        var baseSteps = LoraTrainingParameters.DefaultsFor(filename).Steps;
+        var recommended = DatasetItems.Count > 0
+            ? Math.Clamp(DatasetItems.Count * 100, baseSteps, 4000)
+            : baseSteps;
+
+        _autoSettingSteps = true;
+        Steps = recommended;
+        _autoSettingSteps = false;
+    }
     partial void OnLearningRateChanged(double value) => ClearPresetIfManual();
     partial void OnBatchSizeChanged(int value)       => ClearPresetIfManual();
     partial void OnSelectedOptimizerChanged(string value) => ClearPresetIfManual();
@@ -345,6 +376,8 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             // CanStartCaptioning se po přidání fotek nikdy nepřepočítal a
             // držel initial false (0 fotek při startu).
             OnPropertyChanged(nameof(CanStartCaptioning));
+            // Přepočítej doporučený počet kroků podle počtu fotek (~100/fotku).
+            UpdateRecommendedSteps();
         };
 
         DetectHardware();
@@ -747,9 +780,12 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         // Pro MVP prostě vždycky aplikujeme — pokročilý uživatel může přepsat zpátky.
         Rank         = defaults.Rank;
         Alpha        = defaults.Alpha;
-        Steps        = defaults.Steps;
         LearningRate = defaults.LearningRate;
         BatchSize    = defaults.BatchSize;
+
+        // Změna base modelu resetuje i auto-doporučení kroků (nové optimum dle typu).
+        _userTouchedSteps = false;
+        UpdateRecommendedSteps();
     }
 
     // ── Dataset operace ───────────────────────────────────────────────────────
@@ -978,6 +1014,16 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             .Select(i => new LoraTrainingImage(i.ImagePath, i.Caption ?? string.Empty))
             .ToList();
 
+        // Block swapping (FLUX) adaptivně dle VRAM. Na 24 GB stačí gradient
+        // checkpointing → 0 bloků (rychlé, ~3-5 s/krok). Na slabších kartách víc.
+        // BEZ toho na 24 GB padalo OOM jen kvůli vypnutému gradient checkpointingu;
+        // swap 18 ho sice „spravil", ale zpomalil na ~60 s/krok (27 h pro 1500).
+        var vramGb = _monitor?.Current?.VramTotalGb ?? 0;
+        var blocksToSwap = vramGb >= 22 ? 0
+                         : vramGb >= 16 ? 8
+                         : vramGb >= 12 ? 16
+                         : 24;
+
         var parameters = new LoraTrainingParameters
         {
             Rank                  = Rank,
@@ -986,8 +1032,10 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             LearningRate          = LearningRate,
             BatchSize             = BatchSize,
             Optimizer             = SelectedOptimizer,
-            // Pro hraniční VRAM auto-aktivujeme gradient checkpointing
-            GradientCheckpointing = (_monitor?.Current?.VramTotalGb ?? 0) < 12,
+            // Gradient checkpointing zapínáme na hraniční VRAM; pro FLUX ho trainer
+            // vynutí vždy (FLUX se bez něj nevejde ani na 24 GB).
+            GradientCheckpointing = vramGb < 12,
+            BlocksToSwap          = blocksToSwap,
             MixedPrecisionFp16    = true,
             Resolution            = BaseModelTypeLabel == "SD 1.5" ? 512 : 1024,
         };
