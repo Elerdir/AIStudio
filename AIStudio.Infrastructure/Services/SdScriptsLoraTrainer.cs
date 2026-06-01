@@ -424,7 +424,9 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         // dependencích a jeho build na Windows embedded Pythonu je nespolehlivý).
         Arg   ("--sdpa");
 
-        if (p.GradientCheckpointing) Arg("--gradient_checkpointing");
+        // Gradient checkpointing — FLUX ho potřebuje VŽDY (je obrovský), jinak OOM
+        // i na 24 GB. SD/SDXL podle parametru (auto-on na hraniční VRAM).
+        if (p.GradientCheckpointing || isFlux) Arg("--gradient_checkpointing");
         if (p.SaveEverySteps > 0)
             Arg("--save_every_n_steps", p.SaveEverySteps.ToString(CultureInfo.InvariantCulture));
 
@@ -447,6 +449,12 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             Arg("--cache_latents_to_disk");
             Arg("--apply_t5_attn_mask");
             Arg("--fp8_base");             // fp8 base + úspora VRAM (FLUX je velký)
+
+            // Block swapping — offload N transformer bloků do CPU RAM během tréninku.
+            // BEZ toho FLUX LoRA potřebuje ~40+ GB VRAM a na 24 GB padá na CUDA OOM.
+            // 18 = bezpečné pro většinu případů (doporučení sd-scripts). Vyžaduje
+            // dost system RAM (~32 GB+). Pro víc VRAM lze snížit (rychlejší).
+            Arg("--blocks_to_swap", "18");
 
             // Flow-matching parametry — doporučené hodnoty kohya-ss/sd-scripts (sd3 branch).
             Arg("--timestep_sampling",     "shift");
