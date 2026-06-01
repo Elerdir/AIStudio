@@ -298,8 +298,12 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             // takže fotky s BLIP/ručním popiskem token neměly → natrénovaný subjekt
             // nešel spolehlivě vyvolat (uživatel by v promptu neměl co napsat).
             string caption;
-            if (string.IsNullOrWhiteSpace(item.Caption))
+            if (r.TokenOnlyCaptions || string.IsNullOrWhiteSpace(item.Caption))
             {
+                // Token-only režim (osoba/postava): caption = jen trigger token.
+                // Tím se identita naváže na token a ne na popisná slova — bez toho
+                // BLIP popisky ("blonde woman in a field") rozmělní obličej do
+                // generického výsledku a natrénovaná tvář se nepodobá referenci.
                 caption = fallbackToken;
             }
             else

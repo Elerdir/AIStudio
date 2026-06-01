@@ -144,7 +144,15 @@ public sealed record LoraTrainingRequest(
     /// <summary>FLUX: cesta k t5xxl encoderu.</summary>
     string? FluxT5Path = null,
     /// <summary>FLUX: cesta k ae.safetensors (VAE).</summary>
-    string? FluxAePath = null);
+    string? FluxAePath = null,
+    // ── Režim popisků ────────────────────────────────────────────────────────
+    /// <summary>
+    /// True = popisky všech fotek se při tréninku přepíšou na samotný trigger token
+    /// (sanitizovaný <see cref="Name"/>). Doporučeno pro LoRA na konkrétní OSOBU /
+    /// POSTAVU / OBLIČEJ: model pak váže identitu na trigger, ne na popisná slova.
+    /// Když je false, použijí se popisky z datasetu (vhodné pro styl/koncept LoRA).
+    /// </summary>
+    bool TokenOnlyCaptions = false);
 
 /// <summary>
 /// Průběh tréninku — emitované přes <see cref="IProgress{T}"/> typicky 1× za step.

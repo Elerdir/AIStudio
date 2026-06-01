@@ -727,6 +727,18 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Režim popisků: pro osobu/postavu trénovat jen na trigger token -->
+                        <CheckBox IsChecked="{Binding TokenOnlyCaptions}"
+                                  ToolTip.Tip="Popisky fotek se ignorují a nahradí se samotným názvem LoRA (trigger token). Pro LoRA na konkrétní osobu/postavu/obličej dává mnohem věrnější výsledek — identita se naváže na token, ne na popisná slova. Pro styl/koncept LoRA vypni.">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Trénovat jen na trigger token (osoba / postava / obličej)"
+                                           FontSize="12" Foreground="{DynamicResource TextLightBrush}"/>
+                                <TextBlock Text="Doporučeno pro věrnost obličeje. Popisky se přepíšou na samotný název LoRA. Pro styl/koncept vypni."
+                                           FontSize="10" Foreground="{DynamicResource TextHintBrush}"
+                                           TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </CheckBox>
+
                         <!-- Velikost varování -->
                         <Border IsVisible="{Binding IsDatasetSizeWarning}"
                                 Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"

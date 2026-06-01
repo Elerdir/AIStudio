@@ -821,6 +821,14 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     /// <summary>Styl auto-captionu: <c>blip</c> (foto) nebo <c>wd14</c> (anime).</summary>
     [ObservableProperty] private string _captionStyle = "blip";
 
+    /// <summary>
+    /// Režim „jen trigger token" — popisky fotek se při tréninku ignorují a nahradí
+    /// se samotným trigger tokenem (název LoRA). Zapni pro LoRA na konkrétní OSOBU /
+    /// POSTAVU / OBLIČEJ: identita se naváže na token místo na popisná slova.
+    /// Default true — appka cílí hlavně na person/character LoRA. Pro styl/koncept vypni.
+    /// </summary>
+    [ObservableProperty] private bool _tokenOnlyCaptions = true;
+
     public IReadOnlyList<(string Value, string Label)> CaptionStyles { get; } = new[]
     {
         ("blip", "BLIP (fotorealistic)"),
@@ -1008,7 +1016,8 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             OutputDirectory: outputDir,
             FluxClipLPath:   fluxClipL,
             FluxT5Path:      fluxT5,
-            FluxAePath:      fluxAe);
+            FluxAePath:      fluxAe,
+            TokenOnlyCaptions: TokenOnlyCaptions);
 
         // Reset stavu pro UI
         IsTraining       = true;
