@@ -252,6 +252,48 @@ public static class ComfyWorkflowBuilder
         };
     }
 
+    /// <summary>
+    /// Workflow pro FLUX UNET-only <c>.safetensors</c> (diffusion_models / unet/),
+    /// např. <c>flux1-dev-fp8.safetensors</c> od Kijai. Tyto soubory obsahují JEN
+    /// transformer (UNET) — NE CLIP ani VAE — takže <c>CheckpointLoaderSimple</c>
+    /// selže na „clip input is invalid: None". Místo toho zavádíme model přes
+    /// <c>UNETLoader</c> a CLIP + VAE z oddělených souborů (stejně jako GGUF).
+    ///
+    /// <para>Topologie uzlů je IDENTICKÁ s <see cref="BuildFluxGguf"/> (loader=„1",
+    /// DualCLIP=„2", VAE=„3", EmptyLatent=„4", CLIP+=„5", CLIP-=„6", FluxGuidance=„7",
+    /// KSampler=„8", VAEDecode=„9", SaveImage=„10"), takže LoRA injection i reference
+    /// injection používají stejné <c>FluxGguf*</c> klíče.</para>
+    /// </summary>
+    public static Dictionary<string, object> BuildFluxUnet(
+        string unetFile,
+        string clipLFile,
+        string t5File,
+        string vaeFile,
+        string prompt,
+        int    width,
+        int    height,
+        int    steps,
+        double guidance,
+        long   seed,
+        int    batchSize = 1,
+        string sampler   = DefaultSamplerFlux,
+        string scheduler = DefaultSchedulerFlux)
+    {
+        var wf = BuildFluxGguf(unetFile, clipLFile, t5File, vaeFile,
+                               prompt, width, height, steps, guidance, seed,
+                               batchSize, sampler, scheduler);
+
+        // Vyměníme UnetLoaderGGUF (uzel „1") za UNETLoader pro .safetensors UNET.
+        // weight_dtype="default" → ComfyUI auto-detekuje fp8/bf16 z hlavičky souboru
+        // (log to potvrdil: „model weight dtype torch.float8_e4m3fn").
+        wf["1"] = Node("UNETLoader", new()
+        {
+            ["unet_name"]    = unetFile,
+            ["weight_dtype"] = "default",
+        });
+        return wf;
+    }
+
     // ── Reference images (img2img / multi-reference blend) ───────────────────
 
     /// <summary>

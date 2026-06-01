@@ -526,6 +526,10 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             var seed   = Seed < 0 ? (long)Random.Shared.Next(1, int.MaxValue) : Seed;
             var isFlux = ComfyWorkflowBuilder.IsFluxModel(SelectedModel);
             var isGguf = ComfyWorkflowBuilder.IsGgufModel(SelectedModel);
+            // FLUX .safetensors, který obsahuje JEN UNET (bez CLIP/VAE) — např.
+            // flux1-dev-fp8 od Kijai. Zjistí se v pre-flight check B; pak se generuje
+            // přes UNETLoader + samostatné FLUX deps (jako GGUF), ne CheckpointLoaderSimple.
+            var fluxUnetOnly = false;
 
             Log.Information(
                 "Generování zahájeno — mód={Mode}, model={Model}, seed={Seed}, " +
@@ -574,13 +578,33 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                     var components = await Task.Run(() => SafetensorsInspector.Inspect(modelPath));
                     if (components is { IsUnetOnly: true })
                     {
-                        GenerationStatus = isFlux
-                            ? "⚠ Model obsahuje jen UNet (bez CLIP a VAE). " +
-                              "Pro generování potřebuješ buď: " +
-                              "(A) kompletní FLUX checkpoint — stáhni flux1-dev-fp8.safetensors nebo flux1-schnell-fp8.safetensors, nebo " +
-                              "(B) GGUF soubor + clip_l.safetensors + t5xxl_fp8_e4m3fn.safetensors + ae.safetensors."
-                            : "⚠ Model obsahuje jen UNet (bez CLIP a VAE) — ověř, že máš kompletní checkpoint soubor.";
-                        return;
+                        if (isFlux)
+                        {
+                            // FLUX UNET-only (flux1-dev-fp8 apod.) umíme vygenerovat přes
+                            // UNETLoader + samostatné CLIP-L/T5/VAE — pokud ty soubory máme.
+                            var missingDeps = _fluxDeps?.FindMissing(ResolveModelsDir()) ?? new List<string>();
+                            if (missingDeps.Count == 0)
+                            {
+                                fluxUnetOnly = true;   // generujeme přes BuildFluxUnet
+                            }
+                            else if (_fluxDeps is { IsDownloading: true })
+                            {
+                                GenerationStatus = $"⏳ {_fluxDeps.DownloadStatusLine} — počkej na dokončení a zkus znovu.";
+                                return;
+                            }
+                            else
+                            {
+                                GenerationStatus =
+                                    "⚠ FLUX UNet potřebuje samostatné CLIP/VAE soubory: " +
+                                    $"{string.Join(", ", missingDeps)}. Stáhni je v sekci Modely (FLUX závislosti).";
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            GenerationStatus = "⚠ Model obsahuje jen UNet (bez CLIP a VAE) — ověř, že máš kompletní checkpoint soubor.";
+                            return;
+                        }
                     }
                 }
 
@@ -624,7 +648,26 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             if (uploadedRefName is not null)
             {
                 // IMG2IMG větev
-                if (isFlux && !isGguf)
+                if (isFlux && fluxUnetOnly)
+                {
+                    // UNET-only FLUX nemá vlastní VAE/CLIP → BuildFluxUnet (UNETLoader)
+                    // a referenci zapojíme přes generický LatentBlend img2img injektor.
+                    workflow = ComfyWorkflowBuilder.BuildFluxUnet(
+                        SelectedModel,
+                        ComfyWorkflowBuilder.DefaultFluxClipL,
+                        ComfyWorkflowBuilder.DefaultFluxT5,
+                        ComfyWorkflowBuilder.DefaultFluxVae,
+                        Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
+                        SelectedSampler, SelectedScheduler);
+                    ComfyWorkflowBuilder.InjectReferenceImages(
+                        workflow,
+                        ComfyWorkflowBuilder.FluxGgufEmptyLatentKey,
+                        ComfyWorkflowBuilder.FluxGgufKSamplerKey,
+                        ComfyWorkflowBuilder.FluxGgufVaeRef,
+                        new[] { uploadedRefName },
+                        res.W, res.H, ReferenceStrength, VariantCount);
+                }
+                else if (isFlux && !isGguf)
                 {
                     workflow = ComfyWorkflowBuilder.BuildFluxImg2Img(
                         SelectedModel, uploadedRefName,
@@ -662,6 +705,17 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                     Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
                     SelectedSampler, SelectedScheduler);
             }
+            else if (isFlux && fluxUnetOnly)
+            {
+                // FLUX UNET-only safetensors (flux1-dev-fp8 apod.) → UNETLoader + deps
+                workflow = ComfyWorkflowBuilder.BuildFluxUnet(
+                    SelectedModel,
+                    ComfyWorkflowBuilder.DefaultFluxClipL,
+                    ComfyWorkflowBuilder.DefaultFluxT5,
+                    ComfyWorkflowBuilder.DefaultFluxVae,
+                    Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
+                    SelectedSampler, SelectedScheduler);
+            }
             else if (isFlux)
             {
                 workflow = ComfyWorkflowBuilder.BuildFlux(
@@ -681,13 +735,14 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             {
                 var loras = SelectedLoras.ToList();
 
-                if (isGguf)
+                if (isGguf || fluxUnetOnly)
                 {
-                    // GGUF: model a clip přicházejí ze dvou různých uzlů.
-                    //   Node "1" = UnetLoaderGGUF  → model output 0
-                    //   Node "2" = DualCLIPLoader   → clip  output 0
+                    // GGUF i UNET-only FLUX safetensors: model a clip přicházejí ze
+                    // dvou různých uzlů (stejná topologie).
+                    //   Node "1" = UnetLoaderGGUF / UNETLoader  → model output 0
+                    //   Node "2" = DualCLIPLoader                → clip  output 0
                     //   Node "8" = KSampler, Nodes "5"+"6" = CLIPTextEncodes
-                    // (platí pro txt2img i pro fallback img2img kdy jsme použili BuildFluxGguf)
+                    // (platí pro txt2img i img2img s injektovanou referencí)
                     ComfyWorkflowBuilder.InjectLoras(
                         workflow,
                         initialModelRef:   ComfyWorkflowBuilder.GgufModelRef,
