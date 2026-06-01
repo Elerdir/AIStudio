@@ -219,6 +219,16 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
             return "Název obsahuje znaky, které nejsou dovolené v názvech souborů.";
         if (string.IsNullOrWhiteSpace(r.BaseModelPath) || !File.Exists(r.BaseModelPath))
             return $"Základní model neexistuje: {r.BaseModelPath}";
+        // GGUF kvantizace nejde trénovat — sd-scripts potřebuje plný safetensors.
+        var baseName = Path.GetFileName(r.BaseModelPath).ToLowerInvariant();
+        if (baseName.EndsWith(".gguf"))
+            return "Trénink na GGUF modelu nelze provést — sd-scripts potřebuje plný " +
+                   ".safetensors checkpoint. Vyber prosím SD 1.5 nebo SDXL model.";
+        // FLUX trénink vyžaduje samostatné clip_l + t5xxl + ae a FLUX-specifické
+        // argumenty, které zatím nemáme zapojené. SD/SDXL funguje plně.
+        if (baseName.Contains("flux"))
+            return "Trénink FLUX LoRA zatím není podporován (vyžaduje samostatné CLIP/T5/VAE). " +
+                   "Použij SD 1.5 nebo SDXL checkpoint — ten funguje skvěle.";
         if (r.Dataset.Count < 5)
             return $"Příliš málo trénovacích obrázků ({r.Dataset.Count}). Doporučeno 15-30.";
         if (r.Dataset.Count > 200)

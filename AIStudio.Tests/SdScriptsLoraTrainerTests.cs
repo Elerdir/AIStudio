@@ -142,6 +142,51 @@ public class SdScriptsLoraTrainerTests
         loss.Should().NotBeNull().And.BeApproximately(0.000123, 1e-7);
     }
 
+    // ── ValidateRequest: gating netrénovatelných base modelů ──────────────────
+
+    [Fact]
+    public void ValidateRequest_GgufBase_Rejected()
+    {
+        var gguf = Path.Combine(Path.GetTempPath(), $"loratrainer_{Guid.NewGuid():N}.gguf");
+        File.WriteAllText(gguf, "fake");
+        var (_, images) = CreateTempBaseModel();
+        try
+        {
+            var err = SdScriptsLoraTrainer.ValidateRequest(
+                MakeRequest(baseModelPath: gguf, imageFiles: images));
+            err.Should().NotBeNull().And.Contain("GGUF");
+        }
+        finally { File.Delete(gguf); foreach (var i in images) File.Delete(i); }
+    }
+
+    [Fact]
+    public void ValidateRequest_FluxBase_Rejected()
+    {
+        var flux = Path.Combine(Path.GetTempPath(), $"flux1-dev_{Guid.NewGuid():N}.safetensors");
+        File.WriteAllText(flux, "fake");
+        var (_, images) = CreateTempBaseModel();
+        try
+        {
+            var err = SdScriptsLoraTrainer.ValidateRequest(
+                MakeRequest(baseModelPath: flux, imageFiles: images));
+            err.Should().NotBeNull().And.Contain("FLUX");
+        }
+        finally { File.Delete(flux); foreach (var i in images) File.Delete(i); }
+    }
+
+    [Fact]
+    public void ValidateRequest_SafetensorsBase_Passes()
+    {
+        var (baseModel, images) = CreateTempBaseModel();
+        try
+        {
+            SdScriptsLoraTrainer.ValidateRequest(
+                MakeRequest(baseModelPath: baseModel, imageFiles: images))
+                .Should().BeNull();
+        }
+        finally { File.Delete(baseModel); foreach (var i in images) File.Delete(i); }
+    }
+
     // ── Test helpers ──────────────────────────────────────────────────────────
 
     private static LoraTrainingRequest MakeRequest(

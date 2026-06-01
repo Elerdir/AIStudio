@@ -364,12 +364,15 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         // Curated picky vhodné pro LoRA trénink. Sdílíme katalog s chat → image gen
         // recommenderem (RecommendedModels.*), takže přidání modelu do katalogu se
         // automaticky promítne sem.
+        // POZN: nabízíme jen TRÉNOVATELNÉ base modely (SD 1.5 / SDXL safetensors).
+        // FLUX (a GGUF kvantizace) sd-scripts trénovat neumí — viz gate ve
+        // SdScriptsLoraTrainer.ValidateRequest. Proto tu žádný FLUX/GGUF není.
         var picks = new[]
         {
             RecommendedModels.SdxlBase10,             // univerzální SDXL pro postavy/scény
-            RecommendedModels.DreamShaperXl_Lightning, // stylizovaný/cinematic
-            RecommendedModels.AnimagineXl31,          // anime
-            RecommendedModels.FluxSchnell_Q4,         // top kvalita (FLUX GGUF)
+            RecommendedModels.DreamShaperXl_Lightning, // stylizovaný/cinematic SDXL
+            RecommendedModels.AnimagineXl31,          // anime SDXL
+            RecommendedModels.DreamShaper8_Sd15,      // SD 1.5 — rychlejší, míň VRAM
         };
 
         var modelsRoot = AppPaths.ResolveModelsDirectory(_settings.Settings.ModelsDirectory);
