@@ -339,7 +339,9 @@ public sealed class LoraTrainerDependencyService : ILoraTrainerDependencyService
                 new ProcessRunOptions
                 {
                     FileName   = "git",
-                    Arguments  = $"clone --depth 1 \"{SdScriptsRepoUrl}\" \"{SdScriptsRoot}\"",
+                    // sd3 branch — má FLUX (flux_train_network.py) i SD/SDXL skripty.
+                    // main branch FLUX nemá. sd3 je superset.
+                    Arguments  = $"clone --depth 1 --branch sd3 \"{SdScriptsRepoUrl}\" \"{SdScriptsRoot}\"",
                     Utf8Python = false,
                     TailSize   = 20,
                 },
@@ -373,7 +375,9 @@ public sealed class LoraTrainerDependencyService : ILoraTrainerDependencyService
     private static async Task DownloadSdScriptsZipAsync(
         IProgress<LoraTrainerInstallProgress>? progress, CancellationToken ct)
     {
-        const string zipUrl = "https://github.com/kohya-ss/sd-scripts/archive/refs/heads/main.zip";
+        // sd3 branch (ne main) — má FLUX i SD/SDXL skripty. Extract níž auto-najde
+        // top-level složku „sd-scripts-sd3", takže žádná další změna netřeba.
+        const string zipUrl = "https://github.com/kohya-ss/sd-scripts/archive/refs/heads/sd3.zip";
         var tempZip = Path.Combine(Path.GetTempPath(), $"sd-scripts-{Guid.NewGuid():N}.zip");
 
         try

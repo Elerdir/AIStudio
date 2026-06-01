@@ -223,12 +223,17 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         var baseName = Path.GetFileName(r.BaseModelPath).ToLowerInvariant();
         if (baseName.EndsWith(".gguf"))
             return "Trénink na GGUF modelu nelze provést — sd-scripts potřebuje plný " +
-                   ".safetensors checkpoint. Vyber prosím SD 1.5 nebo SDXL model.";
-        // FLUX trénink vyžaduje samostatné clip_l + t5xxl + ae a FLUX-specifické
-        // argumenty, které zatím nemáme zapojené. SD/SDXL funguje plně.
+                   ".safetensors checkpoint. Vyber prosím plný FLUX dev / SD / SDXL model.";
+        // FLUX trénink vyžaduje samostatné text encodery + VAE (clip_l/t5xxl/ae) —
+        // VM je resolvuje z Models. Bez nich flux_train_network.py spadne.
         if (baseName.Contains("flux"))
-            return "Trénink FLUX LoRA zatím není podporován (vyžaduje samostatné CLIP/T5/VAE). " +
-                   "Použij SD 1.5 nebo SDXL checkpoint — ten funguje skvěle.";
+        {
+            if (string.IsNullOrWhiteSpace(r.FluxClipLPath) || !File.Exists(r.FluxClipLPath) ||
+                string.IsNullOrWhiteSpace(r.FluxT5Path)    || !File.Exists(r.FluxT5Path)    ||
+                string.IsNullOrWhiteSpace(r.FluxAePath)    || !File.Exists(r.FluxAePath))
+                return "FLUX trénink vyžaduje stažené CLIP-L, T5 a VAE. Nech doinstalovat " +
+                       "FLUX závislosti (sekce Modely / generování FLUX obrázku) a zkus znovu.";
+        }
         if (r.Dataset.Count < 5)
             return $"Příliš málo trénovacích obrázků ({r.Dataset.Count}). Doporučeno 15-30.";
         if (r.Dataset.Count > 200)
@@ -385,7 +390,8 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         Quoted("--output_dir",                    outRoot);
         Arg   ("--output_name",                   r.Name);
         Arg   ("--save_model_as",                 "safetensors");
-        Arg   ("--network_module",                "networks.lora");
+        // FLUX má vlastní LoRA modul (networks.lora_flux), SD/SDXL standardní.
+        Arg   ("--network_module",                isFlux ? "networks.lora_flux" : "networks.lora");
         Arg   ("--network_dim",                   p.Rank.ToString(CultureInfo.InvariantCulture));
         Arg   ("--network_alpha",                 p.Alpha.ToString(CultureInfo.InvariantCulture));
         Arg   ("--resolution",                    $"{p.Resolution},{p.Resolution}");
@@ -394,8 +400,9 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         Arg   ("--learning_rate",                 p.LearningRate.ToString("0.######", CultureInfo.InvariantCulture));
         Arg   ("--lr_scheduler",                  "cosine_with_restarts");
         Arg   ("--optimizer_type",                p.Optimizer);
-        Arg   ("--save_precision",                "fp16");
-        Arg   ("--mixed_precision",               p.MixedPrecisionFp16 ? "fp16" : "no");
+        // FLUX trénuje v bf16 (fp16 je u FLUXu numericky nestabilní); SD/SDXL fp16.
+        Arg   ("--save_precision",                isFlux ? "bf16" : "fp16");
+        Arg   ("--mixed_precision",               isFlux ? "bf16" : (p.MixedPrecisionFp16 ? "fp16" : "no"));
         Arg   ("--cache_latents");
 
         // Aspect-ratio bucketing — BEZ něj sd-scripts ořízne všechny fotky na
@@ -421,10 +428,31 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         if (p.SaveEverySteps > 0)
             Arg("--save_every_n_steps", p.SaveEverySteps.ToString(CultureInfo.InvariantCulture));
 
-        // SDXL/FLUX specifické flagy
+        // ── Model-specifické flagy ──
         if (isSdxl)
         {
             Arg("--no_half_vae");          // SDXL VAE má známé NaN problémy v fp16 — fp32 je stabilnější
+        }
+        else if (isFlux)
+        {
+            // FLUX: text encodery + VAE jako SAMOSTATNÉ soubory (resolvuje VM z Models).
+            if (r.FluxClipLPath is not null) Quoted("--clip_l", r.FluxClipLPath);
+            if (r.FluxT5Path    is not null) Quoted("--t5xxl",  r.FluxT5Path);
+            if (r.FluxAePath    is not null) Quoted("--ae",     r.FluxAePath);
+
+            // T5 encoder je obrovský — cache jeho výstupů na disk je u FLUXu nezbytné
+            // (jinak OOM nebo extrémní zpomalení). Stejně tak latenty na disk.
+            Arg("--cache_text_encoder_outputs");
+            Arg("--cache_text_encoder_outputs_to_disk");
+            Arg("--cache_latents_to_disk");
+            Arg("--apply_t5_attn_mask");
+            Arg("--fp8_base");             // fp8 base + úspora VRAM (FLUX je velký)
+
+            // Flow-matching parametry — doporučené hodnoty kohya-ss/sd-scripts (sd3 branch).
+            Arg("--timestep_sampling",     "shift");
+            Arg("--discrete_flow_shift",   "3.1582");
+            Arg("--model_prediction_type", "raw");
+            Arg("--guidance_scale",        "1.0");
         }
 
         return (scriptPath, sb.ToString());

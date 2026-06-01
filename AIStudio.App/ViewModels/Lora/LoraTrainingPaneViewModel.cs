@@ -36,6 +36,9 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     private readonly ISystemMonitorService?        _monitor;
     private readonly ILoraCaptionService?          _captionService;
     private readonly IDownloadService?             _downloadService;
+    // FLUX trénink potřebuje clip_l/t5/ae — zajistíme je stejnou službou jako
+    // FLUX generování. Null = degradace (FLUX deps se musí stáhnout jinde).
+    private readonly IFluxDependencyService?       _fluxDeps;
 
     private CancellationTokenSource? _cts;
     private CancellationTokenSource? _captionCts;
@@ -309,7 +312,8 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         ISettingsService               settings,
         ISystemMonitorService?         monitor         = null,
         ILoraCaptionService?           captionService  = null,
-        IDownloadService?              downloadService = null)
+        IDownloadService?              downloadService = null,
+        IFluxDependencyService?        fluxDeps        = null)
     {
         AvailableBaseModels.CollectionChanged += (_, _) =>
             OnPropertyChanged(nameof(HasAvailableBaseModels));
@@ -320,6 +324,7 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         _monitor         = monitor;
         _captionService  = captionService;
         _downloadService = downloadService;
+        _fluxDeps        = fluxDeps;
 
         // SystemMonitor sbírá metriky každé 2.5 s, takže Current je při startu
         // null (ještě nestihl odběr). DetectHardware si subscribneme i na
@@ -543,18 +548,24 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         var settings   = _settings.Settings;
         var aiModelsDir = AppPaths.ResolveModelsDirectory(settings.ModelsDirectory);
 
-        // Lokace, ve kterých hledáme — (display prefix, absolutní path k checkpoints/)
+        // Lokace, ve kterých hledáme — (display prefix, absolutní path).
+        // checkpoints/ = SD/SDXL; unet/ + diffusion_models/ = FLUX UNET modely
+        // (FLUX LoRA trénink na nich, vč. flux1-dev / kontext fp8).
         var scanLocations = new List<(string Label, string Dir)>
         {
             ("AI Studio", Path.Combine(aiModelsDir, "checkpoints")),
+            ("AI Studio", Path.Combine(aiModelsDir, "unet")),
+            ("AI Studio", Path.Combine(aiModelsDir, "diffusion_models")),
         };
 
         // ComfyUI lokace — pokud máme nastavený directory, hledáme tam taky.
-        // ComfyUI Portable má pevnou strukturu {ComfyUiDir}/models/checkpoints/.
+        // ComfyUI Portable má pevnou strukturu {ComfyUiDir}/models/{checkpoints,unet,…}.
         if (!string.IsNullOrWhiteSpace(settings.ComfyUiDirectory))
         {
-            scanLocations.Add(("ComfyUI",
-                Path.Combine(settings.ComfyUiDirectory, "models", "checkpoints")));
+            var comfyModels = Path.Combine(settings.ComfyUiDirectory, "models");
+            scanLocations.Add(("ComfyUI", Path.Combine(comfyModels, "checkpoints")));
+            scanLocations.Add(("ComfyUI", Path.Combine(comfyModels, "unet")));
+            scanLocations.Add(("ComfyUI", Path.Combine(comfyModels, "diffusion_models")));
         }
 
         var found = await Task.Run(() =>
@@ -914,6 +925,29 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     private void DeclineCodeOfConduct() => IsCodeOfConductVisible = false;
 
     [RelayCommand]
+    /// <summary>
+    /// Najde FLUX text encodery (clip_l, t5xxl) + VAE (ae) v Models složce —
+    /// v podsložkách clip/ a vae/ (kam je ukládá FluxDependencyService) i v rootu.
+    /// </summary>
+    private static (string? ClipL, string? T5, string? Ae) FindFluxDeps(string modelsRoot)
+    {
+        string? Find(string sub, params string[] files)
+        {
+            foreach (var f in files)
+            {
+                var inSub  = Path.Combine(modelsRoot, sub, f);
+                var inRoot = Path.Combine(modelsRoot, f);
+                if (File.Exists(inSub))  return inSub;
+                if (File.Exists(inRoot)) return inRoot;
+            }
+            return null;
+        }
+        var clipL = Find("clip", "clip_l.safetensors");
+        var t5    = Find("clip", "t5xxl_fp8_e4m3fn.safetensors", "t5xxl_fp16.safetensors");
+        var ae    = Find("vae",  "ae.safetensors");
+        return (clipL, t5, ae);
+    }
+
     private async Task StartTrainingAsync()
     {
         if (!CanStartTraining) return;
@@ -949,12 +983,31 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             Resolution            = BaseModelTypeLabel == "SD 1.5" ? 512 : 1024,
         };
 
+        // FLUX trénink potřebuje samostatné clip_l/t5/ae — zajisti je (auto-download)
+        // a resolvuj cesty. Sdílíme je s FLUX generováním (stejná Models složka).
+        string? fluxClipL = null, fluxT5 = null, fluxAe = null;
+        if (baseModelPath.Contains("flux", StringComparison.OrdinalIgnoreCase))
+        {
+            if (_fluxDeps is not null && !_fluxDeps.AreDependenciesPresent(modelsRoot))
+            {
+                IsTraining = true;
+                StatusLine = "Stahuji FLUX závislosti (CLIP-L, T5, VAE)…";
+                using var depCts = new CancellationTokenSource();
+                try { await _fluxDeps.EnsureAsync(modelsRoot, _settings.Settings.HuggingFaceToken, depCts.Token); }
+                catch (Exception ex) { Log.Warning(ex, "LoRA: stažení FLUX závislostí selhalo"); }
+            }
+            (fluxClipL, fluxT5, fluxAe) = FindFluxDeps(modelsRoot);
+        }
+
         var request = new LoraTrainingRequest(
             Name:            TrainingName.Trim(),
             BaseModelPath:   baseModelPath,
             Dataset:         dataset,
             Parameters:      parameters,
-            OutputDirectory: outputDir);
+            OutputDirectory: outputDir,
+            FluxClipLPath:   fluxClipL,
+            FluxT5Path:      fluxT5,
+            FluxAePath:      fluxAe);
 
         // Reset stavu pro UI
         IsTraining       = true;

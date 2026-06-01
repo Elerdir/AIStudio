@@ -134,7 +134,17 @@ public sealed record LoraTrainingRequest(
     /// <summary>Parametry tréninku. Použij <see cref="LoraTrainingParameters.DefaultsFor"/>.</summary>
     LoraTrainingParameters Parameters,
     /// <summary>Cílový adresář pro <c>{Name}.safetensors</c> — typicky <c>Models/loras/</c>.</summary>
-    string OutputDirectory);
+    string OutputDirectory,
+    // ── FLUX-only závislosti (null pro SD/SDXL) ──────────────────────────────
+    // FLUX trénink (flux_train_network.py) vyžaduje text encodery + VAE jako
+    // SAMOSTATNÉ soubory (na rozdíl od SD/SDXL, kde jsou v checkpointu). VM je
+    // resolvne z Models složky (sdílí je s FLUX generováním přes FluxDependencyService).
+    /// <summary>FLUX: cesta ke clip_l.safetensors. Null = ne-FLUX trénink.</summary>
+    string? FluxClipLPath = null,
+    /// <summary>FLUX: cesta k t5xxl encoderu.</summary>
+    string? FluxT5Path = null,
+    /// <summary>FLUX: cesta k ae.safetensors (VAE).</summary>
+    string? FluxAePath = null);
 
 /// <summary>
 /// Průběh tréninku — emitované přes <see cref="IProgress{T}"/> typicky 1× za step.
