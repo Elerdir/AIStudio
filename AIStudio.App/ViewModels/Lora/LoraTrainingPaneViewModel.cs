@@ -213,6 +213,8 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         if (!_autoSettingSteps) _userTouchedSteps = true;
     }
 
+    /// <summary>Poslední naměřená VRAM (GB) z monitoru — cache pro chvíle, kdy je Current dočasně 0.</summary>
+    private double _lastKnownVramGb;
     /// <summary>True když uživatel ručně přepsal počet kroků — pak ho auto-doporučení nepřepisuje.</summary>
     private bool _userTouchedSteps;
     /// <summary>Guard: programové nastavení Steps nemá počítat jako ruční editaci.</summary>
@@ -732,6 +734,11 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             var vramGb = cur.VramTotalGb;
             var name   = cur.GpuName ?? "GPU";
 
+            // Zapamatuj poslední platnou hodnotu — při startu tréninku může být
+            // _monitor.Current.VramTotalGb dočasně 0 (mezi vzorky) a bez cache by
+            // adaptivní block-swap spadl do nejhoršího případu (max swap = pomalé).
+            if (vramGb > 0) _lastKnownVramGb = vramGb;
+
             HwInfoLabel = $"{name} · {vramGb:F0} GB VRAM";
 
             if (vramGb < 6)
@@ -1018,11 +1025,15 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         // checkpointing → 0 bloků (rychlé, ~3-5 s/krok). Na slabších kartách víc.
         // BEZ toho na 24 GB padalo OOM jen kvůli vypnutému gradient checkpointingu;
         // swap 18 ho sice „spravil", ale zpomalil na ~60 s/krok (27 h pro 1500).
-        var vramGb = _monitor?.Current?.VramTotalGb ?? 0;
-        var blocksToSwap = vramGb >= 22 ? 0
+        // Bereme max(live, poslední známá) — live může být při startu dočasně 0.
+        var vramGb = Math.Max(_monitor?.Current?.VramTotalGb ?? 0, _lastKnownVramGb);
+        var blocksToSwap = vramGb >= 20 ? 0
                          : vramGb >= 16 ? 8
                          : vramGb >= 12 ? 16
                          : 24;
+        Log.Information(
+            "LoRA trénink: VRAM={Vram:F1} GB → blocks_to_swap={Blocks} (0 = bez swapu, rychlé)",
+            vramGb, blocksToSwap);
 
         var parameters = new LoraTrainingParameters
         {
