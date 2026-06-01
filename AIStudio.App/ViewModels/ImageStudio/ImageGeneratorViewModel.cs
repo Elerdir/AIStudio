@@ -355,6 +355,25 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     /// pro jiný typ modelu než checkpoint (ControlNet, VAE, LoRA, …).
     /// Používá se pro lokální skenování (absolutní cesta + base dir).
     /// </summary>
+    /// <summary>
+    /// True, pokud název modelu obsahuje segment složky <c>unet/</c> nebo
+    /// <c>diffusion_models/</c> (např. „unet\flux1-dev-fp8.safetensors"). Takové
+    /// FLUX soubory jsou diffusion-model-only (bez CLIP/VAE) a musí se zavádět
+    /// přes UNETLoader, ne CheckpointLoaderSimple.
+    /// </summary>
+    private static bool IsInDiffusionModelDir(string modelName)
+    {
+        if (string.IsNullOrWhiteSpace(modelName)) return false;
+        var parts = modelName.Split('/', '\\');
+        for (var i = 0; i < parts.Length - 1; i++)
+        {
+            if (parts[i].Equals("unet", StringComparison.OrdinalIgnoreCase) ||
+                parts[i].Equals("diffusion_models", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
     private static bool IsInExcludedSubdir(string filePath, string baseDir)
     {
         var relative = Path.GetRelativePath(baseDir, filePath);
@@ -573,10 +592,19 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                         _settings.Settings.ModelsDirectory,
                         _settings.Settings.ComfyUiDirectory));
 
+                // FLUX soubor ležící ve složce unet/ nebo diffusion_models/ je vždy
+                // diffusion-model-only (bez CLIP/VAE) — pozná se z prefixu cesty v názvu
+                // ("unet\flux1-dev-fp8.safetensors"). Spolehlivější než čtení hlavičky,
+                // které selže, když se soubor nepodaří najít na disku.
+                var inUnetDir = IsInDiffusionModelDir(SelectedModel);
+
+                SafetensorsComponents? components = null;
                 if (modelPath is not null)
+                    components = await Task.Run(() => SafetensorsInspector.Inspect(modelPath));
+
+                var isUnetOnly = (components?.IsUnetOnly ?? false) || inUnetDir;
+                if (isUnetOnly)
                 {
-                    var components = await Task.Run(() => SafetensorsInspector.Inspect(modelPath));
-                    if (components is { IsUnetOnly: true })
                     {
                         if (isFlux)
                         {
@@ -586,6 +614,9 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                             if (missingDeps.Count == 0)
                             {
                                 fluxUnetOnly = true;   // generujeme přes BuildFluxUnet
+                                Log.Information(
+                                    "FLUX UNET-only detekován ({Model}) — workflow přes UNETLoader + DualCLIPLoader + VAELoader",
+                                    SelectedModel);
                             }
                             else if (_fluxDeps is { IsDownloading: true })
                             {
