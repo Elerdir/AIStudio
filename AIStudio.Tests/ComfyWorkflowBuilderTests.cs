@@ -445,4 +445,68 @@ public class ComfyWorkflowBuilderTests
         inputs["strength_model"].Should().Be(0.75);
         inputs["strength_clip"].Should().Be(0.6);
     }
+
+    // ── AppendUpscale (hires fix + ESRGAN) ────────────────────────────────────
+
+    [Fact]
+    public void AppendUpscale_AddsHiresFix_AndRepointsSaveImage()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "cat", "", 1024, 1024, 20, 7.0, 1);
+
+        ComfyWorkflowBuilder.AppendUpscale(wf, 1024, 1024, useUpscaleModel: false);
+
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+        // Hires fix přidá LatentUpscale + 2. KSampler + 2. VAEDecode
+        types.Should().Contain("LatentUpscale");
+        types.Count(t => t == "KSampler").Should().Be(2);
+        types.Count(t => t == "VAEDecode").Should().Be(2);
+        // Bez ESRGAN se upscale model nepřidává
+        types.Should().NotContain("UpscaleModelLoader");
+
+        // SaveImage teď ukazuje na uzel, který NENÍ původní VAEDecode "8"
+        var saveImg = FindNode(wf, "SaveImage");
+        var imgRef  = (object[])((Dictionary<string, object>)saveImg["inputs"])["images"];
+        ((string)imgRef[0]).Should().NotBe("8");
+    }
+
+    [Fact]
+    public void AppendUpscale_HiresKSampler_ReusesModelRef_AndLowDenoise()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "cat", "", 1024, 1024, 20, 7.0, 1);
+
+        // model ref původního KSampleru ("3") před upscale
+        var origModelRef = (object[])GetInputs(wf, "3")["model"];
+
+        ComfyWorkflowBuilder.AppendUpscale(wf, 1024, 1024,
+            hiresDenoise: 0.35, useUpscaleModel: false);
+
+        // 2. KSampler = ten, který NENÍ "3"
+        var second = wf.Where(kv => kv.Value is Dictionary<string, object> n
+                                    && (string)n["class_type"] == "KSampler"
+                                    && kv.Key != "3")
+                       .Select(kv => (Dictionary<string, object>)((Dictionary<string, object>)kv.Value)["inputs"])
+                       .Single();
+
+        ((double)second["denoise"]).Should().Be(0.35);
+        ((object[])second["model"])[0].Should().Be(origModelRef[0]); // stejný model (vč. LoRA)
+    }
+
+    [Fact]
+    public void AppendUpscale_WithUpscaleModel_AddsEsrganNodes()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "cat", "", 1024, 1024, 20, 7.0, 1);
+
+        ComfyWorkflowBuilder.AppendUpscale(wf, 1024, 1024,
+            useUpscaleModel: true, upscaleModelName: "RealESRGAN_x4plus.pth", finalScale: 2.0);
+
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+        types.Should().Contain("UpscaleModelLoader");
+        types.Should().Contain("ImageUpscaleWithModel");
+
+        var loader = (Dictionary<string, object>)FindNode(wf, "UpscaleModelLoader")["inputs"];
+        loader["model_name"].Should().Be("RealESRGAN_x4plus.pth");
+    }
 }

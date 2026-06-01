@@ -632,6 +632,18 @@
                             <!-- LoRA adaptery (Smart) — sdílený control, viz LoraPickerControl.axaml -->
                             <controls:LoraPickerControl IsVisible="{Binding IsSmartMode}"/>
 
+                            <!-- Upscale (Smart) — hires fix + ESRGAN -->
+                            <CheckBox IsChecked="{Binding EnableUpscale}" IsVisible="{Binding IsSmartMode}"
+                                      ToolTip.Tip="Po vygenerování proběhne hires fix (2. průchod modelu = víc detailu, pleť/vlasy/oči, hloubka) a ESRGAN upscaler (rozlišení + ostrost). Výsledek je ~2× větší. Je to pomalejší a při prvním použití se stáhne ~64 MB upscale model.">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Vylepšit kvalitu (upscale 2×)"
+                                               FontSize="12" Foreground="{DynamicResource TextLightBrush}"/>
+                                    <TextBlock Text="Hires fix + ESRGAN — víc detailu, hloubky a rozlišení. Pomalejší."
+                                               FontSize="10" Foreground="{DynamicResource TextHintBrush}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </CheckBox>
+
                             <!-- ══ konec SMART MÓD sekcí ══════════════════════════ -->
 
                             <!-- ══ MANUÁLNÍ MÓD panel ════════════════════════════ -->
@@ -795,6 +807,18 @@
 
                             <!-- LoRA adaptery (Manuál) — sdílený control, viz LoraPickerControl.axaml -->
                             <controls:LoraPickerControl/>
+
+                            <!-- Upscale (Manuál) — hires fix + ESRGAN -->
+                            <CheckBox IsChecked="{Binding EnableUpscale}"
+                                      ToolTip.Tip="Po vygenerování proběhne hires fix (2. průchod modelu = víc detailu, pleť/vlasy/oči, hloubka) a ESRGAN upscaler (rozlišení + ostrost). Výsledek je ~2× větší. Je to pomalejší a při prvním použití se stáhne ~64 MB upscale model.">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Vylepšit kvalitu (upscale 2×)"
+                                               FontSize="12" Foreground="{DynamicResource TextLightBrush}"/>
+                                    <TextBlock Text="Hires fix + ESRGAN — víc detailu, hloubky a rozlišení. Pomalejší."
+                                               FontSize="10" Foreground="{DynamicResource TextHintBrush}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </CheckBox>
 
                             <!-- Aspect ratio + quality -->
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">

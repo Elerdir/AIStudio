@@ -19,6 +19,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     private readonly ILlamaService            _llama;
     private readonly INavigationService       _nav;
     private readonly IFluxDependencyService?  _fluxDeps;
+    private readonly IUpscaleModelService?    _upscaleService;
     private          DispatcherTimer?         _fluxPollTimer;
 
     [ObservableProperty] private ImageGeneratorViewModel? _activeGenerator;
@@ -64,7 +65,8 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         IImageModelMatcher       modelMatcher,
         ILlamaService            llama,
         INavigationService       nav,
-        IFluxDependencyService?  fluxDeps = null)
+        IFluxDependencyService?  fluxDeps = null,
+        IUpscaleModelService?    upscaleService = null)
     {
         _comfy        = comfy;
         _settings     = settings;
@@ -75,6 +77,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         _llama        = llama;
         _nav          = nav;
         _fluxDeps     = fluxDeps;
+        _upscaleService = upscaleService;
 
         // Pollujeme FluxDependencyService každých 500 ms — service není INotifyPropertyChanged,
         // takže timer je nejjednodušší způsob jak zobrazit živý progress v UI.
@@ -236,7 +239,8 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     {
         var gen = new ImageGeneratorViewModel(_comfy, _settings, _imageRepo, _loraLibrary,
                                                _intentParser, _modelMatcher, _llama,
-                                               fluxDeps: _fluxDeps);
+                                               fluxDeps: _fluxDeps,
+                                               upscaleService: _upscaleService);
         // LoadCheckpointsAsync sloučí ComfyUI i lokální sken — voláme ho vždy,
         // aby uživatel hned viděl stažené modely v dropdownu (ať už ComfyUI běží či ne).
         _ = gen.LoadCheckpointsAsync();

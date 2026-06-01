@@ -23,6 +23,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     private readonly IImageModelMatcher?     _modelMatcher;
     private readonly ILlamaService?          _llama;
     private readonly IFluxDependencyService? _fluxDeps;
+    private readonly IUpscaleModelService?   _upscaleService;
     private static int _counter;
 
     private CancellationTokenSource? _genCts;
@@ -58,6 +59,13 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     /// </summary>
     [ObservableProperty] private double _referenceStrength = 0.6;
     [ObservableProperty] private GeneratedImageViewModel? _latestImage;
+
+    /// <summary>
+    /// Upscale po vygenerování — hires fix (2. průchod modelu, víc detailu/hloubky)
+    /// + ESRGAN model upscaler (rozlišení + ostrost), výsledek 2× base. Opt-in:
+    /// je pomalejší a při prvním použití stáhne ~64 MB ESRGAN model.
+    /// </summary>
+    [ObservableProperty] private bool _enableUpscale;
 
     public ObservableCollection<string> ReferenceImagePaths { get; } = new();
 
@@ -189,7 +197,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         IImageIntentParser?      intentParser = null,
         IImageModelMatcher?      modelMatcher = null,
         ILlamaService?           llama        = null,
-        IFluxDependencyService?  fluxDeps     = null)
+        IFluxDependencyService?  fluxDeps     = null,
+        IUpscaleModelService?    upscaleService = null)
     {
         _comfy        = comfy;
         _settings     = settings;
@@ -199,6 +208,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         _modelMatcher = modelMatcher;
         _llama        = llama;
         _fluxDeps     = fluxDeps;
+        _upscaleService = upscaleService;
         var n = System.Threading.Interlocked.Increment(ref _counter);
         _title = $"Generátor {n}";
 
@@ -809,6 +819,35 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                         modelNodes, clipNodes,
                         loras);
                 }
+            }
+
+            // ── Upscale (hires fix + ESRGAN) ──────────────────────────────────
+            // Volá se AŽ po LoRA injection — AppendUpscale přebírá model/cond
+            // z existujícího KSampleru, takže 2. průchod respektuje LoRA.
+            if (EnableUpscale)
+            {
+                var modelsDir = ResolveModelsDir();
+                var useEsrgan = _upscaleService is not null;
+
+                // ESRGAN model — auto-download při prvním použití. Když selže nebo
+                // chybí, degradujeme na hires-fix-only (ten žádný extra model nepotřebuje).
+                if (useEsrgan && !_upscaleService!.IsAvailable(modelsDir))
+                {
+                    GenerationStatus = "Stahuji upscale model (~64 MB)…";
+                    try { await _upscaleService.EnsureAsync(modelsDir, null, cts.Token); }
+                    catch (Exception ex) { Log.Warning(ex, "Upscale: stažení ESRGAN modelu selhalo"); }
+                    useEsrgan = _upscaleService.IsAvailable(modelsDir);
+                }
+
+                ComfyWorkflowBuilder.AppendUpscale(
+                    workflow, res.W, res.H,
+                    hiresScale: 1.5, hiresDenoise: 0.35,
+                    useUpscaleModel: useEsrgan,
+                    upscaleModelName: _upscaleService?.ModelFileName ?? ComfyWorkflowBuilder.DefaultUpscaleModel,
+                    finalScale: 2.0);
+
+                Log.Information("Upscale zapnut — hires fix + ESRGAN={Esrgan}, výstup ~2× ({W}x{H} → {W2}x{H2})",
+                    useEsrgan, res.W, res.H, res.W * 2, res.H * 2);
             }
 
             Log.Information("Odesílám workflow do ComfyUI (model={Model}, sampler={Sampler}/{Scheduler})",

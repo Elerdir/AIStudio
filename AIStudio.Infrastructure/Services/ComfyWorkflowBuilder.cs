@@ -830,6 +830,148 @@ public static class ComfyWorkflowBuilder
         }
     }
 
+    /// <summary>Najde ID prvního uzlu daného <c>class_type</c> (workflow má od každého typu jeden).</summary>
+    private static string? FindNodeByClass(Dictionary<string, object> workflow, string classType)
+    {
+        foreach (var (key, raw) in workflow)
+            if (raw is Dictionary<string, object> node
+                && node.TryGetValue("class_type", out var ct)
+                && ct is string s && s == classType)
+                return key;
+        return null;
+    }
+
+    /// <summary>Vrátí inputs dictionary uzlu, nebo null.</summary>
+    private static Dictionary<string, object>? GetInputs(Dictionary<string, object> workflow, string nodeKey)
+        => workflow.TryGetValue(nodeKey, out var raw)
+           && raw is Dictionary<string, object> node
+           && node.TryGetValue("inputs", out var inp)
+           && inp is Dictionary<string, object> inputs
+            ? inputs : null;
+
+    // ── Upscale (hires fix + ESRGAN) ─────────────────────────────────────────
+
+    /// <summary>Výchozí ESRGAN upscale model (4×, veřejný RealESRGAN).</summary>
+    public const string DefaultUpscaleModel = "RealESRGAN_x4plus.pth";
+
+    /// <summary>
+    /// Připojí k libovolnému txt2img/img2img workflow „upscale tail" pro vyšší
+    /// kvalitu a detail:
+    ///   1) <b>Hires fix</b> — LatentUpscale (×<paramref name="hiresScale"/>) + 2. KSampler
+    ///      s nízkým <paramref name="hiresDenoise"/> → model „domaluje" detaily ve vyšším
+    ///      rozlišení (pleť, vlasy, oči, hloubka).
+    ///   2) <b>ESRGAN</b> (volitelně) — UpscaleModelLoader + ImageUpscaleWithModel a finální
+    ///      doškálování na ×<paramref name="finalScale"/> (rozlišení + ostrost).
+    ///
+    /// <para>Uzly KSampler / VAEDecode / SaveImage hledá podle <c>class_type</c> (každý
+    /// workflow má od každého právě jeden v okamžiku volání), takže je univerzální pro
+    /// Standard / Flux / FluxGguf / FluxUnet / Kontext i jejich img2img varianty.
+    /// Model, positive, negative, vae i sampler/scheduler/cfg/seed přebírá z existujícího
+    /// KSampleru — proto respektuje i už injektované LoRA (volej AŽ po InjectLoras).</para>
+    /// </summary>
+    public static void AppendUpscale(
+        Dictionary<string, object> workflow,
+        int     baseWidth,
+        int     baseHeight,
+        double  hiresScale      = 1.5,
+        double  hiresDenoise    = 0.35,
+        bool    useUpscaleModel = false,
+        string? upscaleModelName = null,
+        double  finalScale      = 2.0)
+    {
+        var ksKey = FindNodeByClass(workflow, "KSampler");
+        var vdKey = FindNodeByClass(workflow, "VAEDecode");
+        var siKey = FindNodeByClass(workflow, "SaveImage");
+        if (ksKey is null || vdKey is null || siKey is null) return;
+
+        var ksIn = GetInputs(workflow, ksKey);
+        var vdIn = GetInputs(workflow, vdKey);
+        if (ksIn is null || vdIn is null) return;
+        if (!ksIn.TryGetValue("model", out var modelRef) ||
+            !ksIn.TryGetValue("positive", out var posRef) ||
+            !ksIn.TryGetValue("negative", out var negRef) ||
+            !vdIn.TryGetValue("vae", out var vaeRef))
+            return;
+
+        var sampler   = ksIn.TryGetValue("sampler_name", out var sm) ? sm : DefaultSamplerFlux;
+        var scheduler = ksIn.TryGetValue("scheduler",    out var sc) ? sc : DefaultSchedulerFlux;
+        var cfg       = ksIn.TryGetValue("cfg",          out var cf) ? cf : 1.0;
+        var seed      = ksIn.TryGetValue("seed",         out var sd) ? sd : (object)0L;
+        var steps     = ksIn.TryGetValue("steps",        out var st) ? st : (object)20;
+
+        var id = 200;
+        string NextId() => (id++).ToString();
+
+        var hiresW = (int)Math.Round(baseWidth  * hiresScale);
+        var hiresH = (int)Math.Round(baseHeight * hiresScale);
+
+        // 1) Hires fix — upscale latentu z 1. KSampleru + 2. průchod s nízkým denoise.
+        var luKey = NextId();
+        workflow[luKey] = Node("LatentUpscale", new()
+        {
+            ["samples"]        = Ref(ksKey, 0),
+            ["upscale_method"] = "nearest-exact",
+            ["width"]          = hiresW,
+            ["height"]         = hiresH,
+            ["crop"]           = "disabled",
+        });
+
+        var ks2Key = NextId();
+        workflow[ks2Key] = Node("KSampler", new()
+        {
+            ["seed"]         = seed,
+            ["steps"]        = steps,
+            ["cfg"]          = cfg,
+            ["sampler_name"] = sampler,
+            ["scheduler"]    = scheduler,
+            ["denoise"]      = hiresDenoise,   // jen „domaluje" detail, nepřekreslí kompozici
+            ["model"]        = modelRef,
+            ["positive"]     = posRef,
+            ["negative"]     = negRef,
+            ["latent_image"] = Ref(luKey, 0),
+        });
+
+        var vd2Key = NextId();
+        workflow[vd2Key] = Node("VAEDecode", new()
+        {
+            ["samples"] = Ref(ks2Key, 0),
+            ["vae"]     = vaeRef,
+        });
+
+        object finalImage = Ref(vd2Key, 0);
+
+        // 2) ESRGAN model upscaler (volitelně) + finální doškálování na ×finalScale.
+        if (useUpscaleModel && !string.IsNullOrWhiteSpace(upscaleModelName))
+        {
+            var umlKey = NextId();
+            workflow[umlKey] = Node("UpscaleModelLoader", new() { ["model_name"] = upscaleModelName });
+
+            var iuKey = NextId();
+            workflow[iuKey] = Node("ImageUpscaleWithModel", new()
+            {
+                ["upscale_model"] = Ref(umlKey, 0),
+                ["image"]         = finalImage,
+            });
+
+            // ESRGAN je typicky 4× → doškálujeme zpět na cílové base×finalScale (lanczos).
+            var finalW = (int)Math.Round(baseWidth  * finalScale);
+            var finalH = (int)Math.Round(baseHeight * finalScale);
+            var scKey = NextId();
+            workflow[scKey] = Node("ImageScale", new()
+            {
+                ["image"]          = Ref(iuKey, 0),
+                ["upscale_method"] = "lanczos",
+                ["width"]          = finalW,
+                ["height"]         = finalH,
+                ["crop"]           = "disabled",
+            });
+            finalImage = Ref(scKey, 0);
+        }
+
+        // 3) Přesměruj SaveImage na finální (upscalovaný) obrázek.
+        SetInput(workflow, siKey, "images", finalImage);
+    }
+
     // ── Helpers pro detekci typu modelu ──────────────────────────────────────
 
     public static bool IsFluxModel(string modelName) =>

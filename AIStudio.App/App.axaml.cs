@@ -168,6 +168,9 @@ public partial class App : Application
         // si ho vyzvedne (optional dep) a použije pro editaci s referencí; auto-download
         // UNET (~12 GB) + sdílené FLUX závislosti při prvním použití.
         services.AddSingleton<IKontextService, KontextDependencyService>();
+        // ESRGAN upscale model (~64 MB) pro „hires fix + upscale" generování —
+        // auto-download RealESRGAN_x4plus při prvním zapnutí upscale.
+        services.AddSingleton<IUpscaleModelService, UpscaleModelService>();
         // Vision LLM (Stage 3) — chat „vidí" přiložený obrázek a odpoví na otázku.
         // Vlastní Qwen2.5-VL 7B GGUF + mmproj, auto-download (~6 GB) při prvním použití.
         services.AddSingleton<IVisionService, LlamaVisionService>();
