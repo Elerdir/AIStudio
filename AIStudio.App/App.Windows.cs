@@ -15,6 +15,10 @@ public partial class App
 {
     partial void RegisterWindowsPlatformServices(IServiceCollection services)
     {
+        // Runtime guard kvůli CA1416 — typy mají [SupportedOSPlatform("windows")].
+        // Tento soubor se kompiluje jen na Windows, takže je guard fakticky vždy true,
+        // ale analyzer ho vyžaduje pro „call site reachable on all platforms".
+        if (!OperatingSystem.IsWindows()) return;
         services.AddSingleton<IGpuDetector, WindowsGpuDetector>();
         services.AddSingleton<ISystemMonitorService, WindowsSystemMonitorService>();
         services.AddSingleton<IComfyInstaller, WindowsComfyInstaller>();
