@@ -242,7 +242,7 @@
                     BorderThickness="0,0,0,0">
                 <Grid RowDefinitions="*,Auto">
 
-                    <ScrollViewer Grid.Row="0" Padding="18,16,0,80"
+                    <ScrollViewer Grid.Row="0" Padding="18,16,0,0"
                                   HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Spacing="16" HorizontalAlignment="Stretch" MaxWidth="284">
 
@@ -960,10 +960,12 @@
                             </StackPanel>
                             <!-- ══ konec MANUÁLNÍ MÓD ══════════════════════════ -->
 
-                            <!-- Spacer na konci formuláře — zaručí, že poslední ovládací prvek
-                                 má pod sebou rezervu i v případě, že ScrollViewer.Padding
-                                 (Avalonia kvirk) extent správně nezahrne. -->
-                            <Border Height="40"/>
+                            <!-- Spodní rezerva MUSÍ být uvnitř scrollovaného obsahu, ne jako
+                                 ScrollViewer.Padding (Avalonia kvirk: spodní padding se nezapočítá
+                                 do scroll extentu → poslední prvek nedosažitelný v malém okně).
+                                 Tenhle spacer je součást extentu, takže poslední ovládací prvek
+                                 (upscale checkbox / počet variant) jde vždy doscrollovat. -->
+                            <Border Height="48"/>
 
                         </StackPanel>
                     </ScrollViewer>
