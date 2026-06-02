@@ -215,7 +215,9 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
     {
         if (string.IsNullOrWhiteSpace(r.Name))
             return "Název LoRA nesmí být prázdný.";
-        if (r.Name.Any(c => Path.GetInvalidFileNameChars().Contains(c)))
+        // Pevná platform-nezávislá sada (ne Path.GetInvalidFileNameChars() — ten je
+        // na macOS jen '/' a propustil by ':', '<', '|' apod.).
+        if (r.Name.Any(AIStudio.Core.Services.FileNameSanitizer.IsReserved))
             return "Název obsahuje znaky, které nejsou dovolené v názvech souborů.";
         if (string.IsNullOrWhiteSpace(r.BaseModelPath) || !File.Exists(r.BaseModelPath))
             return $"Základní model neexistuje: {r.BaseModelPath}";

@@ -114,9 +114,9 @@ public static class ConversationExporter
     public static string SanitizeFileName(string title)
     {
         if (string.IsNullOrEmpty(title)) return "chat";
-        var invalid = Path.GetInvalidFileNameChars();
-        var safe    = new string(title.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
-        return safe.Length > 60 ? safe[..60] : safe;
+        // Pevná platform-nezávislá sada (Windows superset) — Path.GetInvalidFileNameChars()
+        // je na macOS jen '/' a nechal by ':', '<', '|' (nepřenositelné, padaly testy).
+        return FileNameSanitizer.Sanitize(title, maxLength: 60);
     }
 
     private static string RoleLabelClipboard(string role) => role switch
