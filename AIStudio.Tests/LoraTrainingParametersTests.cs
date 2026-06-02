@@ -28,7 +28,7 @@ public class LoraTrainingParametersTests
         var p = LoraTrainingParameters.DefaultsFor(filename);
         p.Rank.Should().Be(16, "FLUX je citlivý na rank, 16 je sweet spot");
         p.Steps.Should().Be(2000, "FLUX vyžaduje víc stepů pro konvergenci");
-        p.Resolution.Should().Be(1024);
+        p.Resolution.Should().Be(768, "FLUX 1024 se na 24 GB nevejde (sysmem fallback), 768 stačí");
     }
 
     [Theory]
