@@ -41,6 +41,15 @@
     </None>
   </ItemGroup>
 
+  <!-- Windows-only DI bootstrap (registruje WindowsGpuDetector/SystemMonitor/
+       ComfyInstaller). Tyto typy jsou v Infrastructure na non-Windows Compile-Removed,
+       takže reference na ně nesmí existovat v kódu kompilovaném na macOS/Linux.
+       RegisterWindowsPlatformServices je partial — bez tohoto souboru zůstane
+       bez těla (no-op). -->
+  <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
+    <Compile Remove="App.Windows.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />

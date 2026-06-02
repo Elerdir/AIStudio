@@ -77,6 +77,14 @@ public partial class App : Application
     /// Vlastní inicializace aplikace — DI, DB, MainWindow / průvodce.
     /// Vyhozená výjimka je odchycena v OnFrameworkInitializationCompleted.
     /// </summary>
+    /// <summary>
+    /// Registruje Windows-only služby (WMI / nvidia-smi / 7z native). Implementace
+    /// je v App.Windows.cs, který je na non-Windows Compile-Removed — tam zůstává
+    /// partial bez těla, takže volání je no-op (a typy WindowsGpuDetector apod.
+    /// se na macOS vůbec nereferencují → žádné CS0246).
+    /// </summary>
+    partial void RegisterWindowsPlatformServices(IServiceCollection services);
+
     private void BootstrapApp()
     {
         Log.Information("BootstrapApp begin");
@@ -120,26 +128,27 @@ public partial class App : Application
         // Infrastructure
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<ISystemPromptPresetService, SystemPromptPresetService>();
-        // GPU detekce — per-platform impl.
-        if (OperatingSystem.IsWindows())
-            services.AddSingleton<IGpuDetector, WindowsGpuDetector>();
-        else if (OperatingSystem.IsMacOS())
+
+        // ── Per-platform služby (GPU detekce, system monitor, ComfyUI installer) ──
+        // macOS impl. (MacOs*.cs) kompilují všude (mají [SupportedOSPlatform]), takže
+        // je registrujeme inline. Windows impl. (Windows*.cs) jsou na non-Windows
+        // Compile-Removed → reference na ně nesmí být v kódu kompilovaném na macOS.
+        // Proto Windows registrace žijí v partial metodě v App.Windows.cs (taky
+        // Compile-Removed mimo Windows) — na macOS je partial bez implementace = no-op.
+        if (OperatingSystem.IsMacOS())
+        {
             services.AddSingleton<IGpuDetector, MacOsGpuDetector>();
-        // System monitor — per-platform impl. Windows: nvidia-smi + WMI;
-        // macOS: sysctl + vm_stat + system_profiler.
-        if (OperatingSystem.IsWindows())
-            services.AddSingleton<ISystemMonitorService, WindowsSystemMonitorService>();
-        else if (OperatingSystem.IsMacOS())
             services.AddSingleton<ISystemMonitorService, MacOsSystemMonitorService>();
+        }
+        RegisterWindowsPlatformServices(services);
+
         services.AddSingleton<ILlamaService, LlamaService>();
         services.AddSingleton<IDownloadService, DownloadService>();
         services.AddSingleton<IChatRepository, SqliteChatRepository>();
         services.AddSingleton<IComfyHttpClient, ComfyHttpClient>();
         services.AddSingleton<IComfyService, ComfyService>();
-        // ComfyUI installer — per-platform impl.
-        if (OperatingSystem.IsWindows())
-            services.AddSingleton<IComfyInstaller, WindowsComfyInstaller>();
-        else if (OperatingSystem.IsMacOS())
+        // ComfyUI installer — per-platform impl. (macOS inline, Windows v partial výše).
+        if (OperatingSystem.IsMacOS())
             services.AddSingleton<IComfyInstaller, MacOsComfyInstaller>();
         services.AddSingleton<ILoraLibraryService, LoraLibraryService>();
         services.AddSingleton<IImageRepository, SqliteImageRepository>();
