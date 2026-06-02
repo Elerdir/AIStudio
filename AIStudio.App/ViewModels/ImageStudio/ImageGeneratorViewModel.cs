@@ -675,181 +675,57 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 }
             }
 
-            // Denoise: kreativní volnost 0–1 → denoise 0.50–0.97.
-            // Výchozí ReferenceStrength=0.6 → denoise≈0.78 → prompt vede ~78 % generování.
-            var denoise = ComfyWorkflowBuilder.CreativityToDenoise(ReferenceStrength);
-
-            // ── Workflow router ───────────────────────────────────────────────
-            //   • txt2img: žádná reference → klasické workflow
-            //   • img2img: reference → workflow s LoadImage + VAEEncode + denoise<1
-            //   Větve:
-            //     FLUX GGUF  → UnetLoaderGGUF (txt2img only, img2img pro GGUF zatím skip)
-            //     FLUX safetensors → FluxImg2Img / Flux txt2img
-            //     SDXL / SD  → StandardImg2Img / Standard
-            Dictionary<string, object> workflow;
-            if (uploadedRefName is not null)
+            // GGUF + reference: img2img pro GGUF zatím neumíme → informuj a generuj
+            // txt2img (composer referenci pro GGUF ignoruje). Hláška + pauza zůstává
+            // ve VM (UI), routing dělá composer.
+            if (uploadedRefName is not null && isGguf)
             {
-                // IMG2IMG větev
-                if (isFlux && fluxUnetOnly)
-                {
-                    // UNET-only FLUX nemá vlastní VAE/CLIP → BuildFluxUnet (UNETLoader)
-                    // a referenci zapojíme přes generický LatentBlend img2img injektor.
-                    workflow = ComfyWorkflowBuilder.BuildFluxUnet(
-                        SelectedModel,
-                        ComfyWorkflowBuilder.DefaultFluxClipL,
-                        ComfyWorkflowBuilder.DefaultFluxT5,
-                        ComfyWorkflowBuilder.DefaultFluxVae,
-                        Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
-                        SelectedSampler, SelectedScheduler);
-                    ComfyWorkflowBuilder.InjectReferenceImages(
-                        workflow,
-                        ComfyWorkflowBuilder.FluxGgufEmptyLatentKey,
-                        ComfyWorkflowBuilder.FluxGgufKSamplerKey,
-                        ComfyWorkflowBuilder.FluxGgufVaeRef,
-                        new[] { uploadedRefName },
-                        res.W, res.H, ReferenceStrength, VariantCount);
-                }
-                else if (isFlux && !isGguf)
-                {
-                    workflow = ComfyWorkflowBuilder.BuildFluxImg2Img(
-                        SelectedModel, uploadedRefName,
-                        Prompt, res.W, res.H, Steps, Cfg, seed, denoise, VariantCount,
-                        SelectedSampler, SelectedScheduler);
-                }
-                else if (isGguf)
-                {
-                    // GGUF img2img zatím nepodporujeme — použijeme txt2img a upozorníme
-                    GenerationStatus = "ℹ️ Img2img není pro GGUF k dispozici — generuji bez reference.";
-                    await Task.Delay(1500, cts.Token);
-                    workflow = ComfyWorkflowBuilder.BuildFluxGguf(
-                        SelectedModel,
-                        ComfyWorkflowBuilder.DefaultFluxClipL,
-                        ComfyWorkflowBuilder.DefaultFluxT5,
-                        ComfyWorkflowBuilder.DefaultFluxVae,
-                        Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
-                        SelectedSampler, SelectedScheduler);
-                }
-                else
-                {
-                    workflow = ComfyWorkflowBuilder.BuildStandardImg2Img(
-                        SelectedModel, uploadedRefName,
-                        Prompt, NegativePrompt, res.W, res.H, Steps, Cfg, seed, denoise, VariantCount,
-                        SelectedSampler, SelectedScheduler);
-                }
-            }
-            else if (isFlux && isGguf)
-            {
-                workflow = ComfyWorkflowBuilder.BuildFluxGguf(
-                    SelectedModel,
-                    ComfyWorkflowBuilder.DefaultFluxClipL,
-                    ComfyWorkflowBuilder.DefaultFluxT5,
-                    ComfyWorkflowBuilder.DefaultFluxVae,
-                    Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
-                    SelectedSampler, SelectedScheduler);
-            }
-            else if (isFlux && fluxUnetOnly)
-            {
-                // FLUX UNET-only safetensors (flux1-dev-fp8 apod.) → UNETLoader + deps
-                workflow = ComfyWorkflowBuilder.BuildFluxUnet(
-                    SelectedModel,
-                    ComfyWorkflowBuilder.DefaultFluxClipL,
-                    ComfyWorkflowBuilder.DefaultFluxT5,
-                    ComfyWorkflowBuilder.DefaultFluxVae,
-                    Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
-                    SelectedSampler, SelectedScheduler);
-            }
-            else if (isFlux)
-            {
-                workflow = ComfyWorkflowBuilder.BuildFlux(
-                    SelectedModel, Prompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
-                    SelectedSampler, SelectedScheduler);
-            }
-            else
-            {
-                workflow = ComfyWorkflowBuilder.BuildStandard(
-                    SelectedModel, Prompt, NegativePrompt, res.W, res.H, Steps, Cfg, seed, VariantCount,
-                    SelectedSampler, SelectedScheduler);
+                GenerationStatus = "ℹ️ Img2img není pro GGUF k dispozici — generuji bez reference.";
+                await Task.Delay(1500, cts.Token);
             }
 
-            // ── LoRA injection ────────────────────────────────────────────────
-            // Pokrývá všechny kombinace workflow / img2img / GGUF.
-            if (SelectedLoras.Count > 0)
-            {
-                var loras = SelectedLoras.ToList();
-
-                if (isGguf || fluxUnetOnly)
-                {
-                    // GGUF i UNET-only FLUX safetensors: model a clip přicházejí ze
-                    // dvou různých uzlů (stejná topologie).
-                    //   Node "1" = UnetLoaderGGUF / UNETLoader  → model output 0
-                    //   Node "2" = DualCLIPLoader                → clip  output 0
-                    //   Node "8" = KSampler, Nodes "5"+"6" = CLIPTextEncodes
-                    // (platí pro txt2img i img2img s injektovanou referencí)
-                    ComfyWorkflowBuilder.InjectLoras(
-                        workflow,
-                        initialModelRef:   ComfyWorkflowBuilder.GgufModelRef,
-                        initialClipRef:    ComfyWorkflowBuilder.GgufClipRef,
-                        modelConsumerKeys: new[] { "8" },
-                        clipConsumerKeys:  new[] { "5", "6" },
-                        loras);
-                }
-                else if (uploadedRefName is not null)
-                {
-                    // Img2img větev — obě BuildStandardImg2Img i BuildFluxImg2Img
-                    // používají checkpoint key "1"; spotřebitelé se liší:
-                    //   SD/SDXL img2img: KSampler = "7", CLIP = "5","6"
-                    //   FLUX img2img:    KSampler = "8", CLIP = "5","6"
-                    var imgModelNode = isFlux ? "8" : "7";
-                    ComfyWorkflowBuilder.InjectLoras(
-                        workflow, checkpointKey: "1",
-                        modelConsumerKeys: new[] { imgModelNode },
-                        clipConsumerKeys:  new[] { "5", "6" },
-                        loras);
-                }
-                else
-                {
-                    // Txt2img větev
-                    //   FLUX safetensors: checkpoint "1", KSampler "6", CLIP "3"+"4"
-                    //   SD/SDXL:          checkpoint "4", KSampler "3", CLIP "6"+"7"
-                    var (ckptKey, modelNodes, clipNodes) = isFlux
-                        ? ("1", new[] { "6" }, new[] { "3", "4" })
-                        : ("4", new[] { "3" }, new[] { "6", "7" });
-
-                    ComfyWorkflowBuilder.InjectLoras(
-                        workflow, ckptKey,
-                        modelNodes, clipNodes,
-                        loras);
-                }
-            }
-
-            // ── Upscale (hires fix + ESRGAN) ──────────────────────────────────
-            // Volá se AŽ po LoRA injection — AppendUpscale přebírá model/cond
-            // z existujícího KSampleru, takže 2. průchod respektuje LoRA.
+            // Upscale: zajisti ESRGAN model (async I/O zůstává ve VM). Při selhání
+            // degradujeme na hires-fix-only (ten žádný extra model nepotřebuje).
+            var useEsrgan = false;
             if (EnableUpscale)
             {
-                var modelsDir = ResolveModelsDir();
-                var useEsrgan = _upscaleService is not null;
-
-                // ESRGAN model — auto-download při prvním použití. Když selže nebo
-                // chybí, degradujeme na hires-fix-only (ten žádný extra model nepotřebuje).
-                if (useEsrgan && !_upscaleService!.IsAvailable(modelsDir))
+                useEsrgan = _upscaleService is not null;
+                if (useEsrgan && !_upscaleService!.IsAvailable(ResolveModelsDir()))
                 {
                     GenerationStatus = "Stahuji upscale model (~64 MB)…";
-                    try { await _upscaleService.EnsureAsync(modelsDir, null, cts.Token); }
+                    try { await _upscaleService.EnsureAsync(ResolveModelsDir(), null, cts.Token); }
                     catch (Exception ex) { Log.Warning(ex, "Upscale: stažení ESRGAN modelu selhalo"); }
-                    useEsrgan = _upscaleService.IsAvailable(modelsDir);
+                    useEsrgan = _upscaleService.IsAvailable(ResolveModelsDir());
                 }
+            }
 
-                ComfyWorkflowBuilder.AppendUpscale(
-                    workflow, res.W, res.H,
-                    hiresScale: 1.5, hiresDenoise: 0.35,
-                    useUpscaleModel: useEsrgan,
-                    upscaleModelName: _upscaleService?.ModelFileName ?? ComfyWorkflowBuilder.DefaultUpscaleModel,
-                    finalScale: 2.0);
+            // Sestavení workflow (router + LoRA injection + upscale tail) — čistá
+            // logika vytažená do ImageWorkflowComposer (testovaná samostatně).
+            var workflow = ImageWorkflowComposer.Compose(new ImageWorkflowRequest(
+                Model:             SelectedModel,
+                Prompt:            Prompt,
+                NegativePrompt:    NegativePrompt,
+                Width:             res.W,
+                Height:            res.H,
+                Steps:             Steps,
+                Cfg:               Cfg,
+                Seed:              seed,
+                BatchSize:         VariantCount,
+                Sampler:           SelectedSampler,
+                Scheduler:         SelectedScheduler,
+                IsFlux:            isFlux,
+                IsGguf:            isGguf,
+                FluxUnetOnly:      fluxUnetOnly,
+                UploadedRefName:   uploadedRefName,
+                ReferenceStrength: ReferenceStrength,
+                Loras:             SelectedLoras.ToList(),
+                EnableUpscale:     EnableUpscale,
+                UseEsrganModel:    useEsrgan,
+                UpscaleModelName:  _upscaleService?.ModelFileName ?? ComfyWorkflowBuilder.DefaultUpscaleModel));
 
+            if (EnableUpscale)
                 Log.Information("Upscale zapnut — hires fix + ESRGAN={Esrgan}, výstup ~2× ({W}x{H} → {W2}x{H2})",
                     useEsrgan, res.W, res.H, res.W * 2, res.H * 2);
-            }
 
             Log.Information("Odesílám workflow do ComfyUI (model={Model}, sampler={Sampler}/{Scheduler})",
                             SelectedModel, SelectedSampler, SelectedScheduler);
