@@ -433,6 +433,83 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
                 onDownloadRequested: OnRecommendedDownloadRequestedAsync,
                 onCancelRequested:   OnRecommendedDownloadCancelAsync));
         }
+
+        RefreshFilteredBaseModels();
+    }
+
+    // ── Přepínač typu tréninku (SDXL / FLUX) ─────────────────────────────────
+
+    /// <summary>Dostupné typy tréninku pro segmentový přepínač.</summary>
+    public IReadOnlyList<string> TrainingTypes { get; } = new[] { "SDXL", "FLUX" };
+
+    /// <summary>
+    /// Zvolený typ tréninku — řídí filtr doporučených base modelů + vodítko podle HW.
+    /// Skutečný typ tréninku se stále odvozuje z vybraného base (BaseModelTypeLabel),
+    /// ale přepínač uživatele nasměruje a drží se s ním v synchronu.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TrainingTypeGuidance), nameof(IsSdxlType), nameof(IsFluxType))]
+    private string _selectedTrainingType = "SDXL";
+
+    public bool IsSdxlType => SelectedTrainingType == "SDXL";
+    public bool IsFluxType => SelectedTrainingType == "FLUX";
+
+    private bool _syncingTrainingType;
+
+    /// <summary>Doporučené base modely filtrované podle zvoleného typu (SDXL skupina vs FLUX).</summary>
+    public ObservableCollection<RecommendedBaseModelViewModel> FilteredRecommendedBaseModels { get; } = new();
+
+    /// <summary>Přepne typ tréninku (segmentová tlačítka SDXL / FLUX).</summary>
+    [RelayCommand]
+    private void SelectTrainingType(string? type)
+    {
+        if (!string.IsNullOrEmpty(type)) SelectedTrainingType = type;
+    }
+
+    partial void OnSelectedTrainingTypeChanged(string value)
+    {
+        RefreshFilteredBaseModels();
+        if (_syncingTrainingType) return;   // změna přišla ze sync base→typ, base nepřepínáme
+
+        // Když aktuální base nesedí s typem, vyber stažený base správného typu.
+        if (!TypeMatches(BaseModelTypeLabel, value))
+        {
+            var match = AvailableBaseModels.FirstOrDefault(m => TypeMatches(DetectType(m), value));
+            if (match is not null) SelectedBaseModel = match;
+        }
+    }
+
+    /// <summary>Vodítko podle typu + dostupné VRAM — pomáhá uživateli rozhodnout.</summary>
+    public string TrainingTypeGuidance
+    {
+        get
+        {
+            var vram    = Math.Max(_monitor?.Current?.VramTotalGb ?? 0, _lastKnownVramGb);
+            var vramTxt = vram > 0 ? $"{vram:F0} GB VRAM" : "tvé GPU";
+            return SelectedTrainingType == "FLUX"
+                ? $"FLUX — nejvyšší kvalita a věrnost, ale náročné. Na {vramTxt} se trénuje v rozlišení 768 s block-swapem; počítej s hodinami. CLIP/T5/VAE se stáhnou samy."
+                : $"SDXL — rychlé a spolehlivé (~30–60 min na {vramTxt}), pohodlně se vejde do VRAM. Pro postavu/obličej bohatě stačí. Doporučeno, pokud nechceš čekat.";
+        }
+    }
+
+    private void RefreshFilteredBaseModels()
+    {
+        FilteredRecommendedBaseModels.Clear();
+        foreach (var r in RecommendedBaseModels)
+            if (TypeMatches(r.ModelTypeLabel, SelectedTrainingType))
+                FilteredRecommendedBaseModels.Add(r);
+    }
+
+    /// <summary>SDXL skupina = SDXL i SD 1.5 (lehké varianty), FLUX skupina = jen FLUX.</summary>
+    private static bool TypeMatches(string modelType, string selectedType)
+        => selectedType == "FLUX" ? modelType == "FLUX" : modelType != "FLUX";
+
+    private static string DetectType(string displayOrName)
+    {
+        var lower = displayOrName.ToLowerInvariant();
+        if (lower.Contains("flux"))                         return "FLUX";
+        if (lower.Contains("xl") || lower.Contains("sdxl")) return "SDXL";
+        return "SD 1.5";
     }
 
     /// <summary>Refreshne flag IsDownloaded u doporučených podle aktuálně přítomných checkpointů.</summary>
@@ -796,6 +873,12 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         // Změna base modelu resetuje i auto-doporučení kroků (nové optimum dle typu).
         _userTouchedSteps = false;
         UpdateRecommendedSteps();
+
+        // Synchronizuj přepínač typu podle vybraného base (FLUX base → FLUX přepínač).
+        // Guard brání zpětnému přepnutí base v OnSelectedTrainingTypeChanged.
+        _syncingTrainingType = true;
+        SelectedTrainingType = BaseModelTypeLabel == "FLUX" ? "FLUX" : "SDXL";
+        _syncingTrainingType = false;
     }
 
     // ── Dataset operace ───────────────────────────────────────────────────────

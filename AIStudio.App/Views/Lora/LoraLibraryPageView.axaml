@@ -466,6 +466,40 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- ── 0a) Přepínač typu tréninku (SDXL / FLUX) ── -->
+                    <StackPanel Spacing="8" IsEnabled="{Binding IsIdle}">
+                        <TextBlock Text="TYP TRÉNINKU" Classes="sectionHeader"/>
+                        <Border Background="#161618" BorderBrush="{DynamicResource AppBorderBrush}"
+                                BorderThickness="1" CornerRadius="8" Padding="3" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal" Spacing="3">
+                                <StackPanel.Styles>
+                                    <Style Selector="Button.seg">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                        <Setter Property="Padding" Value="18,7"/>
+                                        <Setter Property="CornerRadius" Value="6"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="FontSize" Value="13"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </Style>
+                                    <Style Selector="Button.seg.segActive">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Style>
+                                </StackPanel.Styles>
+                                <Button Classes="seg" Content="SDXL  ·  rychlé"
+                                        Classes.segActive="{Binding IsSdxlType}"
+                                        Command="{Binding SelectTrainingTypeCommand}" CommandParameter="SDXL"/>
+                                <Button Classes="seg" Content="FLUX  ·  kvalita"
+                                        Classes.segActive="{Binding IsFluxType}"
+                                        Command="{Binding SelectTrainingTypeCommand}" CommandParameter="FLUX"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="{Binding TrainingTypeGuidance}"
+                                   FontSize="11" Foreground="{DynamicResource TextHintBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+
                     <!-- ── 0) Doporučené modely (ke stažení v aplikaci) ── -->
                     <StackPanel Spacing="10" IsEnabled="{Binding IsIdle}"
                                 IsVisible="{Binding IsDownloadSupported}">
@@ -473,7 +507,7 @@
                         <TextBlock Text="Jeden klik = stažení rovnou do Models/checkpoints/. Po dokončení se objeví v dropdownu níže."
                                    FontSize="11" Foreground="{DynamicResource TextHintBrush}"
                                    TextWrapping="Wrap" Margin="0,-4,0,0"/>
-                        <ItemsControl ItemsSource="{Binding RecommendedBaseModels}">
+                        <ItemsControl ItemsSource="{Binding FilteredRecommendedBaseModels}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Spacing="8"/>
