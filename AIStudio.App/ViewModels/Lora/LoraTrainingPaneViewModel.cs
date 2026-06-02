@@ -1035,19 +1035,30 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             .Select(i => new LoraTrainingImage(i.ImagePath, i.Caption ?? string.Empty))
             .ToList();
 
-        // Block swapping (FLUX) adaptivně dle VRAM. Na 24 GB stačí gradient
-        // checkpointing → 0 bloků (rychlé, ~3-5 s/krok). Na slabších kartách víc.
-        // BEZ toho na 24 GB padalo OOM jen kvůli vypnutému gradient checkpointingu;
-        // swap 18 ho sice „spravil", ale zpomalil na ~60 s/krok (27 h pro 1500).
-        // Bereme max(live, poslední známá) — live může být při startu dočasně 0.
+        // Trénovací rozlišení. FLUX dáváme 768 (ne 1024): na 24 GB se FLUX (12B)
+        // při 1024 NEVEJDE ani s gradient checkpointingem → přeteče do system RAM
+        // (sysmem fallback) → GPU 100 %, ale ~30 s/krok. 768 výrazně sníží paměť
+        // i compute (attention škáluje s plochou²) a pro obličej/postavu je bohatě
+        // dost. SDXL 1024, SD 1.5 512.
+        var resolution = BaseModelTypeLabel switch
+        {
+            "SD 1.5" => 512,
+            "FLUX"   => 768,
+            _        => 1024,   // SDXL
+        };
+
+        // Block swapping (FLUX) adaptivně dle VRAM. NIKDY 0 pro FLUX na 24 GB —
+        // i při 768 je blízko hraně, a 0 = riziko přetečení do RAM (thrashing).
+        // Malý swap garantuje, že se to vejde do VRAM s minimálním zpomalením.
+        // Slabší karty potřebují víc. Bereme max(live, poslední známá VRAM).
         var vramGb = Math.Max(_monitor?.Current?.VramTotalGb ?? 0, _lastKnownVramGb);
-        var blocksToSwap = vramGb >= 20 ? 0
-                         : vramGb >= 16 ? 8
-                         : vramGb >= 12 ? 16
-                         : 24;
+        var blocksToSwap = vramGb >= 22 ? 6
+                         : vramGb >= 16 ? 14
+                         : vramGb >= 12 ? 22
+                         : 28;
         Log.Information(
-            "LoRA trénink: VRAM={Vram:F1} GB → blocks_to_swap={Blocks} (0 = bez swapu, rychlé)",
-            vramGb, blocksToSwap);
+            "LoRA trénink: VRAM={Vram:F1} GB, rozlišení={Res} → blocks_to_swap={Blocks}",
+            vramGb, resolution, blocksToSwap);
 
         var parameters = new LoraTrainingParameters
         {
@@ -1062,7 +1073,7 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             GradientCheckpointing = vramGb < 12,
             BlocksToSwap          = blocksToSwap,
             MixedPrecisionFp16    = true,
-            Resolution            = BaseModelTypeLabel == "SD 1.5" ? 512 : 1024,
+            Resolution            = resolution,
         };
 
         // FLUX trénink potřebuje samostatné clip_l/t5/ae — zajisti je (auto-download)

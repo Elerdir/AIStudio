@@ -104,7 +104,7 @@ public sealed record LoraTrainingParameters
                 Alpha       = 16,
                 Steps       = 2000,
                 LearningRate= 1e-4,
-                Resolution  = 1024,
+                Resolution  = 768,          // 1024 se na 24 GB nevejde (sysmem fallback); 768 stačí
             };
 
         if (isSdxl)
