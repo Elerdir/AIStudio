@@ -39,6 +39,7 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     // FLUX trénink potřebuje clip_l/t5/ae — zajistíme je stejnou službou jako
     // FLUX generování. Null = degradace (FLUX deps se musí stáhnout jinde).
     private readonly IFluxDependencyService?       _fluxDeps;
+    private readonly IComfyService?                 _comfy;
 
     private CancellationTokenSource? _cts;
     private CancellationTokenSource? _captionCts;
@@ -346,7 +347,8 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         ISystemMonitorService?         monitor         = null,
         ILoraCaptionService?           captionService  = null,
         IDownloadService?              downloadService = null,
-        IFluxDependencyService?        fluxDeps        = null)
+        IFluxDependencyService?        fluxDeps        = null,
+        IComfyService?                 comfy           = null)
     {
         AvailableBaseModels.CollectionChanged += (_, _) =>
             OnPropertyChanged(nameof(HasAvailableBaseModels));
@@ -358,6 +360,7 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         _captionService  = captionService;
         _downloadService = downloadService;
         _fluxDeps        = fluxDeps;
+        _comfy           = comfy;
 
         // SystemMonitor sbírá metriky každé 2.5 s, takže Current je při startu
         // null (ještě nestihl odběr). DetectHardware si subscribneme i na
@@ -1009,6 +1012,17 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
         {
             IsCodeOfConductVisible = true;
             return;
+        }
+
+        // KRITICKÉ pro rychlost: uvolni VRAM, kterou drží ComfyUI (FLUX/SDXL model
+        // ~12 GB z generování/upscalu). Bez toho zbyde na trénink jen ~12 GB → VRAM
+        // přeteče do system RAM (NVIDIA sysmem fallback) → GPU jede na 100 %, ale
+        // ~30 s/krok místo ~4 (17 h místo ~2). Best-effort.
+        if (_comfy is not null)
+        {
+            StatusLine = "Uvolňuji VRAM (ComfyUI)…";
+            try { await _comfy.FreeMemoryAsync(); }
+            catch (Exception ex) { Log.Warning(ex, "LoRA: uvolnění ComfyUI VRAM před tréninkem selhalo"); }
         }
 
         var modelsRoot = AppPaths.ResolveModelsDirectory(_settings.Settings.ModelsDirectory);

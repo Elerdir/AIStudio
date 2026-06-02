@@ -83,7 +83,9 @@ public partial class LoraLibraryPageViewModel : ViewModelBase
         ILoraTrainerDependencyService?  trainerDeps     = null,
         ISystemMonitorService?          monitor         = null,
         ILoraCaptionService?            captionService  = null,
-        IDownloadService?               downloadService = null)
+        IDownloadService?               downloadService = null,
+        IFluxDependencyService?         fluxDeps        = null,
+        IComfyService?                  comfy           = null)
     {
         _settings = settings;
 
@@ -91,7 +93,8 @@ public partial class LoraLibraryPageViewModel : ViewModelBase
         // tab „Trénovat" zůstane skrytý.
         if (trainer is not null && trainerDeps is not null)
             TrainingPane = new LoraTrainingPaneViewModel(
-                trainer, trainerDeps, settings, monitor, captionService, downloadService);
+                trainer, trainerDeps, settings, monitor, captionService, downloadService,
+                fluxDeps: fluxDeps, comfy: comfy);
 
         // První načtení — fire-and-forget, UI bude zatím prázdné (IsLoading=true)
         _ = LoadAsync();
