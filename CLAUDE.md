@@ -59,11 +59,13 @@ AIStudio.Core/          ← Modely, rozhraní, pure logic (no Avalonia / WMI dep
 │                        IImageRepository, ISettingsService, IDownloadService
 ├── Models/            ← AppSettings, Gpu (Vendor/Backend), SystemPromptPreset,
 │                        RecommendedModel, ComfyExecutionException, …
-└── Services/TokenEstimator.cs  ← pure helper (chars/4)
+└── Services/        ← pure helpery (bez závislostí): TokenEstimator (chars/4),
+                       ComfyWorkflowBuilder (workflow JSON), RecommendedModels
+                       (katalog), PngTextMetadata (AI provenance)
 
 AIStudio.Infrastructure/ ← Implementace služeb
 └── Services/
-    ├── ComfyService, ComfyHttpClient, ComfyWorkflowBuilder
+    ├── ComfyService, ComfyHttpClient
     ├── WindowsComfyInstaller / MacOsComfyInstaller (per-OS impl)
     ├── WindowsGpuDetector / MacOsGpuDetector
     ├── WindowsSystemMonitorService / MacOsSystemMonitorService
@@ -71,12 +73,13 @@ AIStudio.Infrastructure/ ← Implementace služeb
     ├── LlamaService, LoraLibraryService, FluxDependencyService
     ├── SettingsService (DPAPI/Keychain šifrování přes TokenProtection)
     ├── MacOsKeychainKeyStore (security CLI wrapper)
-    ├── SystemPromptPresetService, RecommendedModels
+    ├── SystemPromptPresetService, SafetensorsInspector, UpscaleModelService
     ├── HuggingFaceClient, CivitaiClient, ModelDiscoveryService
     ├── DownloadService, UpdateService (UpdateHub.Client SDK)
+    ├── ChatImageOrchestrator, KontextDependencyService, PuLIDDependencyService
     └── SqliteChatRepository, SqliteImageRepository
 
-AIStudio.Tests/         ← xUnit + FluentAssertions + NSubstitute, 322+ testů
+AIStudio.Tests/         ← xUnit + FluentAssertions + NSubstitute, 619 testů
 tools/IconGen/          ← SkiaSharp generátor ikony
 .github/workflows/
 ├── ci.yml              ← Windows (hard gate) + macOS arm64 (publish .app, hard gate)
