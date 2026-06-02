@@ -1,5 +1,6 @@
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Core.Services;
 using AIStudio.Infrastructure.Services;
 using FluentAssertions;
 using NSubstitute;

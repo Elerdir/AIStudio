@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Core.Services;
 using AIStudio.Infrastructure.Services;
 
 namespace AIStudio.App.ViewModels.Setup;

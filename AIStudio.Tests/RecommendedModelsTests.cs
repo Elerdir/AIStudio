@@ -1,5 +1,5 @@
 using AIStudio.Core.Models;
-using AIStudio.Infrastructure.Services;
+using AIStudio.Core.Services;
 using FluentAssertions;
 
 namespace AIStudio.Tests;

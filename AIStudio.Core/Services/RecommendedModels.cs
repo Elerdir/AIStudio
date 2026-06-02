@@ -1,6 +1,6 @@
 using AIStudio.Core.Models;
 
-namespace AIStudio.Infrastructure.Services;
+namespace AIStudio.Core.Services;
 
 /// <summary>
 /// Statická knihovna doporučených modelů — hardcoded seznam, který wizard nabízí

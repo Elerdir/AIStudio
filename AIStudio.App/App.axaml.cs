@@ -473,7 +473,7 @@ public partial class App : Application
 
             foreach (var id in pending)
             {
-                var model = AIStudio.Infrastructure.Services.RecommendedModels.FindById(id);
+                var model = AIStudio.Core.Services.RecommendedModels.FindById(id);
                 if (model is null)
                 {
                     Log.Warning("TriggerPendingDownloads: neznámé ID {Id} — odstraňuji", id);

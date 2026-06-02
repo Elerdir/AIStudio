@@ -1,6 +1,6 @@
 using AIStudio.Core.Models;
 
-namespace AIStudio.Infrastructure.Services;
+namespace AIStudio.Core.Services;
 
 /// <summary>
 /// Sestavuje workflow JSON pro ComfyUI API.

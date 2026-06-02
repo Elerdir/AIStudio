@@ -8,10 +8,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="307e7de2-1839-4f96-be8e-1d4bc2ce28d2" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/.idea.AIStudio/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.AIStudio/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AIStudio.Infrastructure/AIStudio.Infrastructure.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.Infrastructure/AIStudio.Infrastructure.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AIStudio.Infrastructure/Services/ComfyInstaller.cs" beforeDir="false" afterPath="$PROJECT_DIR$/AIStudio.Infrastructure/Services/ComfyInstaller.cs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -36,6 +33,9 @@
     &quot;accountId&quot;: &quot;2480054a-d337-421c-8c1b-e77565e8d0b8&quot;
   }
 }</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$USER_HOME$/AppData/Local/Temp/SourceGeneratedDocuments/1B841720FF99DE2D7590269A/CommunityToolkit.Mvvm.SourceGenerators/CommunityToolkit.Mvvm.SourceGenerators.ObservablePropertyGenerator/AIStudio.App.ViewModels.Lora.LoraTrainingPaneViewModel.g.cs" root0="FORCE_HIGHLIGHTING" />
+  </component>
   <component name="KubernetesApiPersistence">{}</component>
   <component name="KubernetesApiProvider">{
   &quot;isMigrated&quot;: true
@@ -117,6 +117,8 @@
       <workItem from="1778145207947" duration="5510000" />
       <workItem from="1778213242370" duration="10047000" />
       <workItem from="1778347024395" duration="1552000" />
+      <workItem from="1780029760204" duration="4865000" />
+      <workItem from="1780208727554" duration="23057000" />
     </task>
     <servers />
   </component>
