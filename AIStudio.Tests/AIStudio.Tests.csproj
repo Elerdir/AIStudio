@@ -28,4 +28,12 @@
     <ProjectReference Include="..\AIStudio.App\AIStudio.App.csproj" />
   </ItemGroup>
 
+  <!-- Windows-only testy — testují typy/balíčky dostupné jen na Windows
+       (WindowsGpuDetector, LibreHardwareMonitor). Na non-Windows je vynech
+       z kompilace (odpovídající implementace jsou taky Compile-Removed). -->
+  <ItemGroup Condition="'$(OS)' != 'Windows_NT'">
+    <Compile Remove="WindowsGpuDetectorTests.cs" />
+    <Compile Remove="WindowsGpuMemoryProbeTests.cs" />
+  </ItemGroup>
+
 </Project>
