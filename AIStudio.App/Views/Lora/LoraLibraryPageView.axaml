@@ -437,7 +437,7 @@
                 </Border>
 
                 <!-- ── Scrollovatelný formulář (vyplní zbytek nad footerem) ── -->
-                <ScrollViewer Padding="28,16,14,16"
+                <ScrollViewer Padding="28,16,14,0"
                               VerticalScrollBarVisibility="Auto"
                               AllowAutoHide="False"
                               Classes="visibleScrollbar">
@@ -943,6 +943,12 @@
                             </Grid>
                         </Border>
                     </StackPanel>
+
+                    <!-- Spodní rezerva (uvnitř scrollovaného obsahu, ne ScrollViewer.Padding —
+                         Avalonia kvirk: spodní padding se nezapočítá do scroll extentu).
+                         Dělá mezeru mezi poslední sekcí (3 Parametry) a připnutým footerem
+                         se Spustit/statusem, ať není nalepená na spodek. -->
+                    <Border Height="28"/>
 
                 </StackPanel>
               </ScrollViewer>
