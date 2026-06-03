@@ -93,6 +93,11 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     /// <summary>Velikost stránky pro galerii. Konzervativní default — odladěno pro 8 GB RAM.</summary>
     private const int GalleryPageSize = 50;
 
+    /// <summary>Image Studio ukazuje jen obrázky — videa patří do Video tabu / Galerie
+    /// (mp4 navíc nejde dekódovat jako náhled → černé čtverce).</summary>
+    private static readonly AIStudio.Core.Models.ImageQueryFilter ImagesOnlyFilter =
+        new(MediaType: AIStudio.Core.Models.MediaTypes.Image);
+
     public ObservableCollection<GeneratedImageViewModel> GeneratedImages { get; } = new();
 
     /// <summary>Celkový počet záznamů v DB (může být větší než GeneratedImages.Count).</summary>
@@ -968,8 +973,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     {
         try
         {
-            var total   = await _imageRepo.CountImagesAsync();
-            var records = await _imageRepo.LoadImagesPagedAsync(skip: 0, take: GalleryPageSize);
+            var total   = await _imageRepo.CountImagesAsync(ImagesOnlyFilter);
+            var records = await _imageRepo.LoadImagesPagedAsync(skip: 0, take: GalleryPageSize, ImagesOnlyFilter);
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
@@ -1005,7 +1010,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         try
         {
             var skip    = GeneratedImages.Count;
-            var records = await _imageRepo.LoadImagesPagedAsync(skip, GalleryPageSize);
+            var records = await _imageRepo.LoadImagesPagedAsync(skip, GalleryPageSize, ImagesOnlyFilter);
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
