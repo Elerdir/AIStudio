@@ -78,10 +78,73 @@ public partial class GalleryPageViewModel : ViewModelBase
 
     public string StatusLine => TotalInDb switch
     {
-        0 => "Žádné vygenerované obrázky",
+        0 when HasActiveFilter => "Filtru nic neodpovídá",
+        0                      => "Žádné vygenerované obrázky",
         var t when Images.Count >= t => $"Zobrazeno všech {t}",
         var t => $"Zobrazeno {Images.Count} z {t}",
     };
+
+    // ── Filtr ─────────────────────────────────────────────────────────────────
+
+    /// <summary>Fulltext hledaný v promptu i názvu modelu (debounced reload).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasActiveFilter))]
+    private string _searchText = string.Empty;
+
+    /// <summary>Nabídka modelů pro filtr (první položka = „Všechny modely").</summary>
+    public ObservableCollection<ModelFilterOption> ModelOptions { get; } = new()
+    {
+        ModelFilterOption.All,
+    };
+
+    /// <summary>Vybraný model ve filtru. <see cref="ModelFilterOption.All"/> = bez omezení.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasActiveFilter))]
+    private ModelFilterOption _selectedModelOption = ModelFilterOption.All;
+
+    public bool HasActiveFilter =>
+        !string.IsNullOrWhiteSpace(SearchText) || SelectedModelOption.Value is not null;
+
+    private CancellationTokenSource? _searchDebounceCts;
+
+    private ImageQueryFilter BuildFilter() => new(
+        Search:    string.IsNullOrWhiteSpace(SearchText) ? null : SearchText.Trim(),
+        ModelName: SelectedModelOption.Value);
+
+    partial void OnSearchTextChanged(string value) => DebouncedReload();
+
+    partial void OnSelectedModelOptionChanged(ModelFilterOption value) => _ = RefreshAsync();
+
+    /// <summary>Drobné zpoždění (250 ms) — ať se nereloaduje při každém stisku klávesy.</summary>
+    private void DebouncedReload()
+    {
+        _searchDebounceCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _searchDebounceCts = cts;
+        _ = Task.Run(async () =>
+        {
+            try { await Task.Delay(250, cts.Token); }
+            catch (OperationCanceledException) { return; }
+            if (!cts.IsCancellationRequested)
+                await Dispatcher.UIThread.InvokeAsync(RefreshAsync);
+        });
+    }
+
+    /// <summary>Vyčistí všechny filtry a načte znovu.</summary>
+    [RelayCommand]
+    private async Task ClearFilter()
+    {
+        _searchDebounceCts?.Cancel();
+        var changed = false;
+        if (!string.IsNullOrEmpty(SearchText)) { SearchText = string.Empty; changed = true; }
+        if (SelectedModelOption.Value is not null)
+        {
+            // setter spustí OnSelectedModelOptionChanged → RefreshAsync, takže netřeba dvojí reload
+            SelectedModelOption = ModelFilterOption.All;
+            return;
+        }
+        if (changed) await RefreshAsync();
+    }
 
     // ── Busy stav (upscale / editace) ─────────────────────────────────────────
 
@@ -103,16 +166,19 @@ public partial class GalleryPageViewModel : ViewModelBase
     [RelayCommand]
     private Task Refresh() => RefreshAsync();
 
-    /// <summary>Načte první stránku obrázků (volá se při otevření záložky).</summary>
+    /// <summary>Načte první stránku obrázků (volá se při otevření záložky / změně filtru).</summary>
     public async Task RefreshAsync()
     {
         IsLoading = true;
         try
         {
-            var total   = await _imageRepo.CountImagesAsync();
-            var records = await _imageRepo.LoadImagesPagedAsync(skip: 0, take: PageSize);
+            var filter  = BuildFilter();
+            var total   = await _imageRepo.CountImagesAsync(filter);
+            var records = await _imageRepo.LoadImagesPagedAsync(skip: 0, take: PageSize, filter);
+            var models  = await _imageRepo.GetDistinctModelsAsync();
             Dispatcher.UIThread.Post(() =>
             {
+                SyncModelOptions(models);
                 Images.Clear();
                 AppendRecords(records);
                 TotalInDb = total;
@@ -136,11 +202,39 @@ public partial class GalleryPageViewModel : ViewModelBase
         IsLoadingMore = true;
         try
         {
-            var records = await _imageRepo.LoadImagesPagedAsync(Images.Count, PageSize);
+            var records = await _imageRepo.LoadImagesPagedAsync(Images.Count, PageSize, BuildFilter());
             Dispatcher.UIThread.Post(() => AppendRecords(records));
         }
         catch (Exception ex) { Log.Warning(ex, "Galerie: LoadMore selhal"); }
         finally { IsLoadingMore = false; }
+    }
+
+    /// <summary>
+    /// Aktualizuje nabídku modelů ve filtru tak, aby odpovídala DB, a přitom zachová
+    /// uživatelův výběr (pokud daný model stále existuje). Volá se na UI vlákně.
+    /// </summary>
+    private void SyncModelOptions(IReadOnlyList<string> models)
+    {
+        var desired = new List<ModelFilterOption> { ModelFilterOption.All };
+        desired.AddRange(models.Select(ModelFilterOption.For));
+
+        // Když je seznam stejný, neměň (ať neskáče výběr/UI).
+        if (desired.Count == ModelOptions.Count &&
+            desired.Zip(ModelOptions, (a, b) => a.Value == b.Value).All(eq => eq))
+            return;
+
+        var previouslySelected = SelectedModelOption.Value;
+        ModelOptions.Clear();
+        foreach (var opt in desired) ModelOptions.Add(opt);
+
+        // Obnov výběr nebo spadni na „Všechny modely". Používáme SetProperty (ne generovaný
+        // setter), aby se NEspustil OnSelectedModelOptionChanged → další RefreshAsync (rekurze).
+        var restored = ModelOptions.FirstOrDefault(o => o.Value == previouslySelected) ?? ModelFilterOption.All;
+        if (!ReferenceEquals(restored, SelectedModelOption))
+        {
+            SetProperty(ref _selectedModelOption, restored, nameof(SelectedModelOption));
+            OnPropertyChanged(nameof(HasActiveFilter));
+        }
     }
 
     /// <summary>Mapuje <see cref="ImageRecord"/> → VM, přeskakuje smazané soubory.</summary>

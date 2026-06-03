@@ -203,4 +203,65 @@ public class SqliteImageRepositoryTests : IAsyncLifetime
         var negativeSkip = await _repo.LoadImagesPagedAsync(skip: -5, take: 10);
         negativeSkip.Should().HaveCount(1, "negativní skip se normalizuje na 0");
     }
+
+    // ── Filtrování ────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Filter_BySearch_MatchesPromptAndModel()
+    {
+        await _repo.SaveImageAsync(MakeImage() with { Prompt = "rudý drak nad horami", ModelName = "flux-dev" });
+        await _repo.SaveImageAsync(MakeImage() with { Prompt = "modrá kočka",          ModelName = "sdxl-base" });
+        await _repo.SaveImageAsync(MakeImage() with { Prompt = "klidná krajina",       ModelName = "drak-model" });
+
+        // hledá v promptu i v modelu → "drak" matchne 2 záznamy
+        var filter = new ImageQueryFilter(Search: "drak");
+        (await _repo.CountImagesAsync(filter)).Should().Be(2);
+        var page = await _repo.LoadImagesPagedAsync(0, 50, filter);
+        page.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Filter_ByModel_ExactMatchOnly()
+    {
+        await _repo.SaveImageAsync(MakeImage() with { ModelName = "flux-dev" });
+        await _repo.SaveImageAsync(MakeImage() with { ModelName = "flux-dev" });
+        await _repo.SaveImageAsync(MakeImage() with { ModelName = "sdxl-base" });
+
+        var filter = new ImageQueryFilter(ModelName: "flux-dev");
+        (await _repo.CountImagesAsync(filter)).Should().Be(2);
+        (await _repo.LoadImagesPagedAsync(0, 50, filter)).Should().OnlyContain(r => r.ModelName == "flux-dev");
+    }
+
+    [Fact]
+    public async Task Filter_SearchAndModel_CombinedWithAnd()
+    {
+        await _repo.SaveImageAsync(MakeImage() with { Prompt = "drak", ModelName = "flux-dev" });
+        await _repo.SaveImageAsync(MakeImage() with { Prompt = "drak", ModelName = "sdxl-base" });
+        await _repo.SaveImageAsync(MakeImage() with { Prompt = "kočka", ModelName = "flux-dev" });
+
+        var filter = new ImageQueryFilter(Search: "drak", ModelName: "flux-dev");
+        (await _repo.CountImagesAsync(filter)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Filter_EmptyFilter_ReturnsAll()
+    {
+        for (var i = 0; i < 4; i++) await _repo.SaveImageAsync(MakeImage());
+
+        (await _repo.CountImagesAsync(ImageQueryFilter.None)).Should().Be(4);
+        (await _repo.CountImagesAsync(null)).Should().Be(4);
+    }
+
+    [Fact]
+    public async Task GetDistinctModels_ReturnsUniqueSortedNonEmpty()
+    {
+        await _repo.SaveImageAsync(MakeImage() with { ModelName = "sdxl-base" });
+        await _repo.SaveImageAsync(MakeImage() with { ModelName = "flux-dev" });
+        await _repo.SaveImageAsync(MakeImage() with { ModelName = "flux-dev" });
+        await _repo.SaveImageAsync(MakeImage() with { ModelName = "" });
+
+        var models = await _repo.GetDistinctModelsAsync();
+
+        models.Should().Equal("flux-dev", "sdxl-base"); // unikátní, bez prázdných, abecedně
+    }
 }

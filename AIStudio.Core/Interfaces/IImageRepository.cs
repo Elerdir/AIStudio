@@ -14,14 +14,21 @@ public interface IImageRepository
     Task<IReadOnlyList<ImageRecord>> LoadAllImagesAsync();
 
     /// <summary>
-    /// Načte stránku záznamů seřazených od nejnovějšího.
+    /// Načte stránku záznamů seřazených od nejnovějšího, volitelně filtrovaných.
     /// </summary>
     /// <param name="skip">Kolik prvních záznamů přeskočit (offset).</param>
     /// <param name="take">Kolik záznamů načíst (limit).</param>
-    Task<IReadOnlyList<ImageRecord>> LoadImagesPagedAsync(int skip, int take);
+    /// <param name="filter">Volitelný filtr (prompt/model/datum). <c>null</c> = bez omezení.</param>
+    Task<IReadOnlyList<ImageRecord>> LoadImagesPagedAsync(int skip, int take, ImageQueryFilter? filter = null);
 
-    /// <summary>Celkový počet záznamů v DB — pro „X z Y" pagination label.</summary>
-    Task<int> CountImagesAsync();
+    /// <summary>Celkový počet záznamů v DB (po případném filtru) — pro „X z Y" label.</summary>
+    Task<int> CountImagesAsync(ImageQueryFilter? filter = null);
+
+    /// <summary>
+    /// Vrátí seznam unikátních názvů modelů (neprázdných), seřazený abecedně —
+    /// pro nabídku filtru „Model" v galerii.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetDistinctModelsAsync();
 
     Task DeleteImageAsync(string id);
 }

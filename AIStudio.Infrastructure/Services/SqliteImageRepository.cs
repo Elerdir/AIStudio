@@ -94,7 +94,7 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
         }
     }
 
-    public async Task<IReadOnlyList<ImageRecord>> LoadImagesPagedAsync(int skip, int take)
+    public async Task<IReadOnlyList<ImageRecord>> LoadImagesPagedAsync(int skip, int take, ImageQueryFilter? filter = null)
     {
         if (skip < 0) skip = 0;
         if (take <= 0) return Array.Empty<ImageRecord>();
@@ -103,7 +103,8 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
         {
             await using var conn = await OpenAsync();
             await using var cmd  = conn.CreateCommand();
-            cmd.CommandText = $"SELECT {SelectColumns} FROM Images " +
+            var where = BuildWhere(filter, cmd);
+            cmd.CommandText = $"SELECT {SelectColumns} FROM Images{where} " +
                               "ORDER BY GeneratedAt DESC LIMIT $take OFFSET $skip";
             cmd.Parameters.AddWithValue("$take", take);
             cmd.Parameters.AddWithValue("$skip", skip);
@@ -120,13 +121,14 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
         }
     }
 
-    public async Task<int> CountImagesAsync()
+    public async Task<int> CountImagesAsync(ImageQueryFilter? filter = null)
     {
         try
         {
             await using var conn = await OpenAsync();
             await using var cmd  = conn.CreateCommand();
-            cmd.CommandText = "SELECT COUNT(*) FROM Images";
+            var where = BuildWhere(filter, cmd);
+            cmd.CommandText = $"SELECT COUNT(*) FROM Images{where}";
             var raw = await cmd.ExecuteScalarAsync();
             return raw is long l ? (int)l : Convert.ToInt32(raw);
         }
@@ -135,6 +137,62 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
             Log.Error(ex, "Failed to count images in DB");
             return 0;
         }
+    }
+
+    public async Task<IReadOnlyList<string>> GetDistinctModelsAsync()
+    {
+        try
+        {
+            await using var conn = await OpenAsync();
+            await using var cmd  = conn.CreateCommand();
+            cmd.CommandText =
+                "SELECT DISTINCT ModelName FROM Images " +
+                "WHERE ModelName IS NOT NULL AND ModelName <> '' " +
+                "ORDER BY ModelName COLLATE NOCASE ASC";
+
+            var list = new List<string>();
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+                list.Add(reader.GetString(0));
+            return list;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to load distinct models from DB");
+            return Array.Empty<string>();
+        }
+    }
+
+    /// <summary>
+    /// Sestaví <c>WHERE</c> klauzuli (vč. úvodního mezery + „ WHERE ") a naváže parametry
+    /// na <paramref name="cmd"/>. Prázdný/žádný filtr → prázdný string (žádné omezení).
+    /// </summary>
+    private static string BuildWhere(ImageQueryFilter? f, SqliteCommand cmd)
+    {
+        if (f is null || f.IsEmpty) return string.Empty;
+
+        var clauses = new List<string>();
+        if (!string.IsNullOrWhiteSpace(f.Search))
+        {
+            clauses.Add("(Prompt LIKE $search OR ModelName LIKE $search)");
+            cmd.Parameters.AddWithValue("$search", "%" + f.Search.Trim() + "%");
+        }
+        if (!string.IsNullOrWhiteSpace(f.ModelName))
+        {
+            clauses.Add("ModelName = $model");
+            cmd.Parameters.AddWithValue("$model", f.ModelName);
+        }
+        if (f.From is { } from)
+        {
+            clauses.Add("GeneratedAt >= $from");
+            cmd.Parameters.AddWithValue("$from", from.ToString("o"));
+        }
+        if (f.To is { } to)
+        {
+            clauses.Add("GeneratedAt <= $to");
+            cmd.Parameters.AddWithValue("$to", to.ToString("o"));
+        }
+        return clauses.Count == 0 ? string.Empty : " WHERE " + string.Join(" AND ", clauses);
     }
 
     /// <summary>Společný čtecí helper — všechny SELECT mají stejný column order (viz <see cref="SelectColumns"/>).</summary>

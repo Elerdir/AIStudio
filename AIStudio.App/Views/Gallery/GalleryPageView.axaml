@@ -32,20 +32,49 @@
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
 
             <!-- ── Mřížka náhledů ── -->
-            <Grid Grid.Column="0" RowDefinitions="*,Auto">
+            <Grid Grid.Column="0" RowDefinitions="Auto,*,Auto">
+
+                <!-- Filtrovací lišta -->
+                <Border Grid.Row="0" Padding="20,12,16,12"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                        <TextBox Grid.Column="0" Text="{Binding SearchText}"
+                                 PlaceholderText="Hledat v promptu nebo modelu…"
+                                 VerticalContentAlignment="Center" MinHeight="34"/>
+                        <ComboBox Grid.Column="1" MinWidth="190" MinHeight="34"
+                                  VerticalContentAlignment="Center"
+                                  ItemsSource="{Binding ModelOptions}"
+                                  SelectedItem="{Binding SelectedModelOption}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ModelFilterOption">
+                                    <TextBlock Text="{Binding Display}" TextTrimming="CharacterEllipsis"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Column="2" Classes="secondary" Padding="10,7"
+                                IsVisible="{Binding HasActiveFilter}"
+                                Command="{Binding ClearFilterCommand}"
+                                ToolTip.Tip="Vyčistit filtr" VerticalAlignment="Center">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FilterRemoveOutline}" Width="16" Height="16"/>
+                        </Button>
+                    </Grid>
+                </Border>
+
                 <!-- Prázdný stav -->
-                <StackPanel Grid.Row="0" IsVisible="{Binding !HasImages}"
+                <StackPanel Grid.Row="1" IsVisible="{Binding !HasImages}"
                             HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageMultipleOutline}"
                                      Width="48" Height="48" Foreground="{DynamicResource TextWeakBrush}"
                                      HorizontalAlignment="Center"/>
-                    <TextBlock Text="Zatím žádné vygenerované obrázky."
-                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
+                    <TextBlock Text="{Binding StatusLine}"
+                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"
+                               HorizontalAlignment="Center"/>
                     <TextBlock Text="Vygeneruj něco v Image Studiu nebo v chatu — objeví se tady."
+                               IsVisible="{Binding !HasActiveFilter}"
                                Foreground="{DynamicResource TextWeakBrush}" FontSize="11"/>
                 </StackPanel>
 
-                <ScrollViewer Grid.Row="0" Padding="20,16,8,0"
+                <ScrollViewer Grid.Row="1" Padding="20,16,8,0"
                               IsVisible="{Binding HasImages}"
                               HorizontalScrollBarVisibility="Disabled">
                     <ListBox ItemsSource="{Binding Images}"
@@ -76,7 +105,7 @@
                 </ScrollViewer>
 
                 <!-- Načíst další -->
-                <Button Grid.Row="1" Classes="secondary"
+                <Button Grid.Row="2" Classes="secondary"
                         Margin="20,8,8,12" HorizontalAlignment="Center"
                         IsVisible="{Binding CanLoadMore}"
                         Command="{Binding LoadMoreCommand}"
