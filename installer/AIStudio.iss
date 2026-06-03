@@ -5,7 +5,10 @@
 ; ══════════════════════════════════════════════════════════════════════════════
 
 #define AppName      "AI Studio"
-#define AppVersion   "0.1.0"
+; AppVersion lze přepsat z CLI: ISCC /DAppVersion=1.2.3 (CI ji bere z git tagu).
+#ifndef AppVersion
+  #define AppVersion "0.1.0"
+#endif
 #define AppPublisher "OKsystem"
 #define AppExeName   "AIStudio.App.exe"
 #define AppId        "{{B4E2A8C7-1F3D-4E9B-A25C-7D8F0E6B3A14}"

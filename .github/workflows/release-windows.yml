@@ -20,7 +20,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Publish Windows x64
+      # ── Portable (single-file ZIP) ────────────────────────────────────────
+      - name: Publish portable (single-file)
         run: |
           dotnet publish AIStudio.App/AIStudio.App.csproj `
             -c Release `
@@ -28,11 +29,30 @@ jobs:
             --self-contained true `
             -p:PublishSingleFile=true `
             -p:IncludeNativeLibrariesForSelfExtract=true `
+            -o publish/portable
+
+      - name: Zip portable
+        run: |
+          Compress-Archive -Path publish/portable/* -DestinationPath AIStudio-${{ github.ref_name }}-win-x64.zip
+
+      # ── Installer (.exe přes Inno Setup) ──────────────────────────────────
+      - name: Publish for installer
+        run: |
+          dotnet publish AIStudio.App/AIStudio.App.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:DebugType=none `
+            -p:DebugSymbols=false `
             -o publish/win-x64
 
-      - name: Zip output
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
         run: |
-          Compress-Archive -Path publish/win-x64/* -DestinationPath AIStudio-${{ github.ref_name }}-win-x64.zip
+          $ver = "${{ github.ref_name }}".TrimStart('v')
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$ver" "installer\AIStudio.iss"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -41,4 +61,6 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
           generate_release_notes: true
-          files: AIStudio-${{ github.ref_name }}-win-x64.zip
+          files: |
+            AIStudio-${{ github.ref_name }}-win-x64.zip
+            dist/AIStudio-Setup-*.exe
