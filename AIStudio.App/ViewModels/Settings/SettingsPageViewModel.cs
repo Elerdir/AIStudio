@@ -137,6 +137,8 @@ public partial class SettingsPageViewModel : ViewModelBase
         _pythonPath        = s.PythonPath;
         _checkForUpdates   = s.CheckForUpdates;
         _updateChannel     = string.IsNullOrWhiteSpace(s.UpdateChannel) ? "stable" : s.UpdateChannel;
+
+        RefreshComfyVersion();
     }
 
     // ── Auto-save při každé změně ─────────────────────────────────────────────
@@ -192,7 +194,34 @@ public partial class SettingsPageViewModel : ViewModelBase
     partial void OnComfyUiDirectoryChanged(string value)
     {
         _settings.Settings.ComfyUiDirectory = value;
+        RefreshComfyVersion();
         ScheduleSave();
+    }
+
+    // ── ComfyUI verze ─────────────────────────────────────────────────────────
+
+    /// <summary>Verze nainstalovaného ComfyUI (z comfyui_version.py). Prázdné = neznámá.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ComfyUiVersionLabel), nameof(IsComfyUpToDate),
+                              nameof(HasComfyVersion))]
+    private string _comfyUiVersion = string.Empty;
+
+    public bool   HasComfyVersion     => !string.IsNullOrEmpty(ComfyUiVersion);
+    public string ComfyUiVersionLabel => HasComfyVersion ? $"Verze {ComfyUiVersion}" : "Verze: neznámá";
+
+    /// <summary>Verze, na které je AI Studio ověřené (pinned reference).</summary>
+    public string TestedComfyVersion      => AIStudio.Core.Services.ComfyVersion.TestedVersion;
+    public string TestedComfyVersionLabel => $"Ověřeno s {TestedComfyVersion}";
+
+    /// <summary>True když běžící verze přesně odpovídá ověřené (zaručeně kompatibilní).</summary>
+    public bool IsComfyUpToDate =>
+        HasComfyVersion &&
+        string.Equals(ComfyUiVersion, TestedComfyVersion, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Přečte verzi ComfyUI z instalačního adresáře a aktualizuje UI.</summary>
+    private void RefreshComfyVersion()
+    {
+        ComfyUiVersion = AIStudio.Core.Services.ComfyVersion.ReadFromDirectory(ComfyUiDirectory) ?? string.Empty;
     }
 
     partial void OnComfyUiPortChanged(int value)
