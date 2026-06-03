@@ -184,18 +184,32 @@ public sealed class ComfyHttpClient : IComfyHttpClient
         {
             foreach (var node in outputs.EnumerateObject())
             {
-                if (!node.Value.TryGetProperty("images", out var imgs)) continue;
-                foreach (var img in imgs.EnumerateArray())
-                {
-                    images.Add(new ComfyImageRef(
-                        img.GetProperty("filename").GetString() ?? "",
-                        img.TryGetProperty("subfolder", out var sf) ? sf.GetString() ?? "" : "",
-                        img.TryGetProperty("type", out var t2) ? t2.GetString() ?? "output" : "output"));
-                }
+                // SaveImage → "images"; VHS_VideoCombine (video) → "gifs";
+                // nativní SaveVideo/CreateVideo → "videos". Vše se servíruje přes /view.
+                CollectOutputRefs(node.Value, "images", images);
+                CollectOutputRefs(node.Value, "gifs",   images);
+                CollectOutputRefs(node.Value, "videos", images);
             }
         }
 
         return images.Count > 0 ? new ComfyGenerationResult(promptId, images, DateTime.Now) : null;
+    }
+
+    /// <summary>
+    /// Posbírá filename/subfolder/type z pojmenovaného výstupního pole uzlu
+    /// (images/gifs/videos) do <paramref name="into"/>. Ignoruje chybějící/nepole.
+    /// </summary>
+    private static void CollectOutputRefs(JsonElement node, string key, List<ComfyImageRef> into)
+    {
+        if (!node.TryGetProperty(key, out var arr) || arr.ValueKind != JsonValueKind.Array) return;
+        foreach (var item in arr.EnumerateArray())
+        {
+            if (!item.TryGetProperty("filename", out var fn)) continue;
+            into.Add(new ComfyImageRef(
+                fn.GetString() ?? "",
+                item.TryGetProperty("subfolder", out var sf) ? sf.GetString() ?? "" : "",
+                item.TryGetProperty("type", out var t) ? t.GetString() ?? "output" : "output"));
+        }
     }
 
     public async Task<byte[]> DownloadImageAsync(

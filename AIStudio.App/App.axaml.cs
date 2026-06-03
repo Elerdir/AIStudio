@@ -175,6 +175,8 @@ public partial class App : Application
         services.AddSingleton<IFluxDependencyService, FluxDependencyService>();
         // Wan 2.1 video závislosti (text encoder, VAE, CLIP-Vision, diffusion model).
         services.AddSingleton<IWanDependencyService, WanDependencyService>();
+        // Generování videa přes Wan 2.1 (workflow → ComfyUI → MP4 → galerie).
+        services.AddSingleton<IVideoGenerationService, VideoGenerationService>();
         // FLUX.1 Kontext — instrukční editace obrázku (přilož + uprav). Orchestrátor
         // si ho vyzvedne (optional dep) a použije pro editaci s referencí; auto-download
         // UNET (~12 GB) + sdílené FLUX závislosti při prvním použití.
