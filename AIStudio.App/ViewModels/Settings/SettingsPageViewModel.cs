@@ -218,10 +218,27 @@ public partial class SettingsPageViewModel : ViewModelBase
         HasComfyVersion &&
         string.Equals(ComfyUiVersion, TestedComfyVersion, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Přečte verzi ComfyUI z instalačního adresáře a aktualizuje UI.</summary>
+    // ── Custom nody (instalují se při startu ComfyUI) ─────────────────────────
+
+    /// <summary>True když je nainstalovaný ComfyUI-VideoHelperSuite (MP4 výstup videa).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(VideoHelperLabel))]
+    private bool _videoHelperInstalled;
+
+    public string VideoHelperLabel =>
+        VideoHelperInstalled ? "Video (VideoHelperSuite): nainstalováno"
+                             : "Video (VideoHelperSuite): doinstaluje se při startu ComfyUI";
+
+    /// <summary>Přečte verzi ComfyUI + stav custom nodů a aktualizuje UI.</summary>
     private void RefreshComfyVersion()
     {
         ComfyUiVersion = AIStudio.Core.Services.ComfyVersion.ReadFromDirectory(ComfyUiDirectory) ?? string.Empty;
+        try
+        {
+            VideoHelperInstalled = IsComfyInstalled
+                && _comfyInstaller.IsVideoHelperSuiteInstalled(ComfyUiDirectory);
+        }
+        catch { VideoHelperInstalled = false; }
     }
 
     partial void OnComfyUiPortChanged(int value)

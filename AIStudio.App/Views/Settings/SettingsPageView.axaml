@@ -490,6 +490,20 @@
                                                        TextDecorations="Underline"/>
                                         </Button>
                                     </StackPanel>
+
+                                    <!-- Řádek 3: stav VideoHelperSuite (MP4 výstup videa) -->
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <mi:MaterialIcon Width="13" Height="13" VerticalAlignment="Center"
+                                                         IsVisible="{Binding VideoHelperInstalled}"
+                                                         Kind="{x:Static miKind:MaterialIconKind.CheckCircleOutline}"
+                                                         Foreground="#86EFAC"/>
+                                        <mi:MaterialIcon Width="13" Height="13" VerticalAlignment="Center"
+                                                         IsVisible="{Binding !VideoHelperInstalled}"
+                                                         Kind="{x:Static miKind:MaterialIconKind.DownloadOutline}"
+                                                         Foreground="{DynamicResource TextHintBrush}"/>
+                                        <TextBlock Text="{Binding VideoHelperLabel}" FontSize="11"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
 
