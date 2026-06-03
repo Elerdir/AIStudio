@@ -54,7 +54,19 @@ public partial class GeneratedImageViewModel : ObservableObject
 
     private async Task LoadThumbnailAsync()
     {
-        var bmp = await Task.Run(LoadThumbnail);
+        Bitmap? bmp;
+        if (IsVideo)
+        {
+            // Video → vytáhni první snímek jako poster (vedle souboru, cachovaně).
+            var thumbPath = FilePath + ".thumb.png";
+            var ok = await Controls.VideoThumbnailGenerator.TryGenerateAsync(FilePath, thumbPath);
+            bmp = ok ? await Task.Run(() => LoadFrom(thumbPath, 220)) : null;
+        }
+        else
+        {
+            bmp = await Task.Run(() => LoadFrom(FilePath, 220));
+        }
+
         if (bmp is null) return;
         await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -118,13 +130,14 @@ public partial class GeneratedImageViewModel : ObservableObject
 
     // ── Internals ─────────────────────────────────────────────────────────────
 
-    private Bitmap? LoadThumbnail()
+    /// <summary>Dekóduje obrázkový soubor na náhled dané šířky. Null při chybě.</summary>
+    private static Bitmap? LoadFrom(string path, int width)
     {
         try
         {
-            if (!File.Exists(FilePath)) return null;
-            using var stream = File.OpenRead(FilePath);
-            return Bitmap.DecodeToWidth(stream, 220);
+            if (!File.Exists(path)) return null;
+            using var stream = File.OpenRead(path);
+            return Bitmap.DecodeToWidth(stream, width);
         }
         catch { return null; }
     }
