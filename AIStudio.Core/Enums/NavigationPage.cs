@@ -4,6 +4,7 @@ public enum NavigationPage
 {
     Chat,
     ImageStudio,
+    Gallery,
     Models,
     Lora,
     System,

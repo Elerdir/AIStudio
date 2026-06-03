@@ -73,6 +73,16 @@
                         </Button>
 
                         <Button Command="{Binding NavigateCommand}"
+                                CommandParameter="{x:Static enums:NavigationPage.Gallery}"
+                                Classes="navItem"
+                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Gallery}}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ViewGalleryOutline}" Width="18" Height="18" VerticalAlignment="Center"/>
+                                <TextBlock Text="Galerie" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding NavigateCommand}"
                                 CommandParameter="{x:Static enums:NavigationPage.Models}"
                                 Classes="navItem"
                                 Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Models}}">

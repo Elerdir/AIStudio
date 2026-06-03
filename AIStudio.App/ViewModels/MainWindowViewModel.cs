@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using AIStudio.Core.Enums;
 using AIStudio.Core.Interfaces;
 using AIStudio.App.ViewModels.Chat;
+using AIStudio.App.ViewModels.Gallery;
 using AIStudio.App.ViewModels.ImageStudio;
 using AIStudio.App.ViewModels.Lora;
 using AIStudio.App.ViewModels.Models;
@@ -28,6 +29,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ChatPageViewModel         ChatPage         { get; }
     public ImageStudioPageViewModel  ImageStudioPage  { get; }
+    public GalleryPageViewModel      GalleryPage      { get; }
     public ModelManagerPageViewModel ModelManagerPage { get; }
     public LoraLibraryPageViewModel  LoraPage         { get; }
     public SystemPageViewModel       SystemPage       { get; }
@@ -40,6 +42,7 @@ public partial class MainWindowViewModel : ViewModelBase
         INavigationService        nav,
         ChatPageViewModel         chatPage,
         ImageStudioPageViewModel  imageStudioPage,
+        GalleryPageViewModel      galleryPage,
         ModelManagerPageViewModel modelManagerPage,
         LoraLibraryPageViewModel  loraPage,
         SystemPageViewModel       systemPage,
@@ -51,6 +54,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         ChatPage         = chatPage;
         ImageStudioPage  = imageStudioPage;
+        GalleryPage      = galleryPage;
         ModelManagerPage = modelManagerPage;
         LoraPage         = loraPage;
         SystemPage       = systemPage;
@@ -100,11 +104,17 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             NavigationPage.Chat        => ChatPage,
             NavigationPage.ImageStudio => ImageStudioPage,
+            NavigationPage.Gallery     => GalleryPage,
             NavigationPage.Models      => ModelManagerPage,
             NavigationPage.Lora        => LoraPage,
             NavigationPage.System      => SystemPage,
             NavigationPage.Settings    => SettingsPage,
             _                          => ChatPage
         };
+
+        // Galerie čte z DB stránkovaně — při každém otevření obnov (mohlo přibýt
+        // z chatu / Image Studia / upscale).
+        if (page == NavigationPage.Gallery)
+            _ = GalleryPage.RefreshAsync();
     }
 }

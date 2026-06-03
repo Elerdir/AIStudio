@@ -1,0 +1,203 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AIStudio.App.ViewModels.Gallery"
+             xmlns:img="using:AIStudio.App.ViewModels.ImageStudio"
+             xmlns:mi="using:Material.Icons.Avalonia"
+             xmlns:miKind="using:Material.Icons"
+             x:Class="AIStudio.App.Views.Gallery.GalleryPageView"
+             x:DataType="vm:GalleryPageViewModel">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- ── Hlavička ── -->
+        <Border Grid.Row="0" Padding="28,20,28,14"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Spacing="2">
+                    <TextBlock Text="Galerie" FontSize="22" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <TextBlock Text="{Binding StatusLine}" FontSize="12"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Classes="secondary" Padding="12,7"
+                        Command="{Binding RefreshCommand}" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="14" Height="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Obnovit" FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+
+            <!-- ── Mřížka náhledů ── -->
+            <Grid Grid.Column="0" RowDefinitions="*,Auto">
+                <!-- Prázdný stav -->
+                <StackPanel Grid.Row="0" IsVisible="{Binding !HasImages}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
+                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageMultipleOutline}"
+                                     Width="48" Height="48" Foreground="{DynamicResource TextWeakBrush}"
+                                     HorizontalAlignment="Center"/>
+                    <TextBlock Text="Zatím žádné vygenerované obrázky."
+                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"/>
+                    <TextBlock Text="Vygeneruj něco v Image Studiu nebo v chatu — objeví se tady."
+                               Foreground="{DynamicResource TextWeakBrush}" FontSize="11"/>
+                </StackPanel>
+
+                <ScrollViewer Grid.Row="0" Padding="20,16,8,0"
+                              IsVisible="{Binding HasImages}"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <ListBox ItemsSource="{Binding Images}"
+                             SelectedItem="{Binding SelectedImage}"
+                             Background="Transparent" Padding="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="Margin" Value="0,0,10,10"/>
+                                <Setter Property="CornerRadius" Value="10"/>
+                            </Style>
+                        </ListBox.Styles>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="img:GeneratedImageViewModel">
+                                <Border Width="150" Height="150" CornerRadius="10" ClipToBounds="True"
+                                        Background="{DynamicResource CardBgBrush}">
+                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </ScrollViewer>
+
+                <!-- Načíst další -->
+                <Button Grid.Row="1" Classes="secondary"
+                        Margin="20,8,8,12" HorizontalAlignment="Center"
+                        IsVisible="{Binding CanLoadMore}"
+                        Command="{Binding LoadMoreCommand}"
+                        Content="Načíst další"/>
+            </Grid>
+
+            <!-- ── Detail panel ── -->
+            <Border Grid.Column="1" Width="380"
+                    Background="{DynamicResource PanelBgBrush}"
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1,0,0,0"
+                    IsVisible="{Binding HasSelection}">
+                <ScrollViewer Padding="20,18,14,0" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="14" DataContext="{Binding SelectedImage}"
+                                x:DataType="img:GeneratedImageViewModel">
+
+                        <!-- Náhled -->
+                        <Border CornerRadius="10" ClipToBounds="True" Cursor="Hand"
+                                Background="{DynamicResource CardBgBrush}"
+                                MaxHeight="320">
+                            <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
+                        </Border>
+
+                        <!-- Metadata -->
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="MODEL" Classes="sectionHeader"/>
+                            <SelectableTextBlock Text="{Binding ModelShort}" FontSize="12"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                            <TextBlock Text="PROMPT" Classes="sectionHeader" Margin="0,6,0,0"/>
+                            <SelectableTextBlock Text="{Binding Prompt}" FontSize="12"
+                                                 Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                            <WrapPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="{Binding ResolutionLabel}" FontSize="11"
+                                           Foreground="{DynamicResource TextHintBrush}" Margin="0,0,14,2"/>
+                                <TextBlock Text="{Binding StepsLabel}" FontSize="11"
+                                           Foreground="{DynamicResource TextHintBrush}" Margin="0,0,14,2"/>
+                                <TextBlock Text="{Binding CfgLabel}" FontSize="11"
+                                           Foreground="{DynamicResource TextHintBrush}" Margin="0,0,14,2"/>
+                                <TextBlock Text="{Binding FullDateLabel}" FontSize="11"
+                                           Foreground="{DynamicResource TextHintBrush}" Margin="0,0,14,2"/>
+                            </WrapPanel>
+                        </StackPanel>
+
+                        <!-- Akce (DataContext = page VM přes $parent) -->
+                        <StackPanel Spacing="8"
+                                    DataContext="{Binding $parent[UserControl].DataContext}"
+                                    x:DataType="vm:GalleryPageViewModel">
+
+                            <!-- Inline editace (Kontext) -->
+                            <StackPanel Spacing="6" IsVisible="{Binding ActionsSupported}">
+                                <TextBlock Text="RYCHLÁ ÚPRAVA (napiš co změnit)" Classes="sectionHeader"/>
+                                <TextBox Text="{Binding EditInstruction}"
+                                         PlaceholderText="např. udělej to černobílé, přidej klobouk…"
+                                         AcceptsReturn="False" FontSize="12"
+                                         IsEnabled="{Binding !IsBusy}"/>
+                                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Padding="0,8" CornerRadius="8" BorderThickness="0"
+                                        Background="{DynamicResource AccentBrush}" Foreground="White"
+                                        IsEnabled="{Binding !IsBusy}"
+                                        Command="{Binding ApplyInlineEditCommand}"
+                                        Content="Upravit dle instrukce"/>
+                            </StackPanel>
+
+                            <!-- Hlavní akce -->
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8" RowDefinitions="Auto,Auto" RowSpacing="8">
+                                <Button Grid.Row="0" Grid.Column="0" Classes="secondary"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"
+                                        IsEnabled="{Binding ActionsSupported}"
+                                        Command="{Binding UpscaleSelectedCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ArrowExpandAll}" Width="14" Height="14" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Upscale 2×" FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Row="0" Grid.Column="1" Classes="secondary"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"
+                                        Command="{Binding EditInStudioCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="14" Height="14" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Upravit ve Studiu" FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Grid.Row="1" Grid.Column="0" Classes="secondary"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"
+                                        Command="{Binding OpenPreviewCommand}" Content="Náhled"/>
+                                <Button Grid.Row="1" Grid.Column="1" Classes="secondary"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"
+                                        Command="{Binding SaveAsCommand}" Content="Uložit jako…"/>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Grid.Column="0" Classes="secondary"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"
+                                        Command="{Binding OpenFolderCommand}" Content="Otevřít složku"/>
+                                <Button Grid.Column="1"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"
+                                        Background="#3A1C1C" Foreground="#E08585" BorderThickness="0" CornerRadius="8"
+                                        Command="{Binding DeleteCommand}" Content="Smazat"/>
+                            </Grid>
+
+                            <!-- Busy (upscale / edit) -->
+                            <Border IsVisible="{Binding IsBusy}"
+                                    Background="#15131C" BorderBrush="#2A2050" BorderThickness="1"
+                                    CornerRadius="10" Padding="14,12" Margin="0,4,0,0">
+                                <StackPanel Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="{Binding BusyStatus}" FontSize="12"
+                                                   Foreground="{DynamicResource AccentLighterBrush}"/>
+                                        <Button Grid.Column="1" Classes="secondary" Padding="8,3"
+                                                Command="{Binding CancelBusyCommand}" Content="Zrušit"/>
+                                    </Grid>
+                                    <ProgressBar Value="{Binding BusyProgress}" Minimum="0" Maximum="100"
+                                                 Height="5" CornerRadius="3"
+                                                 Foreground="{DynamicResource AccentLightBrush}" Background="#221C3A"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Height="20"/>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

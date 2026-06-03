@@ -150,6 +150,20 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     [RelayCommand]
     private void OpenSettings() => _nav.Navigate(NavigationPage.Settings);
 
+    /// <summary>
+    /// Otevře obrázek k editaci v aktivním generátoru — přidá ho jako referenci
+    /// (img2img / FLUX Kontext) a přepne na Manuál mód, ať uživatel doplní prompt
+    /// a parametry. Volá Galerie přes „Upravit" → navigace na Image Studio.
+    /// </summary>
+    public void OpenImageForEditing(string filePath)
+    {
+        var gen = ActiveGenerator;
+        if (gen is null || string.IsNullOrEmpty(filePath)) return;
+        if (!gen.ReferenceImagePaths.Contains(filePath))
+            gen.ReferenceImagePaths.Add(filePath);
+        gen.IsSmartMode = false;
+    }
+
     // ── ComfyUI lifecycle ─────────────────────────────────────────────────────
 
     [RelayCommand]
