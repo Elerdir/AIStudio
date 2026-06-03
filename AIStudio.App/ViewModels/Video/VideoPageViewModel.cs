@@ -25,22 +25,29 @@ public partial class VideoPageViewModel : ViewModelBase
     private readonly IWanDependencyService   _wanDeps;
     private readonly ISettingsService        _settings;
     private readonly INavigationService      _nav;
+    private readonly ILoraLibraryService?    _loraLibrary;
 
     private CancellationTokenSource? _genCts;
+    private readonly System.Diagnostics.Stopwatch _genStopwatch = new();
 
     public VideoPageViewModel(
         IVideoGenerationService videoGen,
         IWanDependencyService   wanDeps,
         ISettingsService        settings,
-        INavigationService      nav)
+        INavigationService      nav,
+        ILoraLibraryService?    loraLibrary = null)
     {
-        _videoGen = videoGen;
-        _wanDeps  = wanDeps;
-        _settings = settings;
-        _nav      = nav;
+        _videoGen    = videoGen;
+        _wanDeps     = wanDeps;
+        _settings    = settings;
+        _nav         = nav;
+        _loraLibrary = loraLibrary;
+
+        SelectedLoras.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasLoras));
 
         ApplyModelDefaults();
         RefreshDepsState();
+        _ = LoadLorasAsync();
     }
 
     // ── Model + parametry ──────────────────────────────────────────────────────
@@ -72,6 +79,9 @@ public partial class VideoPageViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGenerate))]
     private string _prompt = string.Empty;
+
+    /// <summary>Negativní prompt (co NEchceš). Prázdné = použije se oficiální Wan default.</summary>
+    [ObservableProperty] private string _negativePrompt = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DurationLabel))]
@@ -184,14 +194,57 @@ public partial class VideoPageViewModel : ViewModelBase
         }
     }
 
+    // ── LoRA (volitelné) ───────────────────────────────────────────────────────
+
+    public ObservableCollection<string>   AvailableLoras { get; } = new();
+    public ObservableCollection<LoraItem> SelectedLoras  { get; } = new();
+    public bool HasLoras => SelectedLoras.Count > 0;
+
+    [ObservableProperty] private string? _selectedLoraToAdd;
+    [ObservableProperty] private double  _loraStrength = 1.0;
+
+    [RelayCommand]
+    private async Task LoadLorasAsync()
+    {
+        if (_loraLibrary is null) return;
+        try
+        {
+            var all = await _loraLibrary.ListAllAsync();
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                AvailableLoras.Clear();
+                foreach (var l in all) AvailableLoras.Add(l);
+            });
+        }
+        catch (Exception ex) { Log.Warning(ex, "VideoPage: načtení LoRA selhalo"); }
+    }
+
+    [RelayCommand]
+    private void AddLora()
+    {
+        if (string.IsNullOrEmpty(SelectedLoraToAdd)) return;
+        if (SelectedLoras.Any(l => l.Name == SelectedLoraToAdd)) return;
+        SelectedLoras.Add(new LoraItem(SelectedLoraToAdd, LoraStrength, LoraStrength));
+    }
+
+    [RelayCommand]
+    private void RemoveLora(LoraItem lora) => SelectedLoras.Remove(lora);
+
     // ── Generování ─────────────────────────────────────────────────────────────
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGenerate))]
     private bool _isGenerating;
 
-    [ObservableProperty] private int    _progress;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressLabel))]
+    private int _progress;
+
     [ObservableProperty] private string _statusLine = string.Empty;
+    [ObservableProperty] private string _etaLabel = string.Empty;
+
+    /// <summary>Procenta jako text pro UI („45 %").</summary>
+    public string ProgressLabel => $"{Progress} %";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -218,8 +271,10 @@ public partial class VideoPageViewModel : ViewModelBase
         _genCts      = cts;
         IsGenerating = true;
         Progress     = 0;
+        EtaLabel     = string.Empty;
         ErrorMessage = string.Empty;
         StatusLine   = "Generuji video…";
+        _genStopwatch.Restart();
 
         var model = SelectedModel;
         var seed  = Random.Shared.NextInt64(1, long.MaxValue);
@@ -233,9 +288,11 @@ public partial class VideoPageViewModel : ViewModelBase
             Cfg:    Cfg,
             Seed:   seed,
             StartImagePath: IsImageToVideo ? StartImagePath : null,
-            Fps:    Fps);
+            Fps:    Fps,
+            NegativePrompt: string.IsNullOrWhiteSpace(NegativePrompt) ? null : NegativePrompt.Trim(),
+            Loras:  SelectedLoras.Count > 0 ? SelectedLoras.ToList() : null);
 
-        var progress = new Progress<int>(p => Dispatcher.UIThread.Post(() => Progress = p));
+        var progress = new Progress<int>(p => Dispatcher.UIThread.Post(() => UpdateProgress(p)));
         try
         {
             var result = await _videoGen.GenerateAsync(req, progress, cts.Token);
@@ -268,7 +325,34 @@ public partial class VideoPageViewModel : ViewModelBase
         {
             IsGenerating = false;
             _genCts      = null;
+            _genStopwatch.Stop();
+            EtaLabel = string.Empty;
         }
+    }
+
+    /// <summary>Aktualizuje procenta a dopočítá ETA z uplynulého času.</summary>
+    private void UpdateProgress(int p)
+    {
+        Progress = p;
+        if (p is > 0 and < 100)
+        {
+            var elapsed   = _genStopwatch.Elapsed.TotalSeconds;
+            var remaining = elapsed / p * (100 - p);
+            EtaLabel = "zbývá ~" + FormatSeconds(remaining);
+        }
+        else
+        {
+            EtaLabel = string.Empty;
+        }
+    }
+
+    private static string FormatSeconds(double s)
+    {
+        if (s < 0) s = 0;
+        var t = TimeSpan.FromSeconds(s);
+        return t.TotalHours >= 1
+            ? $"{(int)t.TotalHours}:{t.Minutes:00}:{t.Seconds:00}"
+            : $"{t.Minutes}:{t.Seconds:00}";
     }
 
     [RelayCommand]

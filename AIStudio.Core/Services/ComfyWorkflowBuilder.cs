@@ -746,6 +746,41 @@ public static class ComfyWorkflowBuilder
         };
     }
 
+    /// <summary>
+    /// Vloží LoRA do Wan workflow (text→video i obrázek→video). Wan LoRA působí jen na
+    /// difúzní model (UNET) — text encoder umT5 se neLoRAuje — proto řetězíme
+    /// <c>LoraLoaderModelOnly</c> mezi <c>UNETLoader</c> ("37") a vstup "model" KSampleru.
+    /// Prázdný seznam = beze změny.
+    /// </summary>
+    public static void InjectWanLoras(Dictionary<string, object> workflow, IReadOnlyList<LoraItem> loras)
+    {
+        if (loras is null || loras.Count == 0) return;
+
+        object modelRef = Ref("37", 0);
+        var id = 60;   // mimo rozsah Wan uzlů (3,6,7,8,28,37,38,39,40,49,50,51,52)
+        foreach (var lora in loras)
+        {
+            var key = id.ToString();
+            workflow[key] = Node("LoraLoaderModelOnly", new()
+            {
+                ["model"]          = modelRef,
+                ["lora_name"]      = lora.Name,
+                ["strength_model"] = lora.StrengthModel,
+            });
+            modelRef = Ref(key, 0);
+            id++;
+        }
+
+        // Přepoj KSampler "model" na poslední LoRA uzel.
+        if (workflow.TryGetValue(WanKSamplerKey, out var ksObj) &&
+            ksObj is Dictionary<string, object> ks &&
+            ks.TryGetValue("inputs", out var inObj) &&
+            inObj is Dictionary<string, object> ksIn)
+        {
+            ksIn["model"] = modelRef;
+        }
+    }
+
     // ── IMG2IMG – SDXL / SD ───────────────────────────────────────────────────
 
     /// <summary>

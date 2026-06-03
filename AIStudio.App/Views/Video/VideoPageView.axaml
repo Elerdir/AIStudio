@@ -2,11 +2,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AIStudio.App.ViewModels.Video"
              xmlns:svc="using:AIStudio.Core.Services"
+             xmlns:models="using:AIStudio.Core.Models"
+             xmlns:conv="using:AIStudio.App.Converters"
              xmlns:controls="using:AIStudio.App.Controls"
              xmlns:mi="using:Material.Icons.Avalonia"
              xmlns:miKind="using:Material.Icons"
              x:Class="AIStudio.App.Views.Video.VideoPageView"
              x:DataType="vm:VideoPageViewModel">
+
+    <UserControl.Resources>
+        <conv:FileNameWithoutExtensionConverter x:Key="FileNameNoExt"/>
+    </UserControl.Resources>
 
     <Grid RowDefinitions="Auto,*">
 
@@ -91,6 +97,14 @@
                              PlaceholderText="např. a red fox running through a snowy forest, cinematic, tracking shot"/>
                 </StackPanel>
 
+                <!-- Negativní prompt -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="NEGATIVNÍ PROMPT (co NEchceš — nepovinné)" Classes="sectionHeader"/>
+                    <TextBox Text="{Binding NegativePrompt}" AcceptsReturn="True" TextWrapping="Wrap"
+                             MinHeight="48" MaxHeight="110"
+                             PlaceholderText="prázdné = použije se ověřený Wan default (rozmazání, artefakty, deformace…)"/>
+                </StackPanel>
+
                 <!-- Parametry -->
                 <StackPanel Spacing="6">
                     <TextBlock Text="PARAMETRY" Classes="sectionHeader"/>
@@ -126,6 +140,56 @@
                     </StackPanel>
                     <TextBlock FontSize="11" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
                                Text="Délku videa řídíš počtem snímků ÷ FPS. Wan 2.1 zvládá krátké klipy — doporučeno do ~81 snímků (≈ 5 s); víc = výrazně víc VRAM a času."/>
+                </StackPanel>
+
+                <!-- LoRA (volitelné) -->
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="LORA ADAPTERY (nepovinné)" Classes="sectionHeader" VerticalAlignment="Center"/>
+                        <Button Grid.Column="1" Classes="secondary" Padding="8,4" FontSize="11"
+                                Command="{Binding LoadLorasCommand}" ToolTip.Tip="Načíst dostupné LoRA">
+                            ↻ Načíst
+                        </Button>
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                        <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" MinHeight="34" FontSize="12"
+                                  VerticalContentAlignment="Center"
+                                  ItemsSource="{Binding AvailableLoras}"
+                                  SelectedItem="{Binding SelectedLoraToAdd}"
+                                  PlaceholderText="Vybrat LoRA…">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <TextBlock Text="{Binding Converter={StaticResource FileNameNoExt}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <NumericUpDown Grid.Column="1" Value="{Binding LoraStrength}" Minimum="0.0" Maximum="2.0"
+                                       Increment="0.05" FormatString="0.00" MinWidth="110" FontSize="12"
+                                       ToolTip.Tip="Síla LoRA"/>
+                        <Button Grid.Column="2" Classes="secondary" Padding="10,5" FontSize="12"
+                                Command="{Binding AddLoraCommand}">+ Přidat</Button>
+                    </Grid>
+                    <ItemsControl ItemsSource="{Binding SelectedLoras}" IsVisible="{Binding HasLoras}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:LoraItem">
+                                <Border Background="{DynamicResource CardBgBrush}" CornerRadius="6" Padding="8,5" Margin="0,2">
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <TextBlock Grid.Column="0" Text="{Binding Name, Converter={StaticResource FileNameNoExt}}"
+                                                   FontSize="12" Foreground="{DynamicResource AccentLightBrush}"
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Column="1" Margin="6,0" FontSize="11"
+                                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center">
+                                            <Run Text="×"/><Run Text="{Binding StrengthModel, StringFormat='{}{0:0.00}'}"/>
+                                        </TextBlock>
+                                        <Button Grid.Column="2" Classes="secondary" Padding="6,2" FontSize="10" Content="✕"
+                                                ToolTip.Tip="Odebrat LoRA"
+                                                Command="{Binding $parent[ItemsControl].((vm:VideoPageViewModel)DataContext).RemoveLoraCommand}"
+                                                CommandParameter="{Binding}"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
 
                 <!-- Závislosti (velké modely) -->
@@ -181,6 +245,13 @@
                         <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100"
                                      Height="5" CornerRadius="3"
                                      Foreground="{DynamicResource AccentLightBrush}" Background="#221C3A"/>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <TextBlock Grid.Column="0" Text="{Binding ProgressLabel}" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Grid.Column="1" Text="{Binding EtaLabel}" FontSize="11"
+                                       HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource TextHintBrush}"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 

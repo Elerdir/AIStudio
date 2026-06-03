@@ -89,6 +89,10 @@ public sealed class VideoGenerationService : IVideoGenerationService
                     request.Width, request.Height, request.Length, request.Steps, request.Cfg, request.Seed,
                     negativePrompt: negative, fps: request.Fps, filenamePrefix: "AIStudio_video");
             }
+
+            // LoRA (volitelné) — Wan působí jen na model (LoraLoaderModelOnly).
+            if (request.Loras is { Count: > 0 } loras)
+                ComfyWorkflowBuilder.InjectWanLoras(workflow, loras);
         }
         catch (Exception ex)
         {

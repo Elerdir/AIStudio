@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -92,12 +93,28 @@ public sealed class VideoPlayerControl : Control
     private MediaPlayer.LibVLCVideoDisplayCb? _displayCb;
 
     private bool _attached;
+    private bool _paused;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         _attached = true;
+        Cursor = new Cursor(StandardCursorType.Hand);
         Restart();
+    }
+
+    /// <summary>Klik na video přepne pauzu / přehrávání.</summary>
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+        if (_player is null) return;
+        try
+        {
+            _paused = !_paused;
+            _player.SetPause(_paused);
+            InvalidateVisual();
+        }
+        catch (Exception ex) { Log.Warning(ex, "VideoPlayerControl: pauza selhala"); }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -160,6 +177,7 @@ public sealed class VideoPlayerControl : Control
 
         // Delegáty uvolníme až po Stop/Dispose (libVLC je už nevolá).
         _formatCb = null; _cleanupCb = null; _lockCb = null; _displayCb = null;
+        _paused = false;
     }
 
     // ── libVLC callbacky (běží na vlákně libVLC) ───────────────────────────────
@@ -260,6 +278,31 @@ public sealed class VideoPlayerControl : Control
             var dest = CenteredUniform(_bitmap.Size, Bounds.Size);
             context.DrawImage(_bitmap, src, dest);
         }
+
+        if (_paused) DrawPlayIcon(context);
+    }
+
+    /// <summary>Poloprůhledný kruh + trojúhelník „play" uprostřed (indikace pauzy).</summary>
+    private void DrawPlayIcon(DrawingContext context)
+    {
+        var cx = Bounds.Width / 2;
+        var cy = Bounds.Height / 2;
+        var r  = Math.Min(Bounds.Width, Bounds.Height) * 0.10;
+        if (r < 8) r = 8;
+
+        context.DrawEllipse(new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)), null,
+                            new Point(cx, cy), r, r);
+
+        var t = r * 0.5;
+        var geo = new StreamGeometry();
+        using (var g = geo.Open())
+        {
+            g.BeginFigure(new Point(cx - t * 0.6, cy - t), true);
+            g.LineTo(new Point(cx - t * 0.6, cy + t));
+            g.LineTo(new Point(cx + t, cy));
+            g.EndFigure(true);
+        }
+        context.DrawGeometry(Brushes.White, null, geo);
     }
 
     private static Rect CenteredUniform(Size img, Size area)

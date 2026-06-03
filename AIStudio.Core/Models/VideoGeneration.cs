@@ -18,7 +18,8 @@ public sealed record VideoGenerationRequest(
     long          Seed,
     string?       StartImagePath = null,
     int           Fps = 16,
-    string?       NegativePrompt = null);
+    string?       NegativePrompt = null,
+    IReadOnlyList<LoraItem>? Loras = null);
 
 /// <summary>
 /// Výsledek generování videa. Když chybí závislosti (velké modely nejsou stažené),

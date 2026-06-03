@@ -618,4 +618,40 @@ public class ComfyWorkflowBuilderTests
         var wf = WanI2VWf();
         ((Dictionary<string, object>)FindNode(wf, "LoadImage")["inputs"])["image"].Should().Be("start.png");
     }
+
+    [Fact]
+    public void InjectWanLoras_Empty_LeavesWorkflowUnchanged()
+    {
+        var wf = WanT2VWf();
+        var before = wf.Count;
+        ComfyWorkflowBuilder.InjectWanLoras(wf, []);
+        wf.Count.Should().Be(before);
+    }
+
+    [Fact]
+    public void InjectWanLoras_TwoLoras_ChainedModelOnly_KSamplerUsesLast()
+    {
+        var wf = WanT2VWf();
+        ComfyWorkflowBuilder.InjectWanLoras(wf, new[]
+        {
+            new LoraItem("wan_style.safetensors", 0.8),
+            new LoraItem("wan_motion.safetensors", 0.6),
+        });
+
+        // dva LoraLoaderModelOnly uzly
+        var loraNodes = wf.Values.Cast<Dictionary<string, object>>()
+            .Where(n => (string)n["class_type"] == "LoraLoaderModelOnly").ToList();
+        loraNodes.Should().HaveCount(2);
+
+        // 1. řetězí z UNETLoaderu "37", 2. z prvního LoRA uzlu
+        var first  = GetInputs(wf, "60");
+        ((object[])first["model"])[0].Should().Be("37");
+        var second = GetInputs(wf, "61");
+        ((object[])second["model"])[0].Should().Be("60");
+        second["strength_model"].Should().Be(0.6);
+
+        // KSampler bere model z posledního LoRA uzlu "61"
+        var ks = (Dictionary<string, object>)FindNode(wf, "KSampler")["inputs"];
+        ((object[])ks["model"])[0].Should().Be("61");
+    }
 }
