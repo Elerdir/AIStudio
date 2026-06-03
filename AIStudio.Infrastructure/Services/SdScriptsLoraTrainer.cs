@@ -430,9 +430,10 @@ public sealed class SdScriptsLoraTrainer : ILoraTrainerService
         // dependencích a jeho build na Windows embedded Pythonu je nespolehlivý).
         Arg   ("--sdpa");
 
-        // Gradient checkpointing — FLUX ho potřebuje VŽDY (je obrovský), jinak OOM
-        // i na 24 GB. SD/SDXL podle parametru (auto-on na hraniční VRAM).
-        if (p.GradientCheckpointing || isFlux) Arg("--gradient_checkpointing");
+        // Gradient checkpointing — FLUX i SDXL ho potřebují VŽDY, jinak OOM i na 24 GB
+        // (SDXL trénuje 2 text encodery + UNet na 1024 → bez checkpointingu ~22 GB a
+        // přeteče). SD 1.5 je malé → podle parametru (auto-on jen na hraniční VRAM).
+        if (p.GradientCheckpointing || isFlux || isSdxl) Arg("--gradient_checkpointing");
         if (p.SaveEverySteps > 0)
             Arg("--save_every_n_steps", p.SaveEverySteps.ToString(CultureInfo.InvariantCulture));
 

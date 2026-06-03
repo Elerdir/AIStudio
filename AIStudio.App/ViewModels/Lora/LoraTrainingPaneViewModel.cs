@@ -1151,9 +1151,11 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
             LearningRate          = LearningRate,
             BatchSize             = BatchSize,
             Optimizer             = SelectedOptimizer,
-            // Gradient checkpointing zapínáme na hraniční VRAM; pro FLUX ho trainer
-            // vynutí vždy (FLUX se bez něj nevejde ani na 24 GB).
-            GradientCheckpointing = vramGb < 12,
+            // Gradient checkpointing: SDXL i FLUX vždy (bez něj OOM i na 24 GB —
+            // SDXL na 1024 trénuje 2 text encodery + UNet ~22 GB). SD 1.5 je malé,
+            // tam ho zapneme jen na hraniční VRAM. (Trainer ho pro SDXL/FLUX navíc
+            // vynutí, takže je to dvojitá pojistka.)
+            GradientCheckpointing = BaseModelTypeLabel != "SD 1.5" || vramGb < 12,
             BlocksToSwap          = blocksToSwap,
             MixedPrecisionFp16    = true,
             Resolution            = resolution,
