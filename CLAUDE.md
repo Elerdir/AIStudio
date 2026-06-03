@@ -243,7 +243,18 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
 ## Backlog (prioritizováno)
 
 ### Probíhá / rozpracováno
-- **Video generation (Wan 2.1)** — volba uživatele: Wan 2.1 (kvalita), text→video i obrázek→video, výstup **MP4** (H.264 přes VHS_VideoCombine), v galerii **inline přehrávač** (LibVLCSharp). Hotovo: datová vrstva (`ImageRecord.MediaType` image/video + DB migrace + filtr), ověřené `ComfyWorkflowBuilder.BuildWanTextToVideo`/`BuildWanImageToVideo` (dle oficiálních ComfyUI grafů), MP4 výstupní node, galerie rozdělení Obrázky/Videa. **Zbývá Fáze 2:** Wan dependency download (umt5 text encoder, wan VAE, clip_vision_h, diffusion model t2v 1.3B / i2v 480p 14B fp8_scaled — vše z `Comfy-Org/Wan_2.1_ComfyUI_repackaged/split_files`), orchestrátor (odeslat workflow → progress → uložit jako `MediaType=video`), UI v Image Studiu (režim Video, délka/FPS, t2v + „Rozhýbat" obrázek z galerie), auto-install custom nodu ComfyUI-VideoHelperSuite + ffmpeg, LibVLCSharp.Avalonia přehrávač (pozor na kompat s Avalonia 12). Také doplnit `text_encoders:` mapping do `extra_model_paths.yaml` (dnes chybí, Wan CLIPLoader type=wan ho potřebuje).
+- **Video generation (Wan 2.1)** — FUNKČNÍ end-to-end, čeká runtime ověření. Hotovo:
+  datová vrstva (`ImageRecord.MediaType` + DB migrace + filtr), ověřené Wan workflow
+  buildery (t2v/i2v dle oficiálních ComfyUI grafů), **MP4** výstup přes `VHS_VideoCombine`,
+  `text_encoders:` yaml mapping, `WanModels` katalog + `WanDependencyService` (download
+  umt5/VAE/clip_vision/diffusion z `Comfy-Org/Wan_2.1_ComfyUI_repackaged`), `VideoGenerationService`
+  orchestrátor (workflow→ComfyUI→MP4→galerie `MediaType=video`), `gifs`/`videos` history parser,
+  auto-install ComfyUI-VideoHelperSuite (+ffmpeg), **samostatná záložka Video** (t2v + i2v,
+  délka/FPS, deps download s progresem) + galerie „Rozhýbat", **inline MP4 přehrávač**
+  (`VideoPlayerControl` — LibVLCSharp **core** + WriteableBitmap, NE VideoView kvůli Av12).
+  **Zbývá:** runtime ověření na stroji (nativní libVLC + reálná generace) — interop a Wan
+  výstup nejdou ověřit buildem. Pozn.: macOS nemá nativní libVLC (jen Windows balíček) →
+  přehrávač tam graceful fallbackuje na externí přehrání.
 - **ComfyUI řízená aktualizace (část 2)** — část 1 hotová (zobrazení verze v Nastavení, `ComfyVersion.ReadFromDirectory` + `TestedVersion` pin). Zbývá: tlačítko „Aktualizovat ComfyUI" → zastavit proces → `git` checkout na **další ověřený ref** (NE bleeding edge) → reinstal `requirements.txt` + custom node deps → restart → ověřit. Default = bezpečná pinned verze; update explicitní/hlídaný.
 
 ### Plánováno (roadmap — větší věci)
