@@ -37,11 +37,44 @@
                 <!-- Filtrovací lišta -->
                 <Border Grid.Row="0" Padding="20,12,16,12"
                         BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
-                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
-                        <TextBox Grid.Column="0" Text="{Binding SearchText}"
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+
+                        <!-- Segmentové rozdělení: Vše / Obrázky / Videa -->
+                        <Border Grid.Column="0" Background="#161618"
+                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                CornerRadius="8" Padding="3" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="3">
+                                <StackPanel.Styles>
+                                    <Style Selector="Button.seg">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+                                        <Setter Property="Padding" Value="14,6"/>
+                                        <Setter Property="CornerRadius" Value="6"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                        <Setter Property="FontSize" Value="12"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </Style>
+                                    <Style Selector="Button.seg.segActive">
+                                        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                    </Style>
+                                </StackPanel.Styles>
+                                <Button Classes="seg" Content="Vše"
+                                        Classes.segActive="{Binding IsMediaAll}"
+                                        Command="{Binding SelectMediaFilterCommand}" CommandParameter="0"/>
+                                <Button Classes="seg" Content="Obrázky"
+                                        Classes.segActive="{Binding IsMediaImages}"
+                                        Command="{Binding SelectMediaFilterCommand}" CommandParameter="1"/>
+                                <Button Classes="seg" Content="Videa"
+                                        Classes.segActive="{Binding IsMediaVideos}"
+                                        Command="{Binding SelectMediaFilterCommand}" CommandParameter="2"/>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBox Grid.Column="1" Text="{Binding SearchText}"
                                  PlaceholderText="Hledat v promptu nebo modelu…"
                                  VerticalContentAlignment="Center" MinHeight="34"/>
-                        <ComboBox Grid.Column="1" MinWidth="190" MinHeight="34"
+                        <ComboBox Grid.Column="2" MinWidth="180" MinHeight="34"
                                   VerticalContentAlignment="Center"
                                   ItemsSource="{Binding ModelOptions}"
                                   SelectedItem="{Binding SelectedModelOption}">
@@ -51,7 +84,7 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <Button Grid.Column="2" Classes="secondary" Padding="10,7"
+                        <Button Grid.Column="3" Classes="secondary" Padding="10,7"
                                 IsVisible="{Binding HasActiveFilter}"
                                 Command="{Binding ClearFilterCommand}"
                                 ToolTip.Tip="Vyčistit filtr" VerticalAlignment="Center">
@@ -90,14 +123,35 @@
                             <Style Selector="ListBoxItem">
                                 <Setter Property="Padding" Value="0"/>
                                 <Setter Property="Margin" Value="0,0,10,10"/>
-                                <Setter Property="CornerRadius" Value="10"/>
+                                <Setter Property="CornerRadius" Value="12"/>
+                            </Style>
+                            <!-- Hover: jemný rámeček; výběr: výrazný accent rámeček -->
+                            <Style Selector="ListBoxItem:pointerover Border#ThumbBorder">
+                                <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+                            </Style>
+                            <Style Selector="ListBoxItem:selected Border#ThumbBorder">
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                             </Style>
                         </ListBox.Styles>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="img:GeneratedImageViewModel">
-                                <Border Width="150" Height="150" CornerRadius="10" ClipToBounds="True"
+                                <!-- ThumbBorder má vždy 3px rámeček (default průhledný), ať se
+                                     layout nehýbe; při výběru/hoveru se obarví (viz ListBox.Styles). -->
+                                <Border x:Name="ThumbBorder" Width="150" Height="150"
+                                        CornerRadius="12" ClipToBounds="True"
+                                        BorderThickness="3" BorderBrush="Transparent"
                                         Background="{DynamicResource CardBgBrush}">
-                                    <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                                    <Panel>
+                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"/>
+                                        <!-- Indikátor videa (přehrávací ikonka v rohu) -->
+                                        <Border IsVisible="{Binding IsVideo}"
+                                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                Margin="6" Padding="4" CornerRadius="6"
+                                                Background="#AA000000">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Play}"
+                                                             Width="14" Height="14" Foreground="White"/>
+                                        </Border>
+                                    </Panel>
                                 </Border>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

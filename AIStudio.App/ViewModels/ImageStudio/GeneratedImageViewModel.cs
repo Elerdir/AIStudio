@@ -21,6 +21,13 @@ public partial class GeneratedImageViewModel : ObservableObject
     public int      Steps     { get; init; }
     public double   Cfg       { get; init; }
 
+    /// <summary>„image" / „video" — pro galerii (přehrávací ikonka, filtr typu).</summary>
+    public string   MediaType { get; init; } = AIStudio.Core.Models.MediaTypes.Image;
+
+    /// <summary>True, když jde o video (ne obrázek).</summary>
+    public bool IsVideo => string.Equals(MediaType, AIStudio.Core.Models.MediaTypes.Video,
+                                         StringComparison.OrdinalIgnoreCase);
+
     [ObservableProperty] private bool _isSelected;
 
     private Bitmap? _thumbnail;

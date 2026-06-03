@@ -78,11 +78,33 @@ public partial class GalleryPageViewModel : ViewModelBase
 
     public string StatusLine => TotalInDb switch
     {
-        0 when HasActiveFilter => "Filtru nic neodpovídá",
-        0                      => "Žádné vygenerované obrázky",
+        0 when MediaFilterIndex == 2 => "Zatím žádná videa",
+        0 when MediaFilterIndex == 1 => "Zatím žádné obrázky",
+        0 when HasActiveFilter       => "Filtru nic neodpovídá",
+        0                            => "Žádné vygenerované obrázky",
         var t when Images.Count >= t => $"Zobrazeno všech {t}",
         var t => $"Zobrazeno {Images.Count} z {t}",
     };
+
+    // ── Rozdělení podle typu média (Vše / Obrázky / Videa) ─────────────────────
+
+    /// <summary>0 = Vše, 1 = Obrázky, 2 = Videa. Filtruje přes celou DB (MediaType).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMediaAll), nameof(IsMediaImages), nameof(IsMediaVideos),
+                              nameof(StatusLine))]
+    private int _mediaFilterIndex;
+
+    public bool IsMediaAll    => MediaFilterIndex == 0;
+    public bool IsMediaImages => MediaFilterIndex == 1;
+    public bool IsMediaVideos => MediaFilterIndex == 2;
+
+    [RelayCommand]
+    private void SelectMediaFilter(string index)
+    {
+        MediaFilterIndex = int.TryParse(index, out var i) ? i : 0;
+    }
+
+    partial void OnMediaFilterIndexChanged(int value) => _ = RefreshAsync();
 
     // ── Filtr ─────────────────────────────────────────────────────────────────
 
@@ -109,7 +131,13 @@ public partial class GalleryPageViewModel : ViewModelBase
 
     private ImageQueryFilter BuildFilter() => new(
         Search:    string.IsNullOrWhiteSpace(SearchText) ? null : SearchText.Trim(),
-        ModelName: SelectedModelOption.Value);
+        ModelName: SelectedModelOption.Value,
+        MediaType: MediaFilterIndex switch
+        {
+            1 => MediaTypes.Image,
+            2 => MediaTypes.Video,
+            _ => null,
+        });
 
     partial void OnSearchTextChanged(string value) => DebouncedReload();
 
@@ -260,6 +288,7 @@ public partial class GalleryPageViewModel : ViewModelBase
                 Steps     = rec.Steps,
                 Cfg       = rec.Cfg,
                 Timestamp = rec.GeneratedAt,
+                MediaType = rec.MediaType,
             });
         }
         OnPropertyChanged(nameof(CanLoadMore));
