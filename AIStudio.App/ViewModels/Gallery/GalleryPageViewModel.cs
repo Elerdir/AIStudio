@@ -232,7 +232,10 @@ public partial class GalleryPageViewModel : ViewModelBase
         var restored = ModelOptions.FirstOrDefault(o => o.Value == previouslySelected) ?? ModelFilterOption.All;
         if (!ReferenceEquals(restored, SelectedModelOption))
         {
+            // Záměrně přes backing field — generovaný setter by spustil reload (rekurze).
+#pragma warning disable MVVMTK0034
             SetProperty(ref _selectedModelOption, restored, nameof(SelectedModelOption));
+#pragma warning restore MVVMTK0034
             OnPropertyChanged(nameof(HasActiveFilter));
         }
     }

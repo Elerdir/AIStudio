@@ -58,6 +58,10 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
             cmd.CommandText = "ALTER TABLE Images ADD COLUMN Scheduler TEXT NOT NULL DEFAULT ''";
             try { await cmd.ExecuteNonQueryAsync(); } catch { /* column already exists */ }
 
+            // Migration: add MediaType column ('image' / 'video') — dosavadní záznamy = obrázky
+            cmd.CommandText = "ALTER TABLE Images ADD COLUMN MediaType TEXT NOT NULL DEFAULT 'image'";
+            try { await cmd.ExecuteNonQueryAsync(); } catch { /* column already exists */ }
+
             cmd.CommandText = "SELECT 1"; // reset so outer ExecuteNonQueryAsync is a no-op
 
             await cmd.ExecuteNonQueryAsync();
@@ -73,7 +77,7 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
     // ── Read ───────────────────────────────────────────────────────────────────
 
     private const string SelectColumns =
-        "Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, Sampler, Scheduler, GeneratedAt";
+        "Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, Sampler, Scheduler, GeneratedAt, MediaType";
 
     public async Task<IReadOnlyList<ImageRecord>> LoadAllImagesAsync()
     {
@@ -182,6 +186,11 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
             clauses.Add("ModelName = $model");
             cmd.Parameters.AddWithValue("$model", f.ModelName);
         }
+        if (!string.IsNullOrWhiteSpace(f.MediaType))
+        {
+            clauses.Add("MediaType = $media");
+            cmd.Parameters.AddWithValue("$media", f.MediaType);
+        }
         if (f.From is { } from)
         {
             clauses.Add("GeneratedAt >= $from");
@@ -214,7 +223,8 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
                 reader.GetDouble(8),
                 reader.GetString(9),
                 reader.GetString(10),
-                DateTime.Parse(reader.GetString(11))));
+                DateTime.Parse(reader.GetString(11)),
+                reader.GetString(12)));
         }
         return list;
     }
@@ -229,9 +239,9 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
             await using var cmd  = conn.CreateCommand();
             cmd.CommandText = """
                 INSERT OR REPLACE INTO Images
-                    (Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, Sampler, Scheduler, GeneratedAt)
+                    (Id, FilePath, Prompt, ModelName, Seed, Width, Height, Steps, Cfg, Sampler, Scheduler, GeneratedAt, MediaType)
                 VALUES
-                    ($id, $path, $prompt, $model, $seed, $w, $h, $steps, $cfg, $sampler, $scheduler, $gen)
+                    ($id, $path, $prompt, $model, $seed, $w, $h, $steps, $cfg, $sampler, $scheduler, $gen, $media)
                 """;
             cmd.Parameters.AddWithValue("$id",        image.Id);
             cmd.Parameters.AddWithValue("$path",      image.FilePath);
@@ -245,6 +255,7 @@ public sealed class SqliteImageRepository : SqliteRepositoryBase, IImageReposito
             cmd.Parameters.AddWithValue("$sampler",   image.Sampler);
             cmd.Parameters.AddWithValue("$scheduler", image.Scheduler);
             cmd.Parameters.AddWithValue("$gen",       image.GeneratedAt.ToString("o"));
+            cmd.Parameters.AddWithValue("$media",     string.IsNullOrWhiteSpace(image.MediaType) ? MediaTypes.Image : image.MediaType);
             await cmd.ExecuteNonQueryAsync();
         }
         catch (Exception ex)

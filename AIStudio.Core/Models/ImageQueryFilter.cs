@@ -13,7 +13,8 @@ public sealed record ImageQueryFilter(
     string?   Search    = null,
     string?   ModelName = null,
     DateTime? From      = null,
-    DateTime? To        = null)
+    DateTime? To        = null,
+    string?   MediaType = null)
 {
     /// <summary>Prázdný filtr — žádné omezení (ekvivalent původního chování).</summary>
     public static readonly ImageQueryFilter None = new();
@@ -22,5 +23,6 @@ public sealed record ImageQueryFilter(
     public bool IsEmpty =>
         string.IsNullOrWhiteSpace(Search) &&
         string.IsNullOrWhiteSpace(ModelName) &&
+        string.IsNullOrWhiteSpace(MediaType) &&
         From is null && To is null;
 }

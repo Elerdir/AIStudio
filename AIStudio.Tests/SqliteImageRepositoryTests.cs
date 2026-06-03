@@ -264,4 +264,38 @@ public class SqliteImageRepositoryTests : IAsyncLifetime
 
         models.Should().Equal("flux-dev", "sdxl-base"); // unikátní, bez prázdných, abecedně
     }
+
+    // ── Typ média (image / video) ─────────────────────────────────────────────
+
+    [Fact]
+    public async Task MediaType_DefaultsToImage_WhenNotSet()
+    {
+        await _repo.SaveImageAsync(MakeImage()); // MakeImage neuvádí MediaType → default "image"
+
+        var loaded = (await _repo.LoadImagesPagedAsync(0, 1)).Single();
+        loaded.MediaType.Should().Be(MediaTypes.Image);
+        loaded.IsVideo.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task MediaType_Video_RoundTrips()
+    {
+        await _repo.SaveImageAsync(MakeImage() with { MediaType = MediaTypes.Video });
+
+        var loaded = (await _repo.LoadImagesPagedAsync(0, 1)).Single();
+        loaded.MediaType.Should().Be(MediaTypes.Video);
+        loaded.IsVideo.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Filter_ByMediaType_SeparatesImagesAndVideos()
+    {
+        await _repo.SaveImageAsync(MakeImage());                                          // image
+        await _repo.SaveImageAsync(MakeImage());                                          // image
+        await _repo.SaveImageAsync(MakeImage() with { MediaType = MediaTypes.Video });    // video
+
+        (await _repo.CountImagesAsync(new ImageQueryFilter(MediaType: MediaTypes.Image))).Should().Be(2);
+        (await _repo.CountImagesAsync(new ImageQueryFilter(MediaType: MediaTypes.Video))).Should().Be(1);
+        (await _repo.CountImagesAsync()).Should().Be(3, "bez filtru se počítají oba typy");
+    }
 }
