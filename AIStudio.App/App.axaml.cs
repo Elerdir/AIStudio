@@ -225,6 +225,7 @@ public partial class App : Application
         // ViewModels — každý dostane ze DI jen vlastní závislosti
         services.AddSingleton<AIStudio.App.ViewModels.Chat.ChatPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.ImageStudio.ImageStudioPageViewModel>();
+        services.AddSingleton<AIStudio.App.ViewModels.Video.VideoPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Gallery.GalleryPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Models.ModelManagerPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Lora.LoraLibraryPageViewModel>();

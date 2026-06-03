@@ -73,6 +73,16 @@
                         </Button>
 
                         <Button Command="{Binding NavigateCommand}"
+                                CommandParameter="{x:Static enums:NavigationPage.Video}"
+                                Classes="navItem"
+                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Video}}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.MovieOpenOutline}" Width="18" Height="18" VerticalAlignment="Center"/>
+                                <TextBlock Text="Video" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding NavigateCommand}"
                                 CommandParameter="{x:Static enums:NavigationPage.Gallery}"
                                 Classes="navItem"
                                 Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Gallery}}">

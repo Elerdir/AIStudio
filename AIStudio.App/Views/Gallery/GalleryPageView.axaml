@@ -249,6 +249,19 @@
                                         Command="{Binding SaveAsCommand}" Content="Uložit jako…"/>
                             </Grid>
 
+                            <!-- Rozhýbat obrázek → Video tab (jen pro obrázky) -->
+                            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                    Padding="0,8" CornerRadius="8" BorderThickness="1"
+                                    Background="Transparent" BorderBrush="{DynamicResource AccentBrush}"
+                                    Foreground="{DynamicResource AccentLighterBrush}"
+                                    IsVisible="{Binding CanAnimateSelected}"
+                                    Command="{Binding AnimateInVideoCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.MovieOpenOutline}" Width="14" Height="14" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Rozhýbat (video)" FontSize="12" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                                 <Button Grid.Column="0" Classes="secondary"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"

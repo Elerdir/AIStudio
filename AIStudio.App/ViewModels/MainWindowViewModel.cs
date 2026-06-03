@@ -29,6 +29,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public ChatPageViewModel         ChatPage         { get; }
     public ImageStudioPageViewModel  ImageStudioPage  { get; }
+    public Video.VideoPageViewModel  VideoPage        { get; }
     public GalleryPageViewModel      GalleryPage      { get; }
     public ModelManagerPageViewModel ModelManagerPage { get; }
     public LoraLibraryPageViewModel  LoraPage         { get; }
@@ -42,6 +43,7 @@ public partial class MainWindowViewModel : ViewModelBase
         INavigationService        nav,
         ChatPageViewModel         chatPage,
         ImageStudioPageViewModel  imageStudioPage,
+        Video.VideoPageViewModel  videoPage,
         GalleryPageViewModel      galleryPage,
         ModelManagerPageViewModel modelManagerPage,
         LoraLibraryPageViewModel  loraPage,
@@ -54,6 +56,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         ChatPage         = chatPage;
         ImageStudioPage  = imageStudioPage;
+        VideoPage        = videoPage;
         GalleryPage      = galleryPage;
         ModelManagerPage = modelManagerPage;
         LoraPage         = loraPage;
@@ -104,6 +107,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             NavigationPage.Chat        => ChatPage,
             NavigationPage.ImageStudio => ImageStudioPage,
+            NavigationPage.Video       => VideoPage,
             NavigationPage.Gallery     => GalleryPage,
             NavigationPage.Models      => ModelManagerPage,
             NavigationPage.Lora        => LoraPage,

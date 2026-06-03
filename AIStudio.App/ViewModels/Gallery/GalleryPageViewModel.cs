@@ -36,18 +36,22 @@ public partial class GalleryPageViewModel : ViewModelBase
     private const int PageSize = 50;
     private CancellationTokenSource? _busyCts;
 
+    private readonly Video.VideoPageViewModel? _video;
+
     public GalleryPageViewModel(
         IImageRepository          imageRepo,
         INavigationService        nav,
         ImageStudioPageViewModel  imageStudio,
         IChatImageOrchestrator?   orch   = null,
-        IDialogService?           dialog = null)
+        IDialogService?           dialog = null,
+        Video.VideoPageViewModel? video  = null)
     {
         _imageRepo   = imageRepo;
         _nav         = nav;
         _imageStudio = imageStudio;
         _orch        = orch;
         _dialog      = dialog;
+        _video       = video;
 
         Images.CollectionChanged += (_, _) =>
         {
@@ -69,7 +73,7 @@ public partial class GalleryPageViewModel : ViewModelBase
     [ObservableProperty] private bool _isLoadingMore;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasSelection))]
+    [NotifyPropertyChangedFor(nameof(HasSelection), nameof(CanAnimateSelected))]
     private GeneratedImageViewModel? _selectedImage;
 
     public bool HasImages    => Images.Count > 0;
@@ -372,6 +376,20 @@ public partial class GalleryPageViewModel : ViewModelBase
         if (string.IsNullOrEmpty(path) || !File.Exists(path)) return;
         _imageStudio.OpenImageForEditing(path);
         _nav.Navigate(NavigationPage.ImageStudio);
+    }
+
+    /// <summary>True když lze vybraný obrázek poslat do Videa (je to obrázek, ne video).</summary>
+    public bool CanAnimateSelected => _video is not null && SelectedImage is { IsVideo: false };
+
+    /// <summary>Pošle vybraný obrázek do Video tabu jako vstup pro obrázek→video.</summary>
+    [RelayCommand]
+    private void AnimateInVideo()
+    {
+        var path = SelectedImage?.FilePath;
+        if (_video is null || string.IsNullOrEmpty(path) || !File.Exists(path)
+            || SelectedImage is { IsVideo: true }) return;
+        _video.StartFromImage(path);
+        _nav.Navigate(NavigationPage.Video);
     }
 
     /// <summary>Upscale vybraného obrázku (ESRGAN ~2×). Po dokončení reload galerie.</summary>

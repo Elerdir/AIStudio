@@ -1,0 +1,196 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AIStudio.App.ViewModels.Video"
+             xmlns:svc="using:AIStudio.Core.Services"
+             xmlns:mi="using:Material.Icons.Avalonia"
+             xmlns:miKind="using:Material.Icons"
+             x:Class="AIStudio.App.Views.Video.VideoPageView"
+             x:DataType="vm:VideoPageViewModel">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Hlavička -->
+        <Border Grid.Row="0" Padding="28,20,28,14"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
+            <StackPanel Spacing="2">
+                <TextBlock Text="Video" FontSize="22" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="Generování videa přes Wan 2.1 — z textu nebo rozhýbání obrázku"
+                           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Padding="28,18,28,0" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="16" MaxWidth="720" HorizontalAlignment="Left">
+
+                <!-- Model -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="MODEL" Classes="sectionHeader"/>
+                    <ComboBox MinWidth="320" HorizontalAlignment="Left" MinHeight="36"
+                              VerticalContentAlignment="Center"
+                              ItemsSource="{Binding Models}"
+                              SelectedItem="{Binding SelectedModel}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="svc:WanVideoModel">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock Text="{Binding ModelDescription}" FontSize="11"
+                               Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <!-- Vstupní obrázek (jen obrázek→video) -->
+                <StackPanel Spacing="6" IsVisible="{Binding IsImageToVideo}">
+                    <TextBlock Text="VSTUPNÍ OBRÁZEK (co rozhýbat)" Classes="sectionHeader"/>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Border Grid.Column="0" Width="120" Height="120" CornerRadius="10"
+                                ClipToBounds="True" Background="{DynamicResource CardBgBrush}"
+                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                            <Panel>
+                                <TextBlock Text="bez obrázku" FontSize="11" IsVisible="{Binding !HasStartImage}"
+                                           Foreground="{DynamicResource TextWeakBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Image Source="{Binding StartImageBitmap}" Stretch="UniformToFill"
+                                       IsVisible="{Binding HasStartImage}"/>
+                            </Panel>
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
+                            <Button Classes="secondary" Padding="12,7"
+                                    Command="{Binding PickStartImageCommand}" Content="Vybrat obrázek…"/>
+                            <Button Classes="secondary" Padding="12,7"
+                                    IsVisible="{Binding HasStartImage}"
+                                    Command="{Binding ClearStartImageCommand}" Content="Odebrat"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Prompt -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="PROMPT (anglicky funguje nejlépe)" Classes="sectionHeader"/>
+                    <TextBox Text="{Binding Prompt}" AcceptsReturn="True" TextWrapping="Wrap"
+                             MinHeight="80" MaxHeight="160"
+                             PlaceholderText="např. a red fox running through a snowy forest, cinematic, tracking shot"/>
+                </StackPanel>
+
+                <!-- Parametry -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="PARAMETRY" Classes="sectionHeader"/>
+                    <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+                        <StackPanel Grid.Column="0" Spacing="3">
+                            <TextBlock Text="Snímků" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                            <NumericUpDown Value="{Binding Length}" Minimum="9" Maximum="129" Increment="4"
+                                           FormatString="0" MinWidth="90"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="3">
+                            <TextBlock Text="FPS" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                            <NumericUpDown Value="{Binding Fps}" Minimum="8" Maximum="30" Increment="1"
+                                           FormatString="0" MinWidth="80"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="3">
+                            <TextBlock Text="Kroky" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                            <NumericUpDown Value="{Binding Steps}" Minimum="10" Maximum="50" Increment="1"
+                                           FormatString="0" MinWidth="80"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" Spacing="3">
+                            <TextBlock Text="CFG" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                            <NumericUpDown Value="{Binding Cfg}" Minimum="1.0" Maximum="12.0" Increment="0.5"
+                                           FormatString="0.0" MinWidth="80"/>
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="14">
+                        <TextBlock Text="{Binding DurationLabel}" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{Binding DimensionsLabel}" FontSize="11"
+                                   Foreground="{DynamicResource TextHintBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Závislosti (velké modely) -->
+                <Border IsVisible="{Binding !DepsReady}"
+                        Background="#1C1606" BorderBrush="#3A2E0E" BorderThickness="1"
+                        CornerRadius="10" Padding="14,12">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.DownloadOutline}"
+                                             Width="16" Height="16" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="Chybí Wan modely (jednorázové stažení, jednotky až desítky GB)"
+                                       FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding MissingDepsLabel}" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+                        <Button Classes="secondary" Padding="12,7" HorizontalAlignment="Left"
+                                IsVisible="{Binding !IsDownloadingDeps}"
+                                Command="{Binding DownloadDependenciesCommand}"
+                                Content="Stáhnout modely"/>
+                        <StackPanel Spacing="6" IsVisible="{Binding IsDownloadingDeps}">
+                            <ProgressBar IsIndeterminate="True" Height="4" CornerRadius="2"
+                                         Foreground="{DynamicResource AccentLightBrush}"/>
+                            <TextBlock Text="{Binding DepsStatus}" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Generovat -->
+                <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                        Padding="0,12" CornerRadius="10" BorderThickness="0"
+                        Background="{DynamicResource AccentBrush}" Foreground="White"
+                        IsEnabled="{Binding CanGenerate}"
+                        IsVisible="{Binding !IsGenerating}"
+                        Command="{Binding GenerateCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.MovieOpenOutline}" Width="18" Height="18" VerticalAlignment="Center"/>
+                        <TextBlock Text="Vygenerovat video" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Průběh generování -->
+                <Border IsVisible="{Binding IsGenerating}"
+                        Background="#15131C" BorderBrush="#2A2050" BorderThickness="1"
+                        CornerRadius="10" Padding="14,12">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Text="{Binding StatusLine}" FontSize="12"
+                                       Foreground="{DynamicResource AccentLighterBrush}" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Classes="secondary" Padding="10,4"
+                                    Command="{Binding CancelGenerateCommand}" Content="Zrušit"/>
+                        </Grid>
+                        <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100"
+                                     Height="5" CornerRadius="3"
+                                     Foreground="{DynamicResource AccentLightBrush}" Background="#221C3A"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Chyba -->
+                <Border IsVisible="{Binding HasError}"
+                        Background="#2A1414" BorderBrush="#5A2424" BorderThickness="1"
+                        CornerRadius="10" Padding="14,10">
+                    <TextBlock Text="{Binding ErrorMessage}" FontSize="12" Foreground="#E08585" TextWrapping="Wrap"/>
+                </Border>
+
+                <!-- Výsledek -->
+                <Border IsVisible="{Binding HasResult}"
+                        Background="#0F1A0F" BorderBrush="#1F3A1F" BorderThickness="1"
+                        CornerRadius="10" Padding="14,12">
+                    <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CheckCircleOutline}"
+                                             Width="16" Height="16" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
+                            <TextBlock Text="Video vygenerováno a uloženo do galerie." FontSize="12"
+                                       Foreground="#86EFAC" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="secondary" Padding="12,7"
+                                    Command="{Binding OpenResultFileCommand}" Content="Přehrát"/>
+                            <Button Classes="secondary" Padding="12,7"
+                                    Command="{Binding OpenGalleryCommand}" Content="Otevřít galerii"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Height="28"/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
