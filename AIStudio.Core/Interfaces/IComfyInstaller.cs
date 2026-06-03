@@ -47,6 +47,23 @@ public interface IComfyInstaller
         IProgress<ComfyInstallProgress>?  progress = null,
         CancellationToken                 ct       = default);
 
+    /// <summary>
+    /// True pokud je nainstalovaný custom node ComfyUI-VideoHelperSuite
+    /// (poskytuje <c>VHS_VideoCombine</c> pro MP4 výstup video generace).
+    /// </summary>
+    bool IsVideoHelperSuiteInstalled(string comfyUiDir);
+
+    /// <summary>
+    /// Pokud chybí ComfyUI-VideoHelperSuite, stáhne ho z GitHubu do
+    /// <c>custom_nodes/ComfyUI-VideoHelperSuite/</c> a doinstaluje jeho
+    /// <c>requirements.txt</c> (vč. imageio-ffmpeg → ffmpeg pro MP4). Idempotentní.
+    /// </summary>
+    Task EnsureVideoHelperSuiteInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default);
+
     /// <summary>True pokud je v embedded Pythonu nainstalován <c>torch-directml</c>.</summary>
     bool IsDirectMlInstalled(string pythonExe);
 

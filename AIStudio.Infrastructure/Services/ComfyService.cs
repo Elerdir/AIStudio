@@ -199,6 +199,22 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                             "SDXL safetensors fungují i bez něj");
         }
 
+        // Ověříme + doinstalujeme ComfyUI-VideoHelperSuite (nutný pro MP4 výstup videa).
+        // Best-effort — bez něj funguje vše ostatní (obrázky), jen video generace ne.
+        try
+        {
+            if (!_installer.IsVideoHelperSuiteInstalled(dir))
+            {
+                SetStatus(ComfyStatus.Starting, "Instaluji custom node VideoHelperSuite…");
+                await _installer.EnsureVideoHelperSuiteInstalledAsync(dir, python, progress: null, ct);
+                Log.Information("ComfyService: ComfyUI-VideoHelperSuite nainstalován");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ComfyService: instalace VideoHelperSuite selhala — video generace nebude k dispozici");
+        }
+
         // ── DirectML pro AMD / Intel (Phase B.2) ────────────────────────────
         // Pokud máme AMD nebo Intel kartu a torch-directml chybí, doinstalujeme
         // ho hned před startem. Pro NVIDIA tento krok přeskakujeme — CUDA build

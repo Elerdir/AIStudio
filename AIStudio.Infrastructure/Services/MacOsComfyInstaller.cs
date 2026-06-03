@@ -184,6 +184,51 @@ public sealed class MacOsComfyInstaller : IComfyInstaller
             100, 0, 0, 0, null));
     }
 
+    // ── ComfyUI-VideoHelperSuite (VHS_VideoCombine → MP4) ──────────────────────
+
+    public bool IsVideoHelperSuiteInstalled(string comfyUiDir)
+    {
+        if (string.IsNullOrWhiteSpace(comfyUiDir)) return false;
+        var nodePath = Path.Combine(comfyUiDir, "custom_nodes", "ComfyUI-VideoHelperSuite");
+        return Directory.Exists(nodePath)
+            && (File.Exists(Path.Combine(nodePath, "__init__.py"))
+                || Directory.Exists(Path.Combine(nodePath, "videohelpersuite")));
+    }
+
+    public async Task EnsureVideoHelperSuiteInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default)
+    {
+        if (IsVideoHelperSuiteInstalled(comfyUiDir))
+        {
+            Log.Information("MacOsComfyInstaller: ComfyUI-VideoHelperSuite už nainstalovaný");
+            return;
+        }
+
+        var customNodesDir = Path.Combine(comfyUiDir, "custom_nodes");
+        Directory.CreateDirectory(customNodesDir);
+
+        progress?.Report(new(ComfyInstallStage.Extracting,
+            "Stahuji ComfyUI-VideoHelperSuite…", 50, 0, 0, 0, null));
+
+        await RunAsync("git",
+            "clone --depth 1 https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
+            workingDir: customNodesDir, timeoutMinutes: 5, ct);
+
+        var reqPath = Path.Combine(customNodesDir, "ComfyUI-VideoHelperSuite", "requirements.txt");
+        if (File.Exists(reqPath))
+        {
+            Log.Information("MacOsComfyInstaller: pip install -r VideoHelperSuite requirements");
+            await RunAsync(pythonExe, $"-m pip install -r \"{reqPath}\"",
+                workingDir: comfyUiDir, timeoutMinutes: 10, ct);
+        }
+
+        progress?.Report(new(ComfyInstallStage.Done, "ComfyUI-VideoHelperSuite nainstalován",
+            100, 0, 0, 0, null));
+    }
+
     // ── DirectML — N/A na macOS ──────────────────────────────────────────────
 
     public bool IsDirectMlInstalled(string pythonExe) => false;

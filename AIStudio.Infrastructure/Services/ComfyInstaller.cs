@@ -52,6 +52,11 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
 
     private const string GgufNodeFolderName = "ComfyUI-GGUF";
 
+    private const string VhsNodeZipUrl =
+        "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite/archive/refs/heads/main.zip";
+
+    private const string VhsNodeFolderName = "ComfyUI-VideoHelperSuite";
+
     public string DefaultInstallDirectory =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -610,6 +615,110 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
 
             progress?.Report(new(ComfyInstallStage.Done,
                 "ComfyUI-GGUF nainstalován", 100, 0, 0, 0, null));
+        }
+        finally
+        {
+            try { if (File.Exists(tempZip)) File.Delete(tempZip); }
+            catch (Exception ex) { Log.Warning(ex, "ComfyInstaller: nelze smazat {Path}", tempZip); }
+        }
+    }
+
+    // ── ComfyUI-VideoHelperSuite custom node (VHS_VideoCombine → MP4) ──────────
+
+    public bool IsVideoHelperSuiteInstalled(string comfyUiDir)
+    {
+        if (string.IsNullOrWhiteSpace(comfyUiDir)) return false;
+        var nodePath = Path.Combine(comfyUiDir, "custom_nodes", VhsNodeFolderName);
+        if (!Directory.Exists(nodePath)) return false;
+        return File.Exists(Path.Combine(nodePath, "__init__.py"))
+            || Directory.Exists(Path.Combine(nodePath, "videohelpersuite"));
+    }
+
+    public async Task EnsureVideoHelperSuiteInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default)
+    {
+        if (IsVideoHelperSuiteInstalled(comfyUiDir))
+        {
+            Log.Information("ComfyInstaller: ComfyUI-VideoHelperSuite už nainstalovaný");
+            return;
+        }
+
+        var customNodesDir = Path.Combine(comfyUiDir, "custom_nodes");
+        Directory.CreateDirectory(customNodesDir);
+        var targetDir = Path.Combine(customNodesDir, VhsNodeFolderName);
+
+        await DownloadAndExtractGitHubZipAsync(
+            VhsNodeZipUrl, targetDir, "ComfyUI-VideoHelperSuite", progress, ct);
+
+        // requirements.txt (imageio-ffmpeg → ffmpeg pro MP4, opencv, …)
+        var reqPath = Path.Combine(targetDir, "requirements.txt");
+        if (File.Exists(reqPath))
+        {
+            progress?.Report(new(ComfyInstallStage.Finishing,
+                "Instaluji závislosti VideoHelperSuite (vč. ffmpeg)…", 80, 0, 0, 0, null));
+            await RunPipInstallAsync(pythonExe, $"-r \"{reqPath}\"", ct);
+        }
+
+        progress?.Report(new(ComfyInstallStage.Done,
+            "ComfyUI-VideoHelperSuite nainstalován", 100, 0, 0, 0, null));
+    }
+
+    /// <summary>
+    /// Stáhne ZIP GitHub repa (archive/refs/heads/main.zip) a rozbalí jeho obsah
+    /// (bez root složky „repo-main/") do <paramref name="targetDir"/>. Idempotentní —
+    /// existující cíl smaže. Sdílené pro custom nody.
+    /// </summary>
+    private static async Task DownloadAndExtractGitHubZipAsync(
+        string zipUrl, string targetDir, string label,
+        IProgress<ComfyInstallProgress>? progress, CancellationToken ct)
+    {
+        var tempZip = Path.Combine(Path.GetTempPath(), $"{label}-{Guid.NewGuid():N}.zip");
+        try
+        {
+            progress?.Report(new(ComfyInstallStage.Downloading, $"Stahuji {label}…", 0, 0, 0, 0, null));
+            using (var resp = await Http.GetAsync(zipUrl, HttpCompletionOption.ResponseHeadersRead, ct))
+            {
+                resp.EnsureSuccessStatusCode();
+                await using var src = await resp.Content.ReadAsStreamAsync(ct);
+                await using var dst = new FileStream(tempZip, FileMode.Create, FileAccess.Write,
+                                                      FileShare.None, 81_920, useAsync: true);
+                await src.CopyToAsync(dst, ct);
+            }
+
+            progress?.Report(new(ComfyInstallStage.Extracting, $"Rozbaluji {label}…", 50, 0, 0, 0, null));
+            if (Directory.Exists(targetDir)) Directory.Delete(targetDir, recursive: true);
+            Directory.CreateDirectory(targetDir);
+
+            using var archive = ZipFile.OpenRead(tempZip);
+            var rootEntry = archive.Entries
+                .FirstOrDefault(e => e.FullName.EndsWith('/') && e.FullName.Count(c => c == '/') == 1);
+            var rootPrefix = rootEntry?.FullName ?? "";
+
+            foreach (var entry in archive.Entries)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (entry.FullName == rootPrefix) continue;
+
+                var relativePath = entry.FullName.StartsWith(rootPrefix)
+                    ? entry.FullName[rootPrefix.Length..]
+                    : entry.FullName;
+                if (string.IsNullOrEmpty(relativePath)) continue;
+
+                var destPath = Path.Combine(targetDir, relativePath);
+                if (entry.FullName.EndsWith('/'))
+                {
+                    Directory.CreateDirectory(destPath);
+                    continue;
+                }
+                var destDirName = Path.GetDirectoryName(destPath);
+                if (!string.IsNullOrEmpty(destDirName)) Directory.CreateDirectory(destDirName);
+                entry.ExtractToFile(destPath, overwrite: true);
+            }
+
+            Log.Information("ComfyInstaller: {Label} rozbaleno → {Dir}", label, targetDir);
         }
         finally
         {
