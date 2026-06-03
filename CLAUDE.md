@@ -242,9 +242,16 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
 
 ## Backlog (prioritizováno)
 
-1. **Light theme audit** — některé hardcoded barvy (např. v ChatPageView pro asistent bublinu) zatím nepoužívají DynamicResource. Plný light theme vyžaduje obhlídku.
-2. **Pause/resume v Download manageru** — UI tlačítko + perzistence partial soubor přes restarty
-3. **macOS reálné ověření + AppIcon.icns + .pkg installer**
-4. **LoRA training** — kohya_ss / sd-scripts integrace přes Python process manager
-5. **Video generation** — AnimateDiff jako první (běží přes ComfyUI, máme infrastructure)
-6. **Refactor velkých VMs** — `ChatPageViewModel` (1500+ ř.) → ChatOrchestrator service v Infrastructure
+### Probíhá / rozpracováno
+- **Video generation (Wan 2.1)** — volba uživatele: Wan 2.1 (kvalita), text→video i obrázek→video, výstup **MP4** (H.264 přes VHS_VideoCombine), v galerii **inline přehrávač** (LibVLCSharp). Hotovo: datová vrstva (`ImageRecord.MediaType` image/video + DB migrace + filtr), ověřené `ComfyWorkflowBuilder.BuildWanTextToVideo`/`BuildWanImageToVideo` (dle oficiálních ComfyUI grafů), MP4 výstupní node, galerie rozdělení Obrázky/Videa. **Zbývá Fáze 2:** Wan dependency download (umt5 text encoder, wan VAE, clip_vision_h, diffusion model t2v 1.3B / i2v 480p 14B fp8_scaled — vše z `Comfy-Org/Wan_2.1_ComfyUI_repackaged/split_files`), orchestrátor (odeslat workflow → progress → uložit jako `MediaType=video`), UI v Image Studiu (režim Video, délka/FPS, t2v + „Rozhýbat" obrázek z galerie), auto-install custom nodu ComfyUI-VideoHelperSuite + ffmpeg, LibVLCSharp.Avalonia přehrávač (pozor na kompat s Avalonia 12). Také doplnit `text_encoders:` mapping do `extra_model_paths.yaml` (dnes chybí, Wan CLIPLoader type=wan ho potřebuje).
+- **ComfyUI řízená aktualizace (část 2)** — část 1 hotová (zobrazení verze v Nastavení, `ComfyVersion.ReadFromDirectory` + `TestedVersion` pin). Zbývá: tlačítko „Aktualizovat ComfyUI" → zastavit proces → `git` checkout na **další ověřený ref** (NE bleeding edge) → reinstal `requirements.txt` + custom node deps → restart → ověřit. Default = bezpečná pinned verze; update explicitní/hlídaný.
+
+### Plánováno (roadmap — větší věci)
+- **Video → LoRA pipeline** (až budou videa hotová): uživatel vloží 1..X videí (volitelně + referenční obrázek subjektu, který má „hlídat"). Aplikace videa zanalyzuje — detekce/popis osob, objektů, zvířat atd. (frame sampling + detekce/segmentace + caption), uživatel zaškrtne/potvrdí, co chce. Z vybraných framů/crops se sestaví **dataset** (obrázky + captiony) a spustí se **LoRA trénink** (využije stávající `SdScriptsLoraTrainer`). Výsledné LoRA jdou použít v **Image Studiu i ve videích**. Otevřené otázky: jaký detekční model (YOLO/GroundingDINO/SAM přes Python proces? nebo lokální VLM caption?), jak řešit kvalitu/duplicitu framů, NSFW/consent guardrails (viz pravidlo o reálných osobách).
+- **Vlastní generátor (nezávislost na ComfyUI)** — dlouhodobý cíl: vlastní inference pipeline **přímo integrovaná v aplikaci** (ne jako externí Python proces), kde si verze modelů/závislostí řeší AI Studio samo a postupně. Kandidáti: managed inference (ONNX Runtime / TorchSharp / vlastní wrapper nad stable-diffusion.cpp / candle), nebo embedded Python s plnou kontrolou. Cíl: one-click, žádná závislost na ComfyUI portable, vlastní správa verzí. Velký záběr — navrhnout architekturu zvlášť.
+
+### Menší / technický dluh
+- **Light theme audit** — některé hardcoded barvy (např. v ChatPageView pro asistent bublinu) zatím nepoužívají DynamicResource. Plný light theme vyžaduje obhlídku.
+- **Pause/resume v Download manageru** — UI tlačítko + perzistence partial soubor přes restarty
+- **macOS reálné ověření + AppIcon.icns + .pkg installer**
+- **Refactor velkých VMs** — `ChatPageViewModel` (1500+ ř.) → ChatOrchestrator service v Infrastructure
