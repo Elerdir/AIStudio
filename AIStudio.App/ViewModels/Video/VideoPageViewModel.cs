@@ -52,6 +52,23 @@ public partial class VideoPageViewModel : ViewModelBase
                               nameof(DimensionsLabel), nameof(ModelDescription))]
     private WanVideoModel _selectedModel = WanModels.T2V_14B;
 
+    /// <summary>Presety rozlišení (480p/720p, na šířku/výšku, čtverec).</summary>
+    public ObservableCollection<VideoResolution> Resolutions { get; } = new(VideoResolution.All);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DimensionsLabel))]
+    private VideoResolution _selectedResolution = VideoResolution.Landscape480;
+
+    [ObservableProperty] private int _width  = 832;
+    [ObservableProperty] private int _height = 480;
+
+    partial void OnSelectedResolutionChanged(VideoResolution value)
+    {
+        Width  = value.Width;
+        Height = value.Height;
+        OnPropertyChanged(nameof(DimensionsLabel));
+    }
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanGenerate))]
     private string _prompt = string.Empty;
@@ -90,7 +107,7 @@ public partial class VideoPageViewModel : ViewModelBase
     public bool IsImageToVideo  => SelectedModel?.Mode == WanVideoMode.ImageToVideo;
     public bool HasStartImage   => !string.IsNullOrEmpty(StartImagePath) && File.Exists(StartImagePath);
     public string ModelDescription => SelectedModel?.Description ?? string.Empty;
-    public string DimensionsLabel  => SelectedModel is { } m ? $"{m.DefaultWidth} × {m.DefaultHeight}" : "";
+    public string DimensionsLabel  => $"{Width} × {Height}";
     public string DurationLabel     => Fps > 0 ? $"{Length} snímků ≈ {Length / (double)Fps:0.0} s" : $"{Length} snímků";
 
     partial void OnSelectedModelChanged(WanVideoModel value)
@@ -101,8 +118,14 @@ public partial class VideoPageViewModel : ViewModelBase
 
     private void ApplyModelDefaults()
     {
+        var m = SelectedModel;
+        if (m is null) return;
         // t2v 14B/1.3B → 30 kroků; i2v → 20 (oficiální Wan example).
-        Steps = SelectedModel?.Mode == WanVideoMode.ImageToVideo ? 20 : 30;
+        Steps = m.Mode == WanVideoMode.ImageToVideo ? 20 : 30;
+        // Rozlišení dle modelu (480p/720p), zdroj pravdy pro generování je Width/Height.
+        SelectedResolution = VideoResolution.Match(m.DefaultWidth, m.DefaultHeight);
+        Width  = m.DefaultWidth;
+        Height = m.DefaultHeight;
     }
 
     // ── Závislosti (velké modely) ──────────────────────────────────────────────
@@ -203,8 +226,8 @@ public partial class VideoPageViewModel : ViewModelBase
         var req = new VideoGenerationRequest(
             Model:  model,
             Prompt: Prompt.Trim(),
-            Width:  model.DefaultWidth,
-            Height: model.DefaultHeight,
+            Width:  Width,
+            Height: Height,
             Length: Length,
             Steps:  Steps,
             Cfg:    Cfg,

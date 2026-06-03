@@ -101,15 +101,25 @@ public static class WanModels
     public static readonly WanVideoModel I2V_480P_14B = new(
         Id:    "wan21-i2v-480p-14b",
         Label: "Obrázek → video · 480p 14B",
-        Description: "Rozhýbe vstupní obrázek (fp8, ~16.4 GB). Pro Wan 2.1 i2v existuje jen 14B.",
+        Description: "Rozhýbe vstupní obrázek (fp8, ~16.4 GB). 480p verze — rychlejší, méně VRAM.",
         Mode:  WanVideoMode.ImageToVideo,
         DiffusionModel: Diff("wan2.1_i2v_480p_14B_fp8_scaled.safetensors", 16_400_000_000),
         NeedsClipVision: true,
-        DefaultWidth: 512, DefaultHeight: 512);
+        DefaultWidth: 832, DefaultHeight: 480);
+
+    /// <summary>Obrázek→video 720p 14B fp8 — vyšší rozlišení (~16.4 GB), víc VRAM/času.</summary>
+    public static readonly WanVideoModel I2V_720P_14B = new(
+        Id:    "wan21-i2v-720p-14b",
+        Label: "Obrázek → video · 720p 14B",
+        Description: "Rozhýbe vstupní obrázek v 720p (fp8, ~16.4 GB). Vyšší kvalita, víc VRAM a času.",
+        Mode:  WanVideoMode.ImageToVideo,
+        DiffusionModel: Diff("wan2.1_i2v_720p_14B_fp8_scaled.safetensors", 16_400_000_000),
+        NeedsClipVision: true,
+        DefaultWidth: 1280, DefaultHeight: 720);
 
     /// <summary>Všechny modely v katalogu (pro UI picker).</summary>
     public static IReadOnlyList<WanVideoModel> All { get; } =
-        new[] { T2V_14B, T2V_1_3B, I2V_480P_14B };
+        new[] { T2V_14B, T2V_1_3B, I2V_480P_14B, I2V_720P_14B };
 
     /// <summary>Najde model podle Id, nebo null.</summary>
     public static WanVideoModel? FindById(string? id) =>

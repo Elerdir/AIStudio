@@ -41,6 +41,23 @@
                                Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"/>
                 </StackPanel>
 
+                <!-- Rozlišení / kvalita -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="ROZLIŠENÍ" Classes="sectionHeader"/>
+                    <ComboBox MinWidth="260" HorizontalAlignment="Left" MinHeight="36"
+                              VerticalContentAlignment="Center"
+                              ItemsSource="{Binding Resolutions}"
+                              SelectedItem="{Binding SelectedResolution}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:VideoResolution">
+                                <TextBlock Text="{Binding Label}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock FontSize="11" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
+                               Text="720p = vyšší kvalita, ale výrazně víc VRAM a času. Pro obrázek→video v 720p vyber model s označením 720p."/>
+                </StackPanel>
+
                 <!-- Vstupní obrázek (jen obrázek→video) -->
                 <StackPanel Spacing="6" IsVisible="{Binding IsImageToVideo}">
                     <TextBlock Text="VSTUPNÍ OBRÁZEK (co rozhýbat)" Classes="sectionHeader"/>
