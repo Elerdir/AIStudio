@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AIStudio.App.ViewModels.Gallery"
              xmlns:img="using:AIStudio.App.ViewModels.ImageStudio"
+             xmlns:controls="using:AIStudio.App.Controls"
              xmlns:mi="using:Material.Icons.Avalonia"
              xmlns:miKind="using:Material.Icons"
              x:Class="AIStudio.App.Views.Gallery.GalleryPageView"
@@ -175,11 +176,16 @@
                     <StackPanel Spacing="14" DataContext="{Binding SelectedImage}"
                                 x:DataType="img:GeneratedImageViewModel">
 
-                        <!-- Náhled -->
+                        <!-- Náhled (video = inline přehrávač, obrázek = statický náhled) -->
                         <Border CornerRadius="10" ClipToBounds="True" Cursor="Hand"
                                 Background="{DynamicResource CardBgBrush}"
-                                MaxHeight="320">
-                            <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
+                                Height="280">
+                            <Panel>
+                                <Image Source="{Binding Thumbnail}" Stretch="Uniform"
+                                       IsVisible="{Binding !IsVideo}"/>
+                                <controls:VideoPlayerControl Source="{Binding FilePath}"
+                                                             IsVisible="{Binding IsVideo}"/>
+                            </Panel>
                         </Border>
 
                         <!-- Metadata -->
