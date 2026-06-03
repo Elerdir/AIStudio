@@ -523,7 +523,7 @@ public class ComfyWorkflowBuilderTests
             width: 512, height: 512, length: 33, steps: 20, cfg: 6.0, seed: 7);
 
     [Fact]
-    public void BuildWanT2V_HasCoreVideoNodes_WanClipTypeAndWebpOutput()
+    public void BuildWanT2V_HasCoreVideoNodes_WanClipType_DefaultMp4Output()
     {
         var wf    = WanT2VWf();
         var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
@@ -534,11 +534,33 @@ public class ComfyWorkflowBuilderTests
              .And.Contain("EmptyHunyuanLatentVideo")
              .And.Contain("KSampler")
              .And.Contain("VAEDecode")
-             .And.Contain("SaveAnimatedWEBP");
+             .And.Contain("VHS_VideoCombine");   // default = MP4 přes VideoHelperSuite
         // i2v-specifické uzly v t2v NEsmí být
         types.Should().NotContain("WanImageToVideo").And.NotContain("CLIPVisionLoader");
 
         ((Dictionary<string, object>)FindNode(wf, "CLIPLoader")["inputs"])["type"].Should().Be("wan");
+    }
+
+    [Fact]
+    public void BuildWanT2V_Mp4Output_UsesH264VideoCombine()
+    {
+        var wf  = WanT2VWf();   // default MP4
+        var vc  = (Dictionary<string, object>)FindNode(wf, "VHS_VideoCombine")["inputs"];
+        vc["format"].Should().Be(ComfyWorkflowBuilder.WanOutputMp4);
+        vc["frame_rate"].Should().Be(ComfyWorkflowBuilder.DefaultWanFps);
+        ((object[])vc["images"])[0].Should().Be("8");   // z VAEDecode
+    }
+
+    [Fact]
+    public void BuildWanT2V_WebpOutput_UsesSaveAnimatedWebp()
+    {
+        var wf = ComfyWorkflowBuilder.BuildWanTextToVideo(
+            "wan2.1_t2v_1.3B_fp16.safetensors", "a fox",
+            832, 480, 33, 30, 6.0, 1,
+            outputFormat: ComfyWorkflowBuilder.WanOutputWebp);
+
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+        types.Should().Contain("SaveAnimatedWEBP").And.NotContain("VHS_VideoCombine");
     }
 
     [Fact]

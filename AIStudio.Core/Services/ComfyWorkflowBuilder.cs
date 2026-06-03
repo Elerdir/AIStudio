@@ -524,8 +524,50 @@ public static class ComfyWorkflowBuilder
 
     /// <summary>ID KSampler uzlu ve Wan workflow (pro sledování progresu).</summary>
     public const string WanKSamplerKey = "3";
-    /// <summary>ID výstupního SaveAnimatedWEBP uzlu ve Wan workflow.</summary>
+    /// <summary>ID výstupního uzlu (VHS_VideoCombine / SaveAnimatedWEBP) ve Wan workflow.</summary>
     public const string WanSaveKey     = "28";
+
+    /// <summary>VideoHelperSuite formát pro MP4 (H.264) — sdílitelný výstup.</summary>
+    public const string WanOutputMp4  = "video/h264-mp4";
+    /// <summary>Animovaný WEBP — nativní ComfyUI výstup bez ffmpeg/custom nodu.</summary>
+    public const string WanOutputWebp = "webp";
+
+    /// <summary>
+    /// Sestaví výstupní (save) uzel pro Wan workflow podle <paramref name="outputFormat"/>:
+    /// MP4 přes <c>VHS_VideoCombine</c> (ComfyUI-VideoHelperSuite — nutný ffmpeg + custom node),
+    /// jinak nativní <c>SaveAnimatedWEBP</c>. Vstup obrázků bere z VAEDecode (uzel "8").
+    /// </summary>
+    private static Dictionary<string, object> WanOutputNode(
+        string outputFormat, string filenamePrefix, int fps)
+    {
+        if (string.Equals(outputFormat, WanOutputWebp, StringComparison.OrdinalIgnoreCase))
+        {
+            return Node("SaveAnimatedWEBP", new()
+            {
+                ["filename_prefix"] = filenamePrefix,
+                ["images"]          = Ref("8", 0),
+                ["fps"]             = fps,
+                ["lossless"]        = false,
+                ["quality"]         = 90,
+                ["method"]          = "default",
+            });
+        }
+
+        // MP4 (H.264) přes VideoHelperSuite — yuv420p kvůli kompatibilitě přehrávačů.
+        return Node("VHS_VideoCombine", new()
+        {
+            ["frame_rate"]      = fps,
+            ["loop_count"]      = 0,
+            ["filename_prefix"] = filenamePrefix,
+            ["format"]          = WanOutputMp4,
+            ["pix_fmt"]         = "yuv420p",
+            ["crf"]             = 19,
+            ["save_metadata"]   = true,
+            ["pingpong"]        = false,
+            ["save_output"]     = true,
+            ["images"]          = Ref("8", 0),
+        });
+    }
 
     /// <summary>
     /// Wan 2.1 <b>text→video</b> workflow. <paramref name="diffusionModel"/> je soubor v
@@ -547,6 +589,7 @@ public static class ComfyWorkflowBuilder
         string sampler        = DefaultWanSampler,
         string scheduler      = DefaultWanScheduler,
         int    fps            = DefaultWanFps,
+        string outputFormat   = WanOutputMp4,
         string filenamePrefix = "AIStudio")
     {
         return new Dictionary<string, object>
@@ -600,15 +643,7 @@ public static class ComfyWorkflowBuilder
                 ["samples"] = Ref(WanKSamplerKey, 0),
                 ["vae"]     = Ref("39", 0),
             }),
-            [WanSaveKey] = Node("SaveAnimatedWEBP", new()
-            {
-                ["filename_prefix"] = filenamePrefix,
-                ["images"]          = Ref("8", 0),
-                ["fps"]             = fps,
-                ["lossless"]        = false,
-                ["quality"]         = 90,
-                ["method"]          = "default",
-            }),
+            [WanSaveKey] = WanOutputNode(outputFormat, filenamePrefix, fps),
         };
     }
 
@@ -634,6 +669,7 @@ public static class ComfyWorkflowBuilder
         string sampler        = DefaultWanSampler,
         string scheduler      = DefaultWanScheduler,
         int    fps            = DefaultWanFps,
+        string outputFormat   = WanOutputMp4,
         string filenamePrefix = "AIStudio")
     {
         return new Dictionary<string, object>
@@ -706,15 +742,7 @@ public static class ComfyWorkflowBuilder
                 ["samples"] = Ref(WanKSamplerKey, 0),
                 ["vae"]     = Ref("39", 0),
             }),
-            [WanSaveKey] = Node("SaveAnimatedWEBP", new()
-            {
-                ["filename_prefix"] = filenamePrefix,
-                ["images"]          = Ref("8", 0),
-                ["fps"]             = fps,
-                ["lossless"]        = false,
-                ["quality"]         = 90,
-                ["method"]          = "default",
-            }),
+            [WanSaveKey] = WanOutputNode(outputFormat, filenamePrefix, fps),
         };
     }
 
