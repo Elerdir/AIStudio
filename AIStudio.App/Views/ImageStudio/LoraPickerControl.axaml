@@ -69,6 +69,10 @@
             </Button>
         </Grid>
 
+        <!-- Nápověda: lze přidat víc LoRA najednou -->
+        <TextBlock Text="Můžeš přidat víc LoRA — vyber, nastav sílu a klikni Přidat; opakuj. Každá má vlastní sílu, ✕ ji odebere."
+                   FontSize="10" Foreground="{DynamicResource TextWeakBrush}" TextWrapping="Wrap"/>
+
         <!-- Řádek 2: síla LoRA (vlastní řádek — NumericUpDown se ve
              zmáčknutém gridu nezobrazoval) -->
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
