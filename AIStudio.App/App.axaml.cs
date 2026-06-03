@@ -173,6 +173,8 @@ public partial class App : Application
         // Orchestrátor pro chat → image: parser → recommender → matcher → comfy → galerie.
         services.AddSingleton<IChatImageOrchestrator, ChatImageOrchestrator>();
         services.AddSingleton<IFluxDependencyService, FluxDependencyService>();
+        // Wan 2.1 video závislosti (text encoder, VAE, CLIP-Vision, diffusion model).
+        services.AddSingleton<IWanDependencyService, WanDependencyService>();
         // FLUX.1 Kontext — instrukční editace obrázku (přilož + uprav). Orchestrátor
         // si ho vyzvedne (optional dep) a použije pro editaci s referencí; auto-download
         // UNET (~12 GB) + sdílené FLUX závislosti při prvním použití.

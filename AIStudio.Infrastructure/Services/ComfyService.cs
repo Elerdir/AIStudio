@@ -675,6 +675,13 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             "  clip: |" + "\n" +
             "    ." + "\n" +
             "    clip/" + "\n" +
+            // text_encoders: novější ComfyUI sem mapuje CLIPLoader (vč. Wan type=wan,
+            // umt5_xxl). Bez toho Wan video workflow nenajde text encoder. Zahrnuje
+            // i clip/ kvůli zpětné kompatibilitě (FLUX t5/clip_l tam leží).
+            "  text_encoders: |" + "\n" +
+            "    ." + "\n" +
+            "    text_encoders/" + "\n" +
+            "    clip/" + "\n" +
             "  clip_vision: |" + "\n" +
             "    ." + "\n" +
             "    clip_vision/" + "\n" +
