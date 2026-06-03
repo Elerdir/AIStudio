@@ -79,14 +79,16 @@
                     <TextBlock Text="PARAMETRY" Classes="sectionHeader"/>
                     <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
                         <StackPanel Grid.Column="0" Spacing="3">
-                            <TextBlock Text="Snímků" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                            <TextBlock Text="Délka (snímků)" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
                             <NumericUpDown Value="{Binding Length}" Minimum="9" Maximum="129" Increment="4"
-                                           FormatString="0" MinWidth="90"/>
+                                           FormatString="0" MinWidth="90"
+                                           ToolTip.Tip="Délka videa = počet snímků. Krok 4 (Wan vyžaduje 4n+1: 33, 49, 65, 81…). Doporučeno do ~81 (≈5 s)."/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="3">
                             <TextBlock Text="FPS" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
                             <NumericUpDown Value="{Binding Fps}" Minimum="8" Maximum="30" Increment="1"
-                                           FormatString="0" MinWidth="80"/>
+                                           FormatString="0" MinWidth="80"
+                                           ToolTip.Tip="Snímků za sekundu při přehrávání. Wan 2.1 nativně 16. Délka v sekundách = snímky ÷ FPS."/>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="3">
                             <TextBlock Text="Kroky" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
@@ -105,6 +107,8 @@
                         <TextBlock Text="{Binding DimensionsLabel}" FontSize="11"
                                    Foreground="{DynamicResource TextHintBrush}"/>
                     </StackPanel>
+                    <TextBlock FontSize="11" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
+                               Text="Délku videa řídíš počtem snímků ÷ FPS. Wan 2.1 zvládá krátké klipy — doporučeno do ~81 snímků (≈ 5 s); víc = výrazně víc VRAM a času."/>
                 </StackPanel>
 
                 <!-- Závislosti (velké modely) -->
