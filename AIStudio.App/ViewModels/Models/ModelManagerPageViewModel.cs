@@ -568,6 +568,20 @@ public partial class ModelManagerPageViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Cílová cesta na disku pro daný model — typ-specifická podsložka
+    /// (LoRA → <c>loras/</c>, VAE → <c>vae/</c>, …), jinak root Models. Bez tohoto
+    /// by LoRA spadla do plochého rootu a AI Studio LoRA knihovna ani ComfyUI
+    /// picker by ji nenašly.
+    /// </summary>
+    private string ResolveModelDiskPath(ModelItemViewModel model)
+    {
+        var sub = AIStudio.Core.Services.ModelFolders.ResolveSubfolder(model.ModelType, model.FileName);
+        return string.IsNullOrEmpty(sub)
+            ? Path.Combine(ModelsDir, model.FileName)
+            : Path.Combine(ModelsDir, sub, model.FileName);
+    }
+
+    /// <summary>
     /// Vlastní stažení jedné položky. URL/token kontroly proběhly už v
     /// <see cref="EnqueueDownload"/> — sem chodí jen validní položky z fronty.
     /// </summary>
@@ -577,7 +591,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             ? _settings.Settings.CivitaiApiKey
             : _settings.Settings.HuggingFaceToken;
 
-        var destPath = Path.Combine(ModelsDir, model.FileName);
+        var destPath = ResolveModelDiskPath(model);
         var cts = new CancellationTokenSource();
         _activeDownloads[model] = cts;
 
@@ -600,7 +614,8 @@ public partial class ModelManagerPageViewModel : ViewModelBase
 
         try
         {
-            Directory.CreateDirectory(ModelsDir);
+            // Vytvoř i typ-specifickou podsložku (loras/, vae/, …), ne jen root.
+            Directory.CreateDirectory(Path.GetDirectoryName(destPath) ?? ModelsDir);
 
             // Pokud Civitai poskytl SHA-256 hash, předáme ho DownloadService.
             // Ten po stažení vypočítá hash souboru a v případě neshody smaže .tmp
@@ -678,7 +693,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
                 // vyhodit unobserved exception uvnitř Dispatcher.Post lambda.
                 try
                 {
-                    var tmp = Path.Combine(ModelsDir, model.FileName + ".tmp");
+                    var tmp = ResolveModelDiskPath(model) + ".tmp";
                     if (File.Exists(tmp)) File.Delete(tmp);
                 }
                 catch (Exception ex)
@@ -878,7 +893,13 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             catch (Exception ex) { Log.Warning(ex, "DeleteModel: unload selhalo"); }
         }
 
-        var path = Path.Combine(ModelsDir, model.FileName);
+        // Typ-specifická cesta (loras/ …); fallback na root pro starší ploché stažení.
+        var path = ResolveModelDiskPath(model);
+        if (!File.Exists(path))
+        {
+            var rootPath = Path.Combine(ModelsDir, model.FileName);
+            if (File.Exists(rootPath)) path = rootPath;
+        }
         try
         {
             if (File.Exists(path)) File.Delete(path);
@@ -1175,6 +1196,9 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             DownloadCount  = d.Downloads,
             Rating         = d.Rating,
             Sha256         = d.Sha256,
+            // Typ z Civitai, nebo fallback „LORA" když uživatel hledal LoRA (HF typ nedává).
+            ModelType      = !string.IsNullOrWhiteSpace(d.ModelType) ? d.ModelType
+                            : kind == PickKind.Lora ? "LORA" : string.Empty,
         };
     }
 

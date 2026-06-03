@@ -45,6 +45,12 @@ public partial class ModelItemViewModel : ViewModelBase
     /// <summary>Název souboru, pod kterým se model uloží do složky Models.</summary>
     [ObservableProperty] private string _fileName = string.Empty;
 
+    /// <summary>
+    /// Typ modelu z Civitai („LORA"/„Checkpoint"/„VAE"…) — řídí cílovou podsložku
+    /// při stahování (LoRA → loras/, VAE → vae/, …). Prázdné = neznámý → root.
+    /// </summary>
+    [ObservableProperty] private string _modelType = string.Empty;
+
     /// <summary>Přímé URL pro stažení (HuggingFace resolve/main nebo Civitai api/download).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowDirectDownloadButton))]
