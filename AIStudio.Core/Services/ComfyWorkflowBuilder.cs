@@ -492,6 +492,232 @@ public static class ComfyWorkflowBuilder
     private static object[] Ref(string nodeId, int outputIndex)
         => new object[] { nodeId, outputIndex };
 
+    // ── Wan 2.1 video ─────────────────────────────────────────────────────────
+    //
+    // Nativní ComfyUI podpora (bez křehkých custom nodů). Topologie odpovídá
+    // oficiálním example workflow z Comfy-Org/Wan_2.1_ComfyUI_repackaged:
+    //   t2v: UNETLoader → KSampler ← (CLIPLoader type=wan → CLIPTextEncode ×2,
+    //         EmptyHunyuanLatentVideo) → VAEDecode → SaveAnimatedWEBP
+    //   i2v: navíc CLIPVisionLoader + CLIPVisionEncode + LoadImage + WanImageToVideo
+    //         (ten produkuje positive/negative/latent pro KSampler).
+
+    /// <summary>Sdílený text encoder (umT5-XXL) — leží v <c>text_encoders/</c>.</summary>
+    public const string DefaultWanTextEncoder = "umt5_xxl_fp8_e4m3fn_scaled.safetensors";
+    /// <summary>Wan VAE — leží ve <c>vae/</c>.</summary>
+    public const string DefaultWanVae         = "wan_2.1_vae.safetensors";
+    /// <summary>CLIP-Vision (jen pro image→video) — leží v <c>clip_vision/</c>.</summary>
+    public const string DefaultWanClipVision  = "clip_vision_h.safetensors";
+    /// <summary>Doporučený sampler pro Wan (oficiální example).</summary>
+    public const string DefaultWanSampler     = "uni_pc";
+    /// <summary>Doporučený scheduler pro Wan.</summary>
+    public const string DefaultWanScheduler   = "simple";
+    /// <summary>Výchozí FPS výstupního WEBP (oficiální example).</summary>
+    public const int    DefaultWanFps         = 16;
+
+    /// <summary>Oficiální negativní prompt z Wan example workflow (kvalita/artefakty).</summary>
+    public const string DefaultWanNegative =
+        "Overexposure, static, blurred details, subtitles, paintings, pictures, still, " +
+        "overall gray, worst quality, low quality, JPEG compression residue, ugly, mutilated, " +
+        "redundant fingers, poorly painted hands, poorly painted faces, deformed, disfigured, " +
+        "deformed limbs, fused fingers, cluttered background, three legs, " +
+        "a lot of people in the background, upside down";
+
+    /// <summary>ID KSampler uzlu ve Wan workflow (pro sledování progresu).</summary>
+    public const string WanKSamplerKey = "3";
+    /// <summary>ID výstupního SaveAnimatedWEBP uzlu ve Wan workflow.</summary>
+    public const string WanSaveKey     = "28";
+
+    /// <summary>
+    /// Wan 2.1 <b>text→video</b> workflow. <paramref name="diffusionModel"/> je soubor v
+    /// <c>diffusion_models/</c> (např. <c>wan2.1_t2v_1.3B_bf16.safetensors</c> nebo 14B).
+    /// <paramref name="length"/> je počet snímků (např. 33 ≈ 2 s při 16 FPS).
+    /// </summary>
+    public static Dictionary<string, object> BuildWanTextToVideo(
+        string diffusionModel,
+        string prompt,
+        int    width,
+        int    height,
+        int    length,
+        int    steps,
+        double cfg,
+        long   seed,
+        string negativePrompt = DefaultWanNegative,
+        string textEncoder    = DefaultWanTextEncoder,
+        string vae            = DefaultWanVae,
+        string sampler        = DefaultWanSampler,
+        string scheduler      = DefaultWanScheduler,
+        int    fps            = DefaultWanFps,
+        string filenamePrefix = "AIStudio")
+    {
+        return new Dictionary<string, object>
+        {
+            ["37"] = Node("UNETLoader", new()
+            {
+                ["unet_name"]    = diffusionModel,
+                ["weight_dtype"] = "default",
+            }),
+            ["38"] = Node("CLIPLoader", new()
+            {
+                ["clip_name"] = textEncoder,
+                ["type"]      = "wan",
+            }),
+            ["39"] = Node("VAELoader", new()
+            {
+                ["vae_name"] = vae,
+            }),
+            ["6"] = Node("CLIPTextEncode", new()
+            {
+                ["text"] = prompt,
+                ["clip"] = Ref("38", 0),
+            }),
+            ["7"] = Node("CLIPTextEncode", new()
+            {
+                ["text"] = negativePrompt,
+                ["clip"] = Ref("38", 0),
+            }),
+            ["40"] = Node("EmptyHunyuanLatentVideo", new()
+            {
+                ["width"]      = width,
+                ["height"]     = height,
+                ["length"]     = length,
+                ["batch_size"] = 1,
+            }),
+            [WanKSamplerKey] = Node("KSampler", new()
+            {
+                ["seed"]         = seed,
+                ["steps"]        = steps,
+                ["cfg"]          = cfg,
+                ["sampler_name"] = sampler,
+                ["scheduler"]    = scheduler,
+                ["denoise"]      = 1.0,
+                ["model"]        = Ref("37", 0),
+                ["positive"]     = Ref("6", 0),
+                ["negative"]     = Ref("7", 0),
+                ["latent_image"] = Ref("40", 0),
+            }),
+            ["8"] = Node("VAEDecode", new()
+            {
+                ["samples"] = Ref(WanKSamplerKey, 0),
+                ["vae"]     = Ref("39", 0),
+            }),
+            [WanSaveKey] = Node("SaveAnimatedWEBP", new()
+            {
+                ["filename_prefix"] = filenamePrefix,
+                ["images"]          = Ref("8", 0),
+                ["fps"]             = fps,
+                ["lossless"]        = false,
+                ["quality"]         = 90,
+                ["method"]          = "default",
+            }),
+        };
+    }
+
+    /// <summary>
+    /// Wan 2.1 <b>image→video</b> workflow. <paramref name="diffusionModel"/> je i2v soubor
+    /// (např. <c>wan2.1_i2v_480p_14B_bf16.safetensors</c>; pro Wan 2.1 i2v existuje jen 14B).
+    /// <paramref name="uploadedImageName"/> je název vrácený z ComfyUI <c>/upload/image</c>.
+    /// </summary>
+    public static Dictionary<string, object> BuildWanImageToVideo(
+        string diffusionModel,
+        string uploadedImageName,
+        string prompt,
+        int    width,
+        int    height,
+        int    length,
+        int    steps,
+        double cfg,
+        long   seed,
+        string negativePrompt = DefaultWanNegative,
+        string textEncoder    = DefaultWanTextEncoder,
+        string vae            = DefaultWanVae,
+        string clipVision     = DefaultWanClipVision,
+        string sampler        = DefaultWanSampler,
+        string scheduler      = DefaultWanScheduler,
+        int    fps            = DefaultWanFps,
+        string filenamePrefix = "AIStudio")
+    {
+        return new Dictionary<string, object>
+        {
+            ["37"] = Node("UNETLoader", new()
+            {
+                ["unet_name"]    = diffusionModel,
+                ["weight_dtype"] = "default",
+            }),
+            ["38"] = Node("CLIPLoader", new()
+            {
+                ["clip_name"] = textEncoder,
+                ["type"]      = "wan",
+            }),
+            ["39"] = Node("VAELoader", new()
+            {
+                ["vae_name"] = vae,
+            }),
+            ["49"] = Node("CLIPVisionLoader", new()
+            {
+                ["clip_name"] = clipVision,
+            }),
+            ["52"] = Node("LoadImage", new()
+            {
+                ["image"] = uploadedImageName,
+            }),
+            ["6"] = Node("CLIPTextEncode", new()
+            {
+                ["text"] = prompt,
+                ["clip"] = Ref("38", 0),
+            }),
+            ["7"] = Node("CLIPTextEncode", new()
+            {
+                ["text"] = negativePrompt,
+                ["clip"] = Ref("38", 0),
+            }),
+            ["51"] = Node("CLIPVisionEncode", new()
+            {
+                ["clip_vision"] = Ref("49", 0),
+                ["image"]       = Ref("52", 0),
+                ["crop"]        = "center",
+            }),
+            ["50"] = Node("WanImageToVideo", new()
+            {
+                ["positive"]           = Ref("6", 0),
+                ["negative"]           = Ref("7", 0),
+                ["vae"]                = Ref("39", 0),
+                ["clip_vision_output"] = Ref("51", 0),
+                ["start_image"]        = Ref("52", 0),
+                ["width"]              = width,
+                ["height"]             = height,
+                ["length"]             = length,
+                ["batch_size"]         = 1,
+            }),
+            [WanKSamplerKey] = Node("KSampler", new()
+            {
+                ["seed"]         = seed,
+                ["steps"]        = steps,
+                ["cfg"]          = cfg,
+                ["sampler_name"] = sampler,
+                ["scheduler"]    = scheduler,
+                ["denoise"]      = 1.0,
+                ["model"]        = Ref("37", 0),
+                ["positive"]     = Ref("50", 0),
+                ["negative"]     = Ref("50", 1),
+                ["latent_image"] = Ref("50", 2),
+            }),
+            ["8"] = Node("VAEDecode", new()
+            {
+                ["samples"] = Ref(WanKSamplerKey, 0),
+                ["vae"]     = Ref("39", 0),
+            }),
+            [WanSaveKey] = Node("SaveAnimatedWEBP", new()
+            {
+                ["filename_prefix"] = filenamePrefix,
+                ["images"]          = Ref("8", 0),
+                ["fps"]             = fps,
+                ["lossless"]        = false,
+                ["quality"]         = 90,
+                ["method"]          = "default",
+            }),
+        };
+    }
+
     // ── IMG2IMG – SDXL / SD ───────────────────────────────────────────────────
 
     /// <summary>

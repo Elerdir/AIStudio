@@ -509,4 +509,91 @@ public class ComfyWorkflowBuilderTests
         var loader = (Dictionary<string, object>)FindNode(wf, "UpscaleModelLoader")["inputs"];
         loader["model_name"].Should().Be("RealESRGAN_x4plus.pth");
     }
+
+    // ── Wan 2.1 video (text→video / image→video) ──────────────────────────────
+
+    private static Dictionary<string, object> WanT2VWf() =>
+        ComfyWorkflowBuilder.BuildWanTextToVideo(
+            "wan2.1_t2v_1.3B_bf16.safetensors", "a fox running in snow",
+            width: 832, height: 480, length: 33, steps: 30, cfg: 6.0, seed: 42);
+
+    private static Dictionary<string, object> WanI2VWf() =>
+        ComfyWorkflowBuilder.BuildWanImageToVideo(
+            "wan2.1_i2v_480p_14B_bf16.safetensors", "start.png", "make it move",
+            width: 512, height: 512, length: 33, steps: 20, cfg: 6.0, seed: 7);
+
+    [Fact]
+    public void BuildWanT2V_HasCoreVideoNodes_WanClipTypeAndWebpOutput()
+    {
+        var wf    = WanT2VWf();
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+
+        types.Should().Contain("UNETLoader")
+             .And.Contain("CLIPLoader")
+             .And.Contain("VAELoader")
+             .And.Contain("EmptyHunyuanLatentVideo")
+             .And.Contain("KSampler")
+             .And.Contain("VAEDecode")
+             .And.Contain("SaveAnimatedWEBP");
+        // i2v-specifické uzly v t2v NEsmí být
+        types.Should().NotContain("WanImageToVideo").And.NotContain("CLIPVisionLoader");
+
+        ((Dictionary<string, object>)FindNode(wf, "CLIPLoader")["inputs"])["type"].Should().Be("wan");
+    }
+
+    [Fact]
+    public void BuildWanT2V_LatentDimensionsAndLength_AreWired()
+    {
+        var wf  = WanT2VWf();
+        var lat = (Dictionary<string, object>)FindNode(wf, "EmptyHunyuanLatentVideo")["inputs"];
+        lat["width"].Should().Be(832);
+        lat["height"].Should().Be(480);
+        lat["length"].Should().Be(33);
+
+        // KSampler bere latent z EmptyHunyuanLatentVideo
+        var ks    = (Dictionary<string, object>)FindNode(wf, "KSampler")["inputs"];
+        var latIn = (object[])ks["latent_image"];
+        ((string)((Dictionary<string, object>)wf[(string)latIn[0]])["class_type"]).Should().Be("EmptyHunyuanLatentVideo");
+    }
+
+    [Fact]
+    public void BuildWanI2V_HasImageAndClipVisionChain_WiredToWanImageToVideo()
+    {
+        var wf    = WanI2VWf();
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+
+        types.Should().Contain("LoadImage")
+             .And.Contain("CLIPVisionLoader")
+             .And.Contain("CLIPVisionEncode")
+             .And.Contain("WanImageToVideo");
+
+        var w2v = (Dictionary<string, object>)FindNode(wf, "WanImageToVideo")["inputs"];
+        // clip_vision_output ← CLIPVisionEncode, start_image ← LoadImage
+        ((string)((Dictionary<string, object>)wf[(string)((object[])w2v["clip_vision_output"])[0]])["class_type"])
+            .Should().Be("CLIPVisionEncode");
+        ((string)((Dictionary<string, object>)wf[(string)((object[])w2v["start_image"])[0]])["class_type"])
+            .Should().Be("LoadImage");
+    }
+
+    [Fact]
+    public void BuildWanI2V_KSampler_TakesPositiveNegativeLatentFromWanImageToVideo()
+    {
+        var wf = WanI2VWf();
+        var ks = (Dictionary<string, object>)FindNode(wf, "KSampler")["inputs"];
+
+        ((object[])ks["positive"])[0].Should().Be("50");
+        ((object[])ks["negative"])[0].Should().Be("50");
+        ((object[])ks["latent_image"])[0].Should().Be("50");
+        // tři různé výstupní indexy téhož uzlu
+        ((object[])ks["positive"])[1].Should().Be(0);
+        ((object[])ks["negative"])[1].Should().Be(1);
+        ((object[])ks["latent_image"])[1].Should().Be(2);
+    }
+
+    [Fact]
+    public void BuildWanI2V_LoadImage_UsesUploadedName()
+    {
+        var wf = WanI2VWf();
+        ((Dictionary<string, object>)FindNode(wf, "LoadImage")["inputs"])["image"].Should().Be("start.png");
+    }
 }
