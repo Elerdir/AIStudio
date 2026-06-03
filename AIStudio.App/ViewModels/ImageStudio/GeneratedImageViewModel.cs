@@ -31,11 +31,37 @@ public partial class GeneratedImageViewModel : ObservableObject
     [ObservableProperty] private bool _isSelected;
 
     private Bitmap? _thumbnail;
+    private bool    _thumbnailRequested;
     private Bitmap? _fullBitmap;
 
-    /// <summary>220 px wide thumbnail, loaded on first access and cached.
-    /// Hodí se pro pásek galerie dole — málo paměti, rychlý decode.</summary>
-    public Bitmap? Thumbnail => _thumbnail ??= LoadThumbnail();
+    /// <summary>
+    /// 220 px náhled. Dekóduje se <b>asynchronně na pozadí</b> (ne na UI vlákně) — jinak
+    /// se při materializaci mřížky galerie dekóduje desítky obrázků synchronně během
+    /// renderu a aplikace „neodpovídá". Po načtení se doplní přes <see cref="OnPropertyChanged"/>.
+    /// </summary>
+    public Bitmap? Thumbnail
+    {
+        get
+        {
+            if (!_thumbnailRequested)
+            {
+                _thumbnailRequested = true;
+                _ = LoadThumbnailAsync();
+            }
+            return _thumbnail;
+        }
+    }
+
+    private async Task LoadThumbnailAsync()
+    {
+        var bmp = await Task.Run(LoadThumbnail);
+        if (bmp is null) return;
+        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _thumbnail = bmp;
+            OnPropertyChanged(nameof(Thumbnail));
+        });
+    }
 
     /// <summary>
     /// Plná velikost obrázku — pro hlavní canvas ostrý zobrazení.

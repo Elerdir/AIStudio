@@ -58,6 +58,8 @@ public partial class GalleryPageViewModel : ViewModelBase
             OnPropertyChanged(nameof(HasImages));
             OnPropertyChanged(nameof(CanLoadMore));
             OnPropertyChanged(nameof(StatusLine));
+            OnPropertyChanged(nameof(ShowEmptyState));
+            OnPropertyChanged(nameof(ShowLoadingState));
         };
     }
 
@@ -69,7 +71,10 @@ public partial class GalleryPageViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(CanLoadMore), nameof(StatusLine))]
     private int _totalInDb;
 
-    [ObservableProperty] private bool _isLoading;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowEmptyState), nameof(ShowLoadingState))]
+    private bool _isLoading;
+
     [ObservableProperty] private bool _isLoadingMore;
 
     [ObservableProperty]
@@ -79,6 +84,11 @@ public partial class GalleryPageViewModel : ViewModelBase
     public bool HasImages    => Images.Count > 0;
     public bool HasSelection => SelectedImage is not null;
     public bool CanLoadMore  => Images.Count < TotalInDb;
+
+    /// <summary>Spinner pro první načtení (žádné položky a probíhá load).</summary>
+    public bool ShowLoadingState => IsLoading && !HasImages;
+    /// <summary>Prázdný stav — jen když nic neběží (ať neprobliká během načítání).</summary>
+    public bool ShowEmptyState   => !IsLoading && !HasImages;
 
     public string StatusLine => TotalInDb switch
     {
@@ -208,13 +218,19 @@ public partial class GalleryPageViewModel : ViewModelBase
             var total   = await _imageRepo.CountImagesAsync(filter);
             var records = await _imageRepo.LoadImagesPagedAsync(skip: 0, take: PageSize, filter);
             var models  = await _imageRepo.GetDistinctModelsAsync();
-            Dispatcher.UIThread.Post(() =>
+            // Stavba VM + File.Exists mimo UI vlákno (disk I/O) — náhledy se navíc
+            // dekódují asynchronně (viz GeneratedImageViewModel), takže UI se nesekne.
+            var items   = await Task.Run(() => BuildItems(records));
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 SyncModelOptions(models);
                 Images.Clear();
-                AppendRecords(records);
+                foreach (var it in items) Images.Add(it);
                 TotalInDb = total;
                 SelectedImage = Images.Count > 0 ? Images[0] : null;
+                OnPropertyChanged(nameof(CanLoadMore));
+                OnPropertyChanged(nameof(StatusLine));
             });
         }
         catch (Exception ex)
@@ -234,8 +250,15 @@ public partial class GalleryPageViewModel : ViewModelBase
         IsLoadingMore = true;
         try
         {
-            var records = await _imageRepo.LoadImagesPagedAsync(Images.Count, PageSize, BuildFilter());
-            Dispatcher.UIThread.Post(() => AppendRecords(records));
+            var skip    = Images.Count;
+            var records = await _imageRepo.LoadImagesPagedAsync(skip, PageSize, BuildFilter());
+            var items   = await Task.Run(() => BuildItems(records));
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                foreach (var it in items) Images.Add(it);
+                OnPropertyChanged(nameof(CanLoadMore));
+                OnPropertyChanged(nameof(StatusLine));
+            });
         }
         catch (Exception ex) { Log.Warning(ex, "Galerie: LoadMore selhal"); }
         finally { IsLoadingMore = false; }
@@ -272,13 +295,18 @@ public partial class GalleryPageViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Mapuje <see cref="ImageRecord"/> → VM, přeskakuje smazané soubory.</summary>
-    private void AppendRecords(IReadOnlyList<ImageRecord> records)
+    /// <summary>
+    /// Mapuje <see cref="ImageRecord"/> → VM, přeskakuje smazané soubory. Čistá funkce
+    /// (žádný UI stav) — volá se na pozadí přes <c>Task.Run</c>, ať <c>File.Exists</c>
+    /// neblokuje UI vlákno.
+    /// </summary>
+    private static List<GeneratedImageViewModel> BuildItems(IReadOnlyList<ImageRecord> records)
     {
+        var list = new List<GeneratedImageViewModel>(records.Count);
         foreach (var rec in records)
         {
             if (!File.Exists(rec.FilePath)) continue;
-            Images.Add(new GeneratedImageViewModel
+            list.Add(new GeneratedImageViewModel
             {
                 Id        = rec.Id,
                 FilePath  = rec.FilePath,
@@ -295,8 +323,7 @@ public partial class GalleryPageViewModel : ViewModelBase
                 MediaType = rec.MediaType,
             });
         }
-        OnPropertyChanged(nameof(CanLoadMore));
-        OnPropertyChanged(nameof(StatusLine));
+        return list;
     }
 
     // ── Akce ──────────────────────────────────────────────────────────────────

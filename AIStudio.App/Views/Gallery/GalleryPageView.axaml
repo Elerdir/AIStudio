@@ -94,8 +94,23 @@
                     </Grid>
                 </Border>
 
+                <!-- Tenký indikátor načítání (i při obnově s existujícími položkami) -->
+                <ProgressBar Grid.Row="1" IsIndeterminate="True" Height="3"
+                             VerticalAlignment="Top" Margin="20,0,8,0"
+                             IsVisible="{Binding IsLoading}"
+                             Foreground="{DynamicResource AccentBrush}" Background="Transparent"/>
+
+                <!-- Spinner pro první načtení -->
+                <StackPanel Grid.Row="1" IsVisible="{Binding ShowLoadingState}"
+                            HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                    <ProgressBar IsIndeterminate="True" Width="160" Height="4" CornerRadius="2"
+                                 Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource HoverBgBrush}"/>
+                    <TextBlock Text="Načítám galerii…" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"/>
+                </StackPanel>
+
                 <!-- Prázdný stav -->
-                <StackPanel Grid.Row="1" IsVisible="{Binding !HasImages}"
+                <StackPanel Grid.Row="1" IsVisible="{Binding ShowEmptyState}"
                             HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageMultipleOutline}"
                                      Width="48" Height="48" Foreground="{DynamicResource TextWeakBrush}"
@@ -163,6 +178,7 @@
                 <Button Grid.Row="2" Classes="secondary"
                         Margin="20,8,8,12" HorizontalAlignment="Center"
                         IsVisible="{Binding CanLoadMore}"
+                        IsEnabled="{Binding !IsLoadingMore}"
                         Command="{Binding LoadMoreCommand}"
                         Content="Načíst další"/>
             </Grid>
