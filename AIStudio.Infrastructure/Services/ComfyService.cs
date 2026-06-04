@@ -215,6 +215,22 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             Log.Warning(ex, "ComfyService: instalace VideoHelperSuite selhala — video generace nebude k dispozici");
         }
 
+        // Ověříme + doinstalujeme ComfyUI-Impact-Pack (FaceDetailer — vylepšení obličeje/očí).
+        // Best-effort — bez něj funguje vše ostatní, jen FaceDetailer toggle ne.
+        try
+        {
+            if (!_installer.IsFaceDetailerInstalled(dir))
+            {
+                SetStatus(ComfyStatus.Starting, "Instaluji FaceDetailer (Impact-Pack)…");
+                await _installer.EnsureFaceDetailerInstalledAsync(dir, python, progress: null, ct);
+                Log.Information("ComfyService: FaceDetailer (Impact-Pack) nainstalován");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ComfyService: instalace FaceDetailer selhala — vylepšení obličeje nebude k dispozici");
+        }
+
         // ── DirectML pro AMD / Intel (Phase B.2) ────────────────────────────
         // Pokud máme AMD nebo Intel kartu a torch-directml chybí, doinstalujeme
         // ho hned před startem. Pro NVIDIA tento krok přeskakujeme — CUDA build

@@ -68,6 +68,13 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     /// </summary>
     [ObservableProperty] private bool _enableUpscale;
 
+    /// <summary>
+    /// FaceDetailer — auto vylepšení obličeje/očí (detekce + přegenerování ve vyšším
+    /// rozlišení). Řeší „plastický" vzhled portrétních LoRA. Jen SD/SDXL; vyžaduje
+    /// custom node ComfyUI-Impact-Pack + detekční model (doinstaluje se při startu ComfyUI).
+    /// </summary>
+    [ObservableProperty] private bool _enableFaceDetailer;
+
     public ObservableCollection<string> ReferenceImagePaths { get; } = new();
 
     public bool HasReferenceImage => ReferenceImagePaths.Count > 0;
@@ -726,7 +733,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
                 Loras:             SelectedLoras.ToList(),
                 EnableUpscale:     EnableUpscale,
                 UseEsrganModel:    useEsrgan,
-                UpscaleModelName:  _upscaleService?.ModelFileName ?? ComfyWorkflowBuilder.DefaultUpscaleModel));
+                UpscaleModelName:  _upscaleService?.ModelFileName ?? ComfyWorkflowBuilder.DefaultUpscaleModel,
+                EnableFaceDetailer: EnableFaceDetailer));
 
             if (EnableUpscale)
                 Log.Information("Upscale zapnut — hires fix + ESRGAN={Esrgan}, výstup ~2× ({W}x{H} → {W2}x{H2})",

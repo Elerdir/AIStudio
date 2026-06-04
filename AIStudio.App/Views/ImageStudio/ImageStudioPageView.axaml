@@ -644,6 +644,18 @@
                                 </StackPanel>
                             </CheckBox>
 
+                            <!-- FaceDetailer (Smart) — vylepšení obličeje/očí -->
+                            <CheckBox IsChecked="{Binding EnableFaceDetailer}" IsVisible="{Binding IsSmartMode}"
+                                      ToolTip.Tip="Po vygenerování detekuje obličej, přegeneruje ho ve vyšším rozlišení (opraví oči a pleť, řeší plastický vzhled) a vrátí zpět. Jen SD/SDXL. Vyžaduje ComfyUI-Impact-Pack (doinstaluje se při startu ComfyUI).">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Vylepšit obličej / oči (FaceDetailer)"
+                                               FontSize="12" Foreground="{DynamicResource TextLightBrush}"/>
+                                    <TextBlock Text="Přegeneruje obličej ve vyšším rozlišení — opraví oči, pleť. Jen SD/SDXL."
+                                               FontSize="10" Foreground="{DynamicResource TextHintBrush}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </CheckBox>
+
                             <!-- ══ konec SMART MÓD sekcí ══════════════════════════ -->
 
                             <!-- ══ MANUÁLNÍ MÓD panel ════════════════════════════ -->
@@ -815,6 +827,18 @@
                                     <TextBlock Text="Vylepšit kvalitu (upscale 2×)"
                                                FontSize="12" Foreground="{DynamicResource TextLightBrush}"/>
                                     <TextBlock Text="Hires fix + ESRGAN — víc detailu, hloubky a rozlišení. Pomalejší."
+                                               FontSize="10" Foreground="{DynamicResource TextHintBrush}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </CheckBox>
+
+                            <!-- FaceDetailer (Manuál) — vylepšení obličeje/očí -->
+                            <CheckBox IsChecked="{Binding EnableFaceDetailer}"
+                                      ToolTip.Tip="Po vygenerování detekuje obličej, přegeneruje ho ve vyšším rozlišení (opraví oči a pleť, řeší plastický vzhled) a vrátí zpět. Jen SD/SDXL. Vyžaduje ComfyUI-Impact-Pack (doinstaluje se při startu ComfyUI).">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Vylepšit obličej / oči (FaceDetailer)"
+                                               FontSize="12" Foreground="{DynamicResource TextLightBrush}"/>
+                                    <TextBlock Text="Přegeneruje obličej ve vyšším rozlišení — opraví oči, pleť. Jen SD/SDXL."
                                                FontSize="10" Foreground="{DynamicResource TextHintBrush}"
                                                TextWrapping="Wrap"/>
                                 </StackPanel>

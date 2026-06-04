@@ -229,6 +229,62 @@ public sealed class MacOsComfyInstaller : IComfyInstaller
             100, 0, 0, 0, null));
     }
 
+    // ── FaceDetailer (Impact-Pack + Subpack + detektor) ──────────────────────
+
+    public bool IsFaceDetailerInstalled(string comfyUiDir)
+    {
+        if (string.IsNullOrWhiteSpace(comfyUiDir)) return false;
+        var pack  = Path.Combine(comfyUiDir, "custom_nodes", "ComfyUI-Impact-Pack");
+        var model = Path.Combine(comfyUiDir, "models", "ultralytics", "bbox", "face_yolov8m.pt");
+        return Directory.Exists(pack)
+            && (File.Exists(Path.Combine(pack, "__init__.py")) || Directory.Exists(Path.Combine(pack, "modules")))
+            && File.Exists(model);
+    }
+
+    public async Task EnsureFaceDetailerInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default)
+    {
+        if (IsFaceDetailerInstalled(comfyUiDir))
+        {
+            Log.Information("MacOsComfyInstaller: FaceDetailer už nainstalovaný");
+            return;
+        }
+
+        var customNodesDir = Path.Combine(comfyUiDir, "custom_nodes");
+        Directory.CreateDirectory(customNodesDir);
+
+        progress?.Report(new(ComfyInstallStage.Extracting, "Stahuji ComfyUI-Impact-Pack…", 40, 0, 0, 0, null));
+        if (!Directory.Exists(Path.Combine(customNodesDir, "ComfyUI-Impact-Pack")))
+            await RunAsync("git", "clone --depth 1 https://github.com/ltdrdata/ComfyUI-Impact-Pack.git",
+                workingDir: customNodesDir, timeoutMinutes: 5, ct);
+        if (!Directory.Exists(Path.Combine(customNodesDir, "ComfyUI-Impact-Subpack")))
+            await RunAsync("git", "clone --depth 1 https://github.com/ltdrdata/ComfyUI-Impact-Subpack.git",
+                workingDir: customNodesDir, timeoutMinutes: 5, ct);
+
+        foreach (var pack in new[] { "ComfyUI-Impact-Pack", "ComfyUI-Impact-Subpack" })
+        {
+            var req = Path.Combine(customNodesDir, pack, "requirements.txt");
+            if (File.Exists(req))
+                await RunAsync(pythonExe, $"-m pip install -r \"{req}\"",
+                    workingDir: comfyUiDir, timeoutMinutes: 10, ct);
+        }
+
+        var modelPath = Path.Combine(comfyUiDir, "models", "ultralytics", "bbox", "face_yolov8m.pt");
+        if (!File.Exists(modelPath))
+        {
+            progress?.Report(new(ComfyInstallStage.Downloading, "Stahuji detekční model obličeje…", 90, 0, 0, 0, null));
+            Directory.CreateDirectory(Path.GetDirectoryName(modelPath)!);
+            await RunAsync("curl",
+                $"-L -o \"{modelPath}\" https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8m.pt",
+                workingDir: comfyUiDir, timeoutMinutes: 10, ct);
+        }
+
+        progress?.Report(new(ComfyInstallStage.Done, "FaceDetailer nainstalován", 100, 0, 0, 0, null));
+    }
+
     // ── DirectML — N/A na macOS ──────────────────────────────────────────────
 
     public bool IsDirectMlInstalled(string pythonExe) => false;

@@ -619,6 +619,49 @@ public class ComfyWorkflowBuilderTests
         ((Dictionary<string, object>)FindNode(wf, "LoadImage")["inputs"])["image"].Should().Be("start.png");
     }
 
+    // ── AppendFaceDetailer ────────────────────────────────────────────────────
+
+    [Fact]
+    public void AppendFaceDetailer_AddsDetectorAndFaceDetailer_RepointsSaveImage()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "juggernaut_xl.safetensors", "portrait of a woman", "", 1024, 1024, 25, 6.0, 42);
+
+        ComfyWorkflowBuilder.AppendFaceDetailer(wf, seed: 42);
+
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+        types.Should().Contain("UltralyticsDetectorProvider").And.Contain("FaceDetailer");
+
+        // FaceDetailer bere obrázek z původního VAEDecode "8" a má napojený detektor + clip
+        var fd = (Dictionary<string, object>)FindNode(wf, "FaceDetailer")["inputs"];
+        ((object[])fd["image"])[0].Should().Be("8");                    // VAEDecode
+        ((string)((Dictionary<string, object>)wf[(string)((object[])fd["bbox_detector"])[0]])["class_type"])
+            .Should().Be("UltralyticsDetectorProvider");
+        ((object[])fd["clip"])[0].Should().Be("4");                     // checkpoint clip
+        ((object[])fd["model"])[0].Should().Be("4");                    // checkpoint model
+
+        // SaveImage teď ukazuje na FaceDetailer (ne na VAEDecode "8")
+        var save = (Dictionary<string, object>)FindNode(wf, "SaveImage")["inputs"];
+        ((string)((Dictionary<string, object>)wf[(string)((object[])save["images"])[0]])["class_type"])
+            .Should().Be("FaceDetailer");
+    }
+
+    [Fact]
+    public void AppendFaceDetailer_RespectsInjectedLora_ModelFromLoraNode()
+    {
+        var wf = ComfyWorkflowBuilder.BuildStandard(
+            "model.safetensors", "portrait", "", 1024, 1024, 25, 6.0, 1);
+        ComfyWorkflowBuilder.InjectLoras(wf, "4", ["3"], ["6", "7"],
+            [new LoraItem("face_lora.safetensors", 0.8, 0.8)]);
+
+        ComfyWorkflowBuilder.AppendFaceDetailer(wf, seed: 1);
+
+        // FaceDetailer model i clip jdou z LoRA uzlu "50", ne přímo z checkpointu "4"
+        var fd = (Dictionary<string, object>)FindNode(wf, "FaceDetailer")["inputs"];
+        ((object[])fd["model"])[0].Should().Be("50");
+        ((object[])fd["clip"])[0].Should().Be("50");
+    }
+
     [Fact]
     public void InjectWanLoras_Empty_LeavesWorkflowUnchanged()
     {

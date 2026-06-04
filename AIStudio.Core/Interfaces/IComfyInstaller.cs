@@ -64,6 +64,23 @@ public interface IComfyInstaller
         IProgress<ComfyInstallProgress>?  progress = null,
         CancellationToken                 ct       = default);
 
+    /// <summary>
+    /// True pokud je nainstalovaný ComfyUI-Impact-Pack (+ Subpack) a detekční model
+    /// obličeje — poskytují <c>FaceDetailer</c> + <c>UltralyticsDetectorProvider</c>.
+    /// </summary>
+    bool IsFaceDetailerInstalled(string comfyUiDir);
+
+    /// <summary>
+    /// Doinstaluje ComfyUI-Impact-Pack + ComfyUI-Impact-Subpack (custom nody) + jejich
+    /// pip závislosti + stáhne detekční model <c>face_yolov8m.pt</c> do
+    /// <c>models/ultralytics/bbox/</c>. Idempotentní.
+    /// </summary>
+    Task EnsureFaceDetailerInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default);
+
     /// <summary>True pokud je v embedded Pythonu nainstalován <c>torch-directml</c>.</summary>
     bool IsDirectMlInstalled(string pythonExe);
 

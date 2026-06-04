@@ -57,6 +57,17 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
 
     private const string VhsNodeFolderName = "ComfyUI-VideoHelperSuite";
 
+    // FaceDetailer = ComfyUI-Impact-Pack (FaceDetailer node) + ComfyUI-Impact-Subpack
+    // (UltralyticsDetectorProvider) + detekční model. Pozor na názvy větví (Main vs main).
+    private const string ImpactPackZipUrl =
+        "https://github.com/ltdrdata/ComfyUI-Impact-Pack/archive/refs/heads/Main.zip";
+    private const string ImpactPackFolderName = "ComfyUI-Impact-Pack";
+    private const string ImpactSubpackZipUrl =
+        "https://github.com/ltdrdata/ComfyUI-Impact-Subpack/archive/refs/heads/main.zip";
+    private const string ImpactSubpackFolderName = "ComfyUI-Impact-Subpack";
+    private const string FaceDetectorModelUrl =
+        "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8m.pt";
+
     public string DefaultInstallDirectory =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -664,6 +675,71 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
 
         progress?.Report(new(ComfyInstallStage.Done,
             "ComfyUI-VideoHelperSuite nainstalován", 100, 0, 0, 0, null));
+    }
+
+    // ── FaceDetailer (Impact-Pack + Subpack + detektor) ──────────────────────
+
+    public bool IsFaceDetailerInstalled(string comfyUiDir)
+    {
+        if (string.IsNullOrWhiteSpace(comfyUiDir)) return false;
+        var pack  = Path.Combine(comfyUiDir, "custom_nodes", ImpactPackFolderName);
+        var model = Path.Combine(comfyUiDir, "models", "ultralytics", "bbox", "face_yolov8m.pt");
+        var packOk = Directory.Exists(pack)
+                     && (File.Exists(Path.Combine(pack, "__init__.py")) || Directory.Exists(Path.Combine(pack, "modules")));
+        return packOk && File.Exists(model);
+    }
+
+    public async Task EnsureFaceDetailerInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default)
+    {
+        if (IsFaceDetailerInstalled(comfyUiDir))
+        {
+            Log.Information("ComfyInstaller: FaceDetailer (Impact-Pack) už nainstalovaný");
+            return;
+        }
+
+        var customNodesDir = Path.Combine(comfyUiDir, "custom_nodes");
+        Directory.CreateDirectory(customNodesDir);
+
+        // Impact-Pack (FaceDetailer node)
+        var packDir = Path.Combine(customNodesDir, ImpactPackFolderName);
+        if (!Directory.Exists(Path.Combine(packDir, "modules")) && !File.Exists(Path.Combine(packDir, "__init__.py")))
+            await DownloadAndExtractGitHubZipAsync(ImpactPackZipUrl, packDir, "ComfyUI-Impact-Pack", progress, ct);
+        var packReq = Path.Combine(packDir, "requirements.txt");
+        if (File.Exists(packReq))
+        {
+            progress?.Report(new(ComfyInstallStage.Finishing, "Instaluji závislosti Impact-Pack…", 60, 0, 0, 0, null));
+            await RunPipInstallAsync(pythonExe, $"-r \"{packReq}\"", ct);
+        }
+
+        // Impact-Subpack (UltralyticsDetectorProvider)
+        var subDir = Path.Combine(customNodesDir, ImpactSubpackFolderName);
+        if (!Directory.Exists(Path.Combine(subDir, "modules")) && !File.Exists(Path.Combine(subDir, "__init__.py")))
+            await DownloadAndExtractGitHubZipAsync(ImpactSubpackZipUrl, subDir, "ComfyUI-Impact-Subpack", progress, ct);
+        var subReq = Path.Combine(subDir, "requirements.txt");
+        if (File.Exists(subReq))
+        {
+            progress?.Report(new(ComfyInstallStage.Finishing, "Instaluji závislosti Impact-Subpack…", 80, 0, 0, 0, null));
+            await RunPipInstallAsync(pythonExe, $"-r \"{subReq}\"", ct);
+        }
+
+        // Detekční model obličeje → models/ultralytics/bbox/
+        var modelPath = Path.Combine(comfyUiDir, "models", "ultralytics", "bbox", "face_yolov8m.pt");
+        if (!File.Exists(modelPath))
+        {
+            progress?.Report(new(ComfyInstallStage.Downloading, "Stahuji detekční model obličeje (~52 MB)…", 90, 0, 0, 0, null));
+            Directory.CreateDirectory(Path.GetDirectoryName(modelPath)!);
+            using var resp = await Http.GetAsync(FaceDetectorModelUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            resp.EnsureSuccessStatusCode();
+            await using var src = await resp.Content.ReadAsStreamAsync(ct);
+            await using var dst = new FileStream(modelPath, FileMode.Create, FileAccess.Write, FileShare.None, 81_920, useAsync: true);
+            await src.CopyToAsync(dst, ct);
+        }
+
+        progress?.Report(new(ComfyInstallStage.Done, "FaceDetailer nainstalován", 100, 0, 0, 0, null));
     }
 
     /// <summary>

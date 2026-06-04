@@ -27,7 +27,8 @@ public sealed record ImageWorkflowRequest(
     IReadOnlyList<LoraItem> Loras,
     bool   EnableUpscale,
     bool   UseEsrganModel,
-    string UpscaleModelName);
+    string UpscaleModelName,
+    bool   EnableFaceDetailer = false);
 
 /// <summary>
 /// Sestaví kompletní ComfyUI workflow z <see cref="ImageWorkflowRequest"/>:
@@ -55,6 +56,11 @@ public static class ImageWorkflowComposer
                 useUpscaleModel: r.UseEsrganModel,
                 upscaleModelName: r.UpscaleModelName,
                 finalScale: 2.0);
+
+        // FaceDetailer — AŽ po upscale (běží na finálním obrázku). Jen SD/SDXL:
+        // FLUX má jinou conditioning (FluxGuidance) a detailer s ním je nespolehlivý.
+        if (r.EnableFaceDetailer && !r.IsFlux)
+            ComfyWorkflowBuilder.AppendFaceDetailer(workflow, r.Seed, steps: r.Steps, denoise: 0.45);
 
         return workflow;
     }

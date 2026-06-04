@@ -1302,6 +1302,101 @@ public static class ComfyWorkflowBuilder
         SetInput(workflow, siKey, "images", finalImage);
     }
 
+    // ── FaceDetailer (auto vylepšení obličeje/očí) ───────────────────────────
+
+    /// <summary>Výchozí detekční model obličeje (Ultralytics YOLOv8m) — v models/ultralytics/bbox/.</summary>
+    public const string DefaultFaceDetectorModel = "bbox/face_yolov8m.pt";
+
+    /// <summary>
+    /// Připojí na konec workflow <b>FaceDetailer</b> (ComfyUI-Impact-Pack): detekuje
+    /// obličej, přegeneruje ho ve vyšším rozlišení (opraví oči, pleť — řeší „plastický"
+    /// vzhled) a vrátí zpět do obrázku. Běží na FINÁLNÍM obrázku (po upscale), takže volej
+    /// AŽ po <see cref="AppendUpscale"/>.
+    ///
+    /// <para>Model/positive/negative bere z KSampleru, VAE z VAEDecode, CLIP z prvního
+    /// CLIPTextEncode — respektuje injektované LoRA. Když topologii nerozezná (chybí clip),
+    /// je no-op. Vyžaduje custom node ComfyUI-Impact-Pack + detekční model
+    /// <c>bbox/face_yolov8m.pt</c>.</para>
+    /// </summary>
+    public static void AppendFaceDetailer(
+        Dictionary<string, object> workflow,
+        long   seed,
+        int    steps         = 20,
+        double denoise       = 0.45,
+        string detectorModel = DefaultFaceDetectorModel)
+    {
+        var ksKey = FindNodeByClass(workflow, "KSampler");
+        var vdKey = FindNodeByClass(workflow, "VAEDecode");
+        var siKey = FindNodeByClass(workflow, "SaveImage");
+        if (ksKey is null || vdKey is null || siKey is null) return;
+
+        var ksIn = GetInputs(workflow, ksKey);
+        var vdIn = GetInputs(workflow, vdKey);
+        var siIn = GetInputs(workflow, siKey);
+        if (ksIn is null || vdIn is null || siIn is null) return;
+        if (!ksIn.TryGetValue("model",    out var modelRef) ||
+            !ksIn.TryGetValue("positive", out var posRef)   ||
+            !ksIn.TryGetValue("negative", out var negRef)   ||
+            !vdIn.TryGetValue("vae",      out var vaeRef)    ||
+            !siIn.TryGetValue("images",   out var imageRef))
+            return;
+
+        // CLIP odvodíme z prvního CLIPTextEncode (respektuje LoRA clip).
+        var cteKey = FindNodeByClass(workflow, "CLIPTextEncode");
+        var clipRef = cteKey is not null && GetInputs(workflow, cteKey) is { } cin
+                      && cin.TryGetValue("clip", out var c) ? c : null;
+        if (clipRef is null) return;   // neznámá topologie → raději nedělej nic
+
+        var sampler   = ksIn.TryGetValue("sampler_name", out var sm) ? sm : DefaultSamplerSd;
+        var scheduler = ksIn.TryGetValue("scheduler",    out var sc) ? sc : DefaultSchedulerSd;
+        var cfg       = ksIn.TryGetValue("cfg",          out var cf) ? cf : (object)7.0;
+
+        const string detKey = "210";
+        workflow[detKey] = Node("UltralyticsDetectorProvider", new()
+        {
+            ["model_name"] = detectorModel,
+        });
+
+        const string fdKey = "211";
+        workflow[fdKey] = Node("FaceDetailer", new()
+        {
+            ["image"]         = imageRef,
+            ["model"]         = modelRef,
+            ["clip"]          = clipRef,
+            ["vae"]           = vaeRef,
+            ["positive"]      = posRef,
+            ["negative"]      = negRef,
+            ["bbox_detector"] = Ref(detKey, 0),
+            ["guide_size"]     = 512,
+            ["guide_size_for"] = true,
+            ["max_size"]       = 1024,
+            ["seed"]           = seed,
+            ["steps"]          = steps,
+            ["cfg"]            = cfg,
+            ["sampler_name"]   = sampler,
+            ["scheduler"]      = scheduler,
+            ["denoise"]        = denoise,    // 0.4–0.5 opraví obličej, nezmění identitu
+            ["feather"]        = 5,
+            ["noise_mask"]     = true,
+            ["force_inpaint"]  = true,
+            ["bbox_threshold"]   = 0.50,
+            ["bbox_dilation"]    = 10,
+            ["bbox_crop_factor"] = 3.0,
+            ["sam_detection_hint"]         = "center-1",
+            ["sam_dilation"]               = 0,
+            ["sam_threshold"]              = 0.93,
+            ["sam_bbox_expansion"]         = 0,
+            ["sam_mask_hint_threshold"]    = 0.70,
+            ["sam_mask_hint_use_negative"] = "False",
+            ["drop_size"] = 10,
+            ["wildcard"]  = "",
+            ["cycle"]     = 1,
+        });
+
+        // Přesměruj SaveImage na výstup FaceDetaileru (index 0 = vylepšený obrázek).
+        SetInput(workflow, siKey, "images", Ref(fdKey, 0));
+    }
+
     // ── Helpers pro detekci typu modelu ──────────────────────────────────────
 
     public static bool IsFluxModel(string modelName) =>
