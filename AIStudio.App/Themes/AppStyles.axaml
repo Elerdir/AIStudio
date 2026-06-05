@@ -28,18 +28,18 @@
     </Style>
 
     <Style Selector="Button.navItem.active /template/ ContentPresenter">
-        <Setter Property="Background" Value="#26263A"/>
-        <Setter Property="TextElement.Foreground" Value="#A78BFA"/>
+        <Setter Property="Background" Value="{DynamicResource InfoSurfaceBrush}"/>
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentLightBrush}"/>
     </Style>
 
     <Style Selector="Button.navItem.active TextBlock">
-        <Setter Property="Foreground" Value="#A78BFA"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentLightBrush}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
     <!-- Primary action button -->
     <Style Selector="Button.primary">
-        <Setter Property="Background" Value="#7C3AED"/>
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
         <Setter Property="Foreground" Value="#FFFFFF"/>
         <Setter Property="Padding" Value="16,10"/>
         <Setter Property="CornerRadius" Value="8"/>
@@ -104,12 +104,12 @@
         <Setter Property="CornerRadius" Value="10"/>
         <Setter Property="Padding" Value="14,12"/>
         <Setter Property="FontSize" Value="14"/>
-        <Setter Property="CaretBrush" Value="#A78BFA"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource AccentLightBrush}"/>
         <Setter Property="SelectionBrush" Value="#4C3A7A"/>
     </Style>
 
     <Style Selector="TextBox.chatInput:focus">
-        <Setter Property="BorderBrush" Value="#7C3AED"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
     </Style>
 
     <!-- Tyhle tři override drží PART_BorderElement (vnitřní fluent backplate)
@@ -157,11 +157,11 @@
         <Setter Property="TextElement.Foreground" Value="{DynamicResource TextLightBrush}"/>
     </Style>
     <Style Selector="Button.tabBtn.activeTab /template/ ContentPresenter">
-        <Setter Property="Background" Value="#26263A"/>
-        <Setter Property="TextElement.Foreground" Value="#A78BFA"/>
+        <Setter Property="Background" Value="{DynamicResource InfoSurfaceBrush}"/>
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentLightBrush}"/>
     </Style>
     <Style Selector="Button.tabBtn.activeTab">
-        <Setter Property="Foreground" Value="#A78BFA"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentLightBrush}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
 
@@ -180,13 +180,13 @@
         <Setter Property="TextElement.Foreground" Value="{DynamicResource TextLightBrush}"/>
     </Style>
     <Style Selector="Button.presetBtn.presetActive">
-        <Setter Property="Background" Value="#26203A"/>
-        <Setter Property="BorderBrush" Value="#7C3AED"/>
-        <Setter Property="Foreground" Value="#A78BFA"/>
+        <Setter Property="Background" Value="{DynamicResource InfoSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentLightBrush}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
     </Style>
     <Style Selector="Button.presetBtn.presetActive /template/ ContentPresenter">
-        <Setter Property="TextElement.Foreground" Value="#A78BFA"/>
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource AccentLightBrush}"/>
     </Style>
 
     <!-- ═══════════════════ VÝRAZNÝ SCROLLBAR ═══════════════════════════
@@ -197,12 +197,12 @@
 
     <Style Selector="ScrollViewer.visibleScrollbar /template/ ScrollBar[Orientation=Vertical]">
         <Setter Property="Width" Value="12"/>
-        <Setter Property="Background" Value="#0A0A0F"/>
+        <Setter Property="Background" Value="{DynamicResource VeryDeepBgBrush}"/>
         <Setter Property="Opacity" Value="1"/>
     </Style>
 
     <Style Selector="ScrollViewer.visibleScrollbar /template/ ScrollBar[Orientation=Vertical] /template/ Thumb">
-        <Setter Property="Background" Value="#3A3A50"/>
+        <Setter Property="Background" Value="{DynamicResource CardHoverBgBrush}"/>
         <Setter Property="CornerRadius" Value="6"/>
         <Setter Property="MinHeight" Value="40"/>
     </Style>
@@ -212,7 +212,7 @@
     </Style>
 
     <Style Selector="ScrollViewer.visibleScrollbar /template/ ScrollBar[Orientation=Vertical] /template/ Thumb:pressed">
-        <Setter Property="Background" Value="#7C3AED"/>
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
     </Style>
 
 </Styles>

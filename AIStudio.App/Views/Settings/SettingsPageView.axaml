@@ -21,7 +21,7 @@
                 <!-- Uloženo badge -->
                 <Border Grid.Column="1"
                         IsVisible="{Binding IsSaved}"
-                        Background="#172917" BorderBrush="#264726" BorderThickness="1"
+                        Background="{DynamicResource OkSurfaceBrush}" BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
                         CornerRadius="8" Padding="12,6"
                         VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -97,11 +97,11 @@
 
                             <!-- Varování: CPU je velmi pomalé -->
                             <Border IsVisible="{Binding !UseGpu}"
-                                    Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
+                                    Background="{DynamicResource WarnSurfaceBrush}" BorderBrush="{DynamicResource WarnBorderBrush}" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10" Margin="0,12,0,0">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
-                                    <TextBlock FontSize="11" Foreground="#7A6A40" TextWrapping="Wrap"
+                                    <TextBlock FontSize="11" Foreground="{DynamicResource WarnTextBrush}" TextWrapping="Wrap"
                                                Text="CPU inference je řádově pomalejší než GPU. Pro použitelné výsledky doporučujeme modely do 7B a trpělivost."/>
                                 </StackPanel>
                             </Border>
@@ -132,11 +132,11 @@
 
                                     <!-- Varování: velký kontext = hodně VRAM -->
                                     <Border IsVisible="{Binding IsLargeContextWarning}"
-                                            Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
+                                            Background="{DynamicResource WarnSurfaceBrush}" BorderBrush="{DynamicResource WarnBorderBrush}" BorderThickness="1"
                                             CornerRadius="8" Padding="12,10">
                                         <StackPanel Orientation="Horizontal" Spacing="10">
                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
-                                            <TextBlock FontSize="11" Foreground="#7A6A40" TextWrapping="Wrap"
+                                            <TextBlock FontSize="11" Foreground="{DynamicResource WarnTextBrush}" TextWrapping="Wrap"
                                                        Text="Velký kontext zabírá výrazně víc VRAM (KV cache roste lineárně). Pokud model nejde načíst nebo padá na out-of-memory, sniž hodnotu zpátky na 8192."/>
                                         </StackPanel>
                                     </Border>
@@ -243,7 +243,7 @@
                                              IsVisible="{Binding ShowHfToken}"
                                              PlaceholderText="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                                              PlaceholderForeground="{DynamicResource ElevatedBgBrush}"
-                                             Background="{DynamicResource SubtlePanelBgBrush}" Foreground="#A3E635"
+                                             Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource OkTextBrush}"
                                              BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                              Padding="12,10" FontFamily="Consolas,monospace" FontSize="13"/>
                                 </Grid>
@@ -327,7 +327,7 @@
                                              IsVisible="{Binding ShowCivitaiToken}"
                                              PlaceholderText="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                                              PlaceholderForeground="{DynamicResource ElevatedBgBrush}"
-                                             Background="{DynamicResource SubtlePanelBgBrush}" Foreground="#A3E635"
+                                             Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource OkTextBrush}"
                                              BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"
                                              Padding="12,10" FontFamily="Consolas,monospace" FontSize="13"/>
                                 </Grid>
@@ -373,13 +373,13 @@
                             <!-- Info box: Grid s Auto,* místo Horizontal StackPanelu, ať se text
                                  zalomí. V StackPanelu by si TextBlock vzal "neomezenou" šířku
                                  a TextWrapping by neměl efekt. -->
-                            <Border Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
+                            <Border Background="{DynamicResource WarnSurfaceBrush}" BorderBrush="{DynamicResource WarnBorderBrush}" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10">
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                                     <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="16" Height="16" Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
                                     <TextBlock Grid.Column="1"
                                                Text="Některé modely na Civitai vyžadují přihlášení nebo věkové ověření. Bez API klíče může stahování selhat s chybou 401."
-                                               FontSize="11" Foreground="#7A6A40"
+                                               FontSize="11" Foreground="{DynamicResource WarnTextBrush}"
                                                TextWrapping="Wrap"/>
                                 </Grid>
                             </Border>
@@ -393,8 +393,8 @@
                     <TextBlock Text="COMFYUI — GENEROVÁNÍ OBRÁZKŮ" Classes="sectionHeader"/>
 
                     <!-- Onboarding info panel — co je ComfyUI a jak ho získat -->
-                    <Border Background="#0F0E1C"
-                            BorderBrush="#1F1B3D" BorderThickness="1"
+                    <Border Background="{DynamicResource InfoSurfaceBrush}"
+                            BorderBrush="{DynamicResource InfoSurfaceBrush}" BorderThickness="1"
                             CornerRadius="10" Padding="14,12">
                         <StackPanel Spacing="12">
                             <!-- Grid místo Horizontal StackPanel — vnitřní StackPanel by měl
@@ -443,19 +443,19 @@
                                  Pro přeinstalaci uživatel klikne na X vedle Složky ComfyUI níž
                                  (smaže cestu) a tlačítko se objeví zpět. -->
                             <Border IsVisible="{Binding IsComfyInstalled}"
-                                    Background="#0F1A0F" BorderBrush="#1F3A1F" BorderThickness="1"
+                                    Background="{DynamicResource OkSurfaceBrush}" BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
                                     CornerRadius="8" Padding="12,10" HorizontalAlignment="Left">
                                 <StackPanel Spacing="6">
                                     <!-- Řádek 1: stav + verze -->
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="16" Height="16" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
                                         <TextBlock Text="ComfyUI je nainstalovaný a připravený"
-                                                   FontSize="12" Foreground="#86EFAC"
+                                                   FontSize="12" Foreground="{DynamicResource OkTextBrush}"
                                                    VerticalAlignment="Center"/>
-                                        <Border Background="#13241A" CornerRadius="5" Padding="7,2"
+                                        <Border Background="{DynamicResource OkSurfaceBrush}" CornerRadius="5" Padding="7,2"
                                                 VerticalAlignment="Center">
                                             <TextBlock Text="{Binding ComfyUiVersionLabel}"
-                                                       FontSize="11" Foreground="#9FE6B5"
+                                                       FontSize="11" Foreground="{DynamicResource OkTextBrush}"
                                                        VerticalAlignment="Center"/>
                                         </Border>
                                     </StackPanel>
@@ -466,7 +466,7 @@
                                         <StackPanel Orientation="Horizontal" Spacing="5"
                                                     IsVisible="{Binding IsComfyUpToDate}">
                                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ShieldCheckOutline}"
-                                                             Width="13" Height="13" Foreground="#86EFAC" VerticalAlignment="Center"/>
+                                                             Width="13" Height="13" Foreground="{DynamicResource OkTextBrush}" VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding TestedComfyVersionLabel}"
                                                        FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
                                                        VerticalAlignment="Center"/>
@@ -480,13 +480,13 @@
                                                        VerticalAlignment="Center"
                                                        Text="{Binding TestedComfyVersionLabel}"/>
                                         </StackPanel>
-                                        <TextBlock Text="·" FontSize="11" Foreground="#3a5a3a" VerticalAlignment="Center"/>
+                                        <TextBlock Text="·" FontSize="11" Foreground="{DynamicResource OkTextBrush}" VerticalAlignment="Center"/>
                                         <Button Classes="secondary"
                                                 Background="Transparent" BorderThickness="0"
                                                 Padding="4,1"
                                                 Command="{Binding OpenComfyUiReleasesCommand}">
                                             <TextBlock Text="Vydání na GitHubu"
-                                                       FontSize="11" Foreground="#86EFAC"
+                                                       FontSize="11" Foreground="{DynamicResource OkTextBrush}"
                                                        TextDecorations="Underline"/>
                                         </Button>
                                     </StackPanel>
@@ -496,7 +496,7 @@
                                         <mi:MaterialIcon Width="13" Height="13" VerticalAlignment="Center"
                                                          IsVisible="{Binding VideoHelperInstalled}"
                                                          Kind="{x:Static miKind:MaterialIconKind.CheckCircleOutline}"
-                                                         Foreground="#86EFAC"/>
+                                                         Foreground="{DynamicResource OkTextBrush}"/>
                                         <mi:MaterialIcon Width="13" Height="13" VerticalAlignment="Center"
                                                          IsVisible="{Binding !VideoHelperInstalled}"
                                                          Kind="{x:Static miKind:MaterialIconKind.DownloadOutline}"
@@ -523,7 +523,7 @@
                                              Minimum="0" Maximum="100"
                                              Height="6" CornerRadius="3"
                                              Foreground="{DynamicResource AccentBrush}"
-                                             Background="#1F1B3D"/>
+                                             Background="{DynamicResource InfoSurfaceBrush}"/>
                                 <Button Classes="secondary"
                                         HorizontalAlignment="Left"
                                         Padding="10,5"
@@ -534,7 +534,7 @@
 
                             <!-- Error panel — viditelný při neúspěchu -->
                             <Border IsVisible="{Binding InstallError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                    Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
+                                    Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrSurfaceBrush}" BorderThickness="1"
                                     CornerRadius="8" Padding="12,8">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}" Width="14" Height="14" Foreground="{DynamicResource ErrorBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>

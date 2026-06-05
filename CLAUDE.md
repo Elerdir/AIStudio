@@ -226,8 +226,8 @@ Většina struktur barev je v `App.axaml` `ResourceDictionary.ThemeDictionaries`
 - [x] **Atomický zápis settings.json** (.tmp + Replace + .bak recovery)
 - [x] **Inno Setup installer** pro Windows
 - [x] **Crash handling** — AppDomain.ProcessExit, UIThread.UnhandledException
-- [ ] Light/Dark/System theme switching (DynamicResource brushes v App.axaml připravené, FluentTheme variant napojený, ale ne všechny custom barvy přepnuté)
-- [ ] First-class light theme audit
+- [x] **Light/Dark/System theme switching** — `App.ApplyTheme`, Settings picker (okamžitý přepnutí), MarkdownViewer reaguje na `ActualThemeVariant`
+- [x] **Light theme audit** — ~330 hardcoded hexů ve Views konsolidováno na `DynamicResource` tokeny (strukturální + accent + semantické). Přidána sada **semantic surface** tokenů (Info/Warn/Err/Ok × Surface/Border/Text) pro barevné status-panely v obou themes. Zbývají jen záměrné výjimky: overlay scrimy (`#AA000000`), modré info-badge, accent/selection a pár vzácných neutrálů.
 
 ## Architektura — separace vrstev
 
@@ -284,7 +284,7 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
 - **Vlastní generátor (nezávislost na ComfyUI)** — dlouhodobý cíl: vlastní inference pipeline **přímo integrovaná v aplikaci** (ne jako externí Python proces), kde si verze modelů/závislostí řeší AI Studio samo a postupně. Kandidáti: managed inference (ONNX Runtime / TorchSharp / vlastní wrapper nad stable-diffusion.cpp / candle), nebo embedded Python s plnou kontrolou. Cíl: one-click, žádná závislost na ComfyUI portable, vlastní správa verzí. Velký záběr — navrhnout architekturu zvlášť.
 
 ### Menší / technický dluh
-- **Light theme audit** — některé hardcoded barvy (např. v ChatPageView pro asistent bublinu) zatím nepoužívají DynamicResource. Plný light theme vyžaduje obhlídku.
+- ~~**Light theme audit**~~ — HOTOVO: strukturální + semantické barvy ve Views jsou theme-aware (`DynamicResource`). Případný drobný dopilování zbývá jen u záměrných výjimek (overlay scrimy, modré badge).
 - **Pause/resume v Download manageru** — UI tlačítko + perzistence partial soubor přes restarty
 - **macOS reálné ověření + AppIcon.icns + .pkg installer**
 - **Refactor velkých VMs** — `ChatPageViewModel` (1500+ ř.) → ChatOrchestrator service v Infrastructure
