@@ -535,6 +535,26 @@
                     </Grid>
                 </Border>
 
+                <!-- Úložiště: celková velikost na disku + úklid nedokončených (.tmp) -->
+                <Grid ColumnDefinitions="*,Auto" Margin="2,10,2,2"
+                      IsVisible="{Binding !HasNoDownloadedModels}">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                                IsVisible="{Binding HasDownloadedSize}">
+                        <mi:MaterialIcon Kind="Harddisk" Width="14" Height="14"
+                                         Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                        <TextBlock FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center">
+                            <Run Text="Na disku celkem:"/>
+                            <Run Text="{Binding TotalDownloadedSizeLabel}" FontWeight="SemiBold"/>
+                        </TextBlock>
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="secondary" Padding="10,5" FontSize="11"
+                            IsVisible="{Binding HasOrphanTmp}"
+                            Foreground="{DynamicResource WarningBrush}"
+                            Command="{Binding CleanupOrphanedDownloadsCommand}"
+                            Content="{Binding OrphanTmpLabel}"
+                            ToolTip.Tip="Smaže nedokončená stahování (.tmp) — kromě právě běžících a pozastavených."/>
+                </Grid>
+
                 <ItemsControl ItemsSource="{Binding FilteredDownloadedModels}"/>
 
                 <Border Height="80"/>

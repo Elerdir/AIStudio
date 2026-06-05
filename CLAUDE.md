@@ -201,8 +201,9 @@ Většina struktur barev je v `App.axaml` `ResourceDictionary.ThemeDictionaries`
 - [x] ComfyUI-GGUF custom node auto-install
 - [x] **Checksum validace** (SHA-256 chain Civitai → DiscoveredModel → ModelItem → DownloadService)
 - [x] Download s progress, retry, partial resume
-- [ ] Pause/resume tlačítko v UI
-- [ ] Model storage cleanup (delete unused)
+- [x] **Pause/resume tlačítko v UI** — Pozastavit/Pokračovat u stahování (partial `.tmp` se zachová, naváže přes Range)
+- [x] **Model storage cleanup** — celková velikost na disku v záložce Stažené + úklid osiřelých `.tmp`
+  (`ModelStorageCleaner` pure helper, chrání aktivní/pozastavená stahování). Mazání modelů = per-model „Odebrat".
 
 ### Multi-vendor / multi-platform
 - [x] **AMD/Intel Windows** — Vulkan LLM (~70-80 % CUDA rychlosti), DirectML ComfyUI
