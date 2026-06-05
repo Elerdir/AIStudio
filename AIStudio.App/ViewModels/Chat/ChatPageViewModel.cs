@@ -39,11 +39,24 @@ public partial class ChatPageViewModel : ViewModelBase
 
     // Systémové prompty (presety) → ChatPageViewModel.Presets.cs (partial)
 
-    [ObservableProperty] private bool                   _isSending;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasGenerationSpeed))]
+    private bool                   _isSending;
     [ObservableProperty] private bool                   _isLoading            = true;
     [ObservableProperty] private bool                   _isLoadingModel;
     [ObservableProperty] private string                 _modelStatusText      = string.Empty;
     [ObservableProperty] private bool                   _canRegenerate;
+
+    /// <summary>Živá rychlost generování (tokeny/s) během streamu odpovědi; 0 = neukazovat.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GenerationSpeedLabel), nameof(HasGenerationSpeed))]
+    private double                 _tokensPerSecond;
+
+    /// <summary>Popisek rychlosti pro hlavičku chatu („42 tok/s").</summary>
+    public string GenerationSpeedLabel => TokensPerSecond > 0 ? $"{TokensPerSecond:0} tok/s" : string.Empty;
+
+    /// <summary>Ukazovat ticker rychlosti — jen během streamu a když už máme měření.</summary>
+    public bool HasGenerationSpeed => IsSending && TokensPerSecond > 0;
 
     /// <summary>True dokud běží compact (shrnutí starší části konverzace LLM-em).</summary>
     [ObservableProperty]
@@ -1173,27 +1186,34 @@ public partial class ChatPageViewModel : ViewModelBase
     /// nebo výjimce zůstane v bublině poslední konzistentní stav. Výjimky probublají
     /// dál, kde si je volající chytá vlastními catch bloky.
     /// </summary>
-    private static async Task StreamIntoMessageAsync(
+    private async Task StreamIntoMessageAsync(
         IAsyncEnumerable<string> tokens,
         ChatMessage              target,
         CancellationToken        ct)
     {
         const int FlushIntervalMs = 80;
 
-        var sb       = new StringBuilder(target.Content);
-        var lastTick = Environment.TickCount64 - FlushIntervalMs; // první chunk flushne hned
+        var sb        = new StringBuilder(target.Content);
+        var lastTick  = Environment.TickCount64 - FlushIntervalMs; // první chunk flushne hned
+        var startTick = Environment.TickCount64;
+        var tokenCount = 0;
+
+        Dispatcher.UIThread.Post(() => TokensPerSecond = 0);
 
         try
         {
             await foreach (var token in tokens.WithCancellation(ct))
             {
                 sb.Append(token);
+                tokenCount++;
 
                 var now = Environment.TickCount64;
                 if (now - lastTick >= FlushIntervalMs)
                 {
-                    var snapshot = sb.ToString();
-                    Dispatcher.UIThread.Post(() => target.Content = snapshot);
+                    var snapshot   = sb.ToString();
+                    var elapsedSec = (now - startTick) / 1000.0;
+                    var tps        = elapsedSec > 0.25 ? tokenCount / elapsedSec : 0;   // ustálí se po ~čtvrt s
+                    Dispatcher.UIThread.Post(() => { target.Content = snapshot; TokensPerSecond = tps; });
                     lastTick = now;
                 }
             }
@@ -1205,6 +1225,7 @@ public partial class ChatPageViewModel : ViewModelBase
             {
                 target.Content     = final;
                 target.IsStreaming = false;
+                TokensPerSecond    = 0;   // ticker zmizí po dokončení (label visí jen při streamu)
             });
         }
     }

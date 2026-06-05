@@ -353,6 +353,24 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Live ticker rychlosti generování (tok/s) — jen během streamu -->
+                        <Border IsVisible="{Binding HasGenerationSpeed}"
+                                Background="{DynamicResource HoverBgBrush}"
+                                CornerRadius="6" Padding="6,3"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="Rychlost generování odpovědi (tokeny za sekundu)">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Speedometer}"
+                                                 Width="12" Height="12"
+                                                 Foreground="{DynamicResource AccentLightBrush}"
+                                                 VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding GenerationSpeedLabel}"
+                                           FontSize="11" FontWeight="Medium"
+                                           Foreground="{DynamicResource TextLightBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Uvolnit model z VRAM -->
                         <Button IsVisible="{Binding IsModelLoaded}"
                                 Command="{Binding UnloadModelCommand}"
