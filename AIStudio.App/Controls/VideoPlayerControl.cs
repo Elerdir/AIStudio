@@ -70,9 +70,35 @@ public sealed class VideoPlayerControl : Control
         set => SetValue(SourceProperty, value);
     }
 
+    // ── Loop property (vypínatelná smyčka) ─────────────────────────────────────
+
+    /// <summary>Když true (default), video se přehrává dokola; jinak doběhne jednou.</summary>
+    public static readonly StyledProperty<bool> LoopProperty =
+        AvaloniaProperty.Register<VideoPlayerControl, bool>(nameof(Loop), defaultValue: true);
+
+    public bool Loop
+    {
+        get => GetValue(LoopProperty);
+        set => SetValue(LoopProperty, value);
+    }
+
+    // ── IsPaused property (bindable pro tlačítko play/pauza) ────────────────────
+
+    public static readonly DirectProperty<VideoPlayerControl, bool> IsPausedProperty =
+        AvaloniaProperty.RegisterDirect<VideoPlayerControl, bool>(nameof(IsPaused), o => o.IsPaused);
+
+    /// <summary>True když je přehrávání pozastavené (řídí ikonu/overlay).</summary>
+    public bool IsPaused
+    {
+        get => _paused;
+        private set { if (SetAndRaise(IsPausedProperty, ref _paused, value)) InvalidateVisual(); }
+    }
+
     static VideoPlayerControl()
     {
         SourceProperty.Changed.AddClassHandler<VideoPlayerControl>((c, _) => c.Restart());
+        // Přepnutí smyčky se projeví restartem (input-repeat se nastavuje při otevření média).
+        LoopProperty.Changed.AddClassHandler<VideoPlayerControl>((c, _) => c.Restart());
         AffectsRender<VideoPlayerControl>(SourceProperty);
     }
 
@@ -107,15 +133,35 @@ public sealed class VideoPlayerControl : Control
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
+        TogglePlayPause();
+    }
+
+    // ── Veřejné ovládání (pro tlačítka v hostujícím View) ──────────────────────
+
+    /// <summary>Přepne přehrávání / pauzu.</summary>
+    public void TogglePlayPause()
+    {
+        if (IsPaused) Play(); else Pause();
+    }
+
+    /// <summary>Pokračovat v přehrávání.</summary>
+    public void Play()
+    {
+        if (_player is null) { Restart(); return; }
+        try { _player.SetPause(false); IsPaused = false; }
+        catch (Exception ex) { Log.Warning(ex, "VideoPlayerControl: play selhalo"); }
+    }
+
+    /// <summary>Pozastavit přehrávání.</summary>
+    public void Pause()
+    {
         if (_player is null) return;
-        try
-        {
-            _paused = !_paused;
-            _player.SetPause(_paused);
-            InvalidateVisual();
-        }
+        try { _player.SetPause(true); IsPaused = true; }
         catch (Exception ex) { Log.Warning(ex, "VideoPlayerControl: pauza selhala"); }
     }
+
+    /// <summary>Přehrát znovu od začátku (spolehlivě i po dobehnutí bez smyčky).</summary>
+    public void Replay() => Restart();
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -149,8 +195,8 @@ public sealed class VideoPlayerControl : Control
             _player.SetVideoCallbacks(_lockCb, null, _displayCb);
 
             using var media = new Media(_libVlc, new Uri(path));
-            // Smyčka — generovaná videa jsou krátká, ať se přehrávají dokola.
-            media.AddOption(":input-repeat=65535");
+            // Smyčka (vypínatelná) — generovaná videa jsou krátká, defaultně dokola.
+            if (Loop) media.AddOption(":input-repeat=65535");
             _player.Play(media);
         }
         catch (Exception ex)
@@ -177,7 +223,7 @@ public sealed class VideoPlayerControl : Control
 
         // Delegáty uvolníme až po Stop/Dispose (libVLC je už nevolá).
         _formatCb = null; _cleanupCb = null; _lockCb = null; _displayCb = null;
-        _paused = false;
+        IsPaused = false;
     }
 
     // ── libVLC callbacky (běží na vlákně libVLC) ───────────────────────────────
