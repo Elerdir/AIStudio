@@ -504,6 +504,36 @@
                                         <TextBlock Text="{Binding VideoHelperLabel}" FontSize="11"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                     </StackPanel>
+
+                                    <!-- Řádek 4: řízená aktualizace na ověřenou verzi -->
+                                    <Button Classes="secondary" Padding="12,7" HorizontalAlignment="Left"
+                                            IsVisible="{Binding CanUpdateComfy}"
+                                            Command="{Binding UpdateComfyCommand}"
+                                            ToolTip.Tip="Zastaví ComfyUI, přepne git na ověřenou verzi, reinstaluje závislosti a spustí ho znovu.">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Update}"
+                                                             Width="14" Height="14" VerticalAlignment="Center"/>
+                                            <TextBlock VerticalAlignment="Center" FontSize="12"
+                                                       Text="{Binding TestedComfyVersion, StringFormat='Sladit s ověřenou verzí {0}'}"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Proč nejde aktualizovat (chybí git / není git repo) -->
+                                    <TextBlock IsVisible="{Binding HasComfyUpdateUnavailableHint}"
+                                               Text="{Binding ComfyUpdateUnavailableHint}"
+                                               FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextHintBrush}"/>
+
+                                    <!-- Průběh / výsledek aktualizace -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                                IsVisible="{Binding HasComfyUpdateStatus}">
+                                        <ProgressBar IsIndeterminate="True" Width="80" Height="4" CornerRadius="2"
+                                                     IsVisible="{Binding IsUpdatingComfy}"
+                                                     Foreground="{DynamicResource AccentLightBrush}"
+                                                     VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding ComfyUpdateStatus}" FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
 

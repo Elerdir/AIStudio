@@ -149,6 +149,8 @@ public partial class App : Application
         services.AddSingleton<IChatRepository, SqliteChatRepository>();
         services.AddSingleton<IComfyHttpClient, ComfyHttpClient>();
         services.AddSingleton<IComfyService, ComfyService>();
+        // Řízená aktualizace ComfyUI na ověřenou verzi (git checkout + pip).
+        services.AddSingleton<IComfyUpdateService, ComfyUpdateService>();
         // ComfyUI installer — per-platform impl. (macOS inline, Windows v partial výše).
         if (OperatingSystem.IsMacOS())
             services.AddSingleton<IComfyInstaller, MacOsComfyInstaller>();

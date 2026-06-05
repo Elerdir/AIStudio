@@ -255,7 +255,13 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
   **Zbývá:** runtime ověření na stroji (nativní libVLC + reálná generace) — interop a Wan
   výstup nejdou ověřit buildem. Pozn.: macOS nemá nativní libVLC (jen Windows balíček) →
   přehrávač tam graceful fallbackuje na externí přehrání.
-- **ComfyUI řízená aktualizace (část 2)** — část 1 hotová (zobrazení verze v Nastavení, `ComfyVersion.ReadFromDirectory` + `TestedVersion` pin). Zbývá: tlačítko „Aktualizovat ComfyUI" → zastavit proces → `git` checkout na **další ověřený ref** (NE bleeding edge) → reinstal `requirements.txt` + custom node deps → restart → ověřit. Default = bezpečná pinned verze; update explicitní/hlídaný.
+- **ComfyUI řízená aktualizace** — HOTOVO (čeká runtime): `IComfyUpdateService`/`ComfyUpdateService`
+  (Infrastructure) — zastaví ComfyUI → `git fetch --tags` → `git checkout v{TestedVersion}` (pinned, NE
+  bleeding edge) → `pip install -r requirements.txt` (non-fatal) → UI restartuje proces. Defenzivní:
+  guard na git repo (`.git`) + `git` na PATH, jinak jasná hláška. Tlačítko „Sladit s ověřenou verzí
+  X.Y.Z" v Nastavení (viditelné jen když git repo + git dostupné + verze nesedí) + průběh/hint.
+  **Zbývá runtime:** ověřit git checkout na reálné portable instalaci (custom_nodes/models jsou
+  gitignored → checkout je nepřepíše).
 
 ### Plánováno (roadmap — větší věci)
 - **Dlouhé video + 2× upscale (IMPLEMENTOVÁNO, čeká runtime ověření)** — řetězení ~5s Wan
