@@ -118,6 +118,13 @@ public partial class ModelManagerPageViewModel : ViewModelBase
 
     private readonly Dictionary<ModelItemViewModel, CancellationTokenSource> _activeDownloads = new();
 
+    /// <summary>
+    /// Cesty k <c>.tmp</c> souborům pozastavených stahování — chráněné před úklidem
+    /// (uživatel je chce navázat). Plní se v <see cref="PauseDownload"/>, čistí v
+    /// Resume/Cancel. Aktivní stahování jsou chráněná zvlášť (přes <see cref="_activeDownloads"/>).
+    /// </summary>
+    private readonly HashSet<string> _pausedTmpPaths = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Spojení queue položky → HF varianta — pro zrcadlení stavu zpět do detailu.</summary>
     private readonly Dictionary<ModelItemViewModel, HfFileInfoVm> _hfLinks = new();
 
@@ -135,6 +142,30 @@ public partial class ModelManagerPageViewModel : ViewModelBase
 
     /// <summary>Počet položek ve frontě — pro číselný badge na tlačítku „Fronta".</summary>
     public int DownloadQueueCount => DownloadQueue.Count;
+
+    // ── Úložiště: velikost na disku + úklid nedokončených (.tmp) ───────────────
+
+    /// <summary>Celková velikost stažených modelů na disku (součet souborů ve složce Models).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TotalDownloadedSizeLabel), nameof(HasDownloadedSize))]
+    private long _totalDownloadedBytes;
+
+    public string TotalDownloadedSizeLabel => FormatFileSize(TotalDownloadedBytes);
+    public bool   HasDownloadedSize        => TotalDownloadedBytes > 0;
+
+    /// <summary>Počet osiřelých <c>.tmp</c> (nedokončená/opuštěná stahování) k úklidu.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOrphanTmp), nameof(OrphanTmpLabel))]
+    private int _orphanTmpCount;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OrphanTmpLabel))]
+    private long _orphanTmpBytes;
+
+    public bool   HasOrphanTmp   => OrphanTmpCount > 0;
+    public string OrphanTmpLabel => OrphanTmpCount > 0
+        ? $"Smazat {OrphanTmpCount} nedokončených stahování ({FormatFileSize(OrphanTmpBytes)})"
+        : string.Empty;
 
     /// <summary>Otevřené okno fronty — držíme referenci, aby se neotvíralo víckrát.</summary>
     private AIStudio.App.Views.Models.DownloadQueueWindow? _queueWindow;
@@ -736,6 +767,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         if (_activeDownloads.TryGetValue(model, out var cts))
         {
             model.IsPausing = true;   // signál pro cancel handler: nemaž .tmp
+            try { _pausedTmpPaths.Add(ResolveModelDiskPath(model) + ".tmp"); } catch { /* ignore */ }
             cts.Cancel();
         }
     }
@@ -746,6 +778,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
     {
         if (model is null || !model.IsPaused) return;
         model.IsPaused = false;
+        try { _pausedTmpPaths.Remove(ResolveModelDiskPath(model) + ".tmp"); } catch { /* ignore */ }
         EnqueueDownload(model);   // znovu zařadí; DownloadFileAsync naváže díky Range hlavičce
     }
 
@@ -771,6 +804,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             try
             {
                 var tmp = ResolveModelDiskPath(model) + ".tmp";
+                _pausedTmpPaths.Remove(tmp);
                 if (File.Exists(tmp)) File.Delete(tmp);
             }
             catch (Exception ex) { Log.Warning(ex, "CancelDownload: úklid .tmp pozastaveného selhal"); }
@@ -1148,6 +1182,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         // pak jediným Dispatch postem nahrnem do kolekce — méně jitteru v UI
         // než N samostatných Add-ů.
         var collected = new List<ModelItemViewModel>();
+        var totalBytes = 0L;
 
         try
         {
@@ -1158,6 +1193,7 @@ public partial class ModelManagerPageViewModel : ViewModelBase
                     var fileName = Path.GetFileName(path);
                     var name     = Path.GetFileNameWithoutExtension(fileName);
                     var info     = new FileInfo(path);
+                    totalBytes  += info.Length;
 
                     var item = new ModelItemViewModel
                     {
@@ -1188,12 +1224,49 @@ public partial class ModelManagerPageViewModel : ViewModelBase
             Log.Warning(ex, "ModelManager: sken {Dir} selhal", ModelsDir);
         }
 
+        var (orphanCount, orphanBytes) = ScanOrphanTmp();
+
         Dispatcher.UIThread.Post(() =>
         {
             DownloadedModels.Clear();
             foreach (var item in collected)
                 DownloadedModels.Add(item);
+
+            TotalDownloadedBytes = totalBytes;
+            OrphanTmpCount       = orphanCount;
+            OrphanTmpBytes       = orphanBytes;
         });
+    }
+
+    /// <summary>
+    /// Najde osiřelé <c>.tmp</c> soubory (nedokončená/opuštěná stahování) ve složce Models,
+    /// kromě těch, které patří aktuálně běžícímu nebo pozastavenému stahování (ty se nesmí
+    /// smazat — jdou navázat). Vrací počet a celkovou velikost.
+    /// </summary>
+    private (int Count, long Bytes) ScanOrphanTmp() =>
+        AIStudio.Core.Services.ModelStorageCleaner.ScanOrphanTmp(ModelsDir, ProtectedTmpPaths());
+
+    /// <summary>Cesty k <c>.tmp</c>, které se NESMÍ uklidit — aktivní + pozastavená stahování.</summary>
+    private HashSet<string> ProtectedTmpPaths()
+    {
+        var set = new HashSet<string>(_pausedTmpPaths, StringComparer.OrdinalIgnoreCase);
+        foreach (var model in _activeDownloads.Keys)
+        {
+            try { set.Add(ResolveModelDiskPath(model) + ".tmp"); } catch { /* ignore */ }
+        }
+        return set;
+    }
+
+    /// <summary>Smaže osiřelé <c>.tmp</c> (mimo aktivní/pozastavená) a obnoví počty.</summary>
+    [RelayCommand]
+    private void CleanupOrphanedDownloads()
+    {
+        var deleted = AIStudio.Core.Services.ModelStorageCleaner.DeleteOrphanTmp(ModelsDir, ProtectedTmpPaths());
+        Log.Information("ModelManager: uklizeno {N} osiřelých .tmp", deleted);
+
+        var (count, bytes) = ScanOrphanTmp();
+        OrphanTmpCount = count;
+        OrphanTmpBytes = bytes;
     }
 
     private void RefreshDownloadedTab() => ScanLocalModelsIntoDownloaded();
