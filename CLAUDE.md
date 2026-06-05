@@ -285,6 +285,10 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
 
 ### Menší / technický dluh
 - **Light theme audit** — některé hardcoded barvy (např. v ChatPageView pro asistent bublinu) zatím nepoužívají DynamicResource. Plný light theme vyžaduje obhlídku.
-- **Pause/resume v Download manageru** — UI tlačítko + perzistence partial soubor přes restarty
+- ~~**Pause/resume v Download manageru**~~ — HOTOVO: tlačítka Pozastavit/Pokračovat u běžícího
+  stahování. Pauza ponechá `.tmp` (přes `IsPausing` flag → cancel handler nemaže), Resume re-enqueue
+  → `DownloadService` naváže přes Range hlavičku. Partial `.tmp` přežije restart (na dalším Download
+  se dotáhne). `IsPaused`/`ShowPauseButton`/`ShowResume` v `ModelItemViewModel`. Mazání nepoužívaných
+  modelů = už existující per-model „Odebrat" (`DeleteModelAsync`).
 - **macOS reálné ověření + AppIcon.icns + .pkg installer**
 - **Refactor velkých VMs** — `ChatPageViewModel` (1500+ ř.) → ChatOrchestrator service v Infrastructure
