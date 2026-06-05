@@ -39,7 +39,7 @@
                              PlaceholderText="&#xE721; Hledat…"
                              Background="{DynamicResource CardBgBrush}"
                              BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
-                             Foreground="{DynamicResource TextLightBrush}" CaretBrush="#A78BFA"
+                             Foreground="{DynamicResource TextLightBrush}" CaretBrush="{DynamicResource AccentLightBrush}"
                              CornerRadius="8" Padding="10,6"
                              FontSize="12"/>
                 </Border>
@@ -108,7 +108,7 @@
                                             CommandParameter="{Binding}"
                                             Width="24" Height="24" Padding="0"
                                             CornerRadius="6"
-                                            Background="#2A1515" BorderThickness="0"
+                                            Background="{DynamicResource ErrSurfaceBrush}" BorderThickness="0"
                                             VerticalAlignment="Center"
                                             ToolTip.Tip="Smazat konverzaci">
                                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12" Foreground="{DynamicResource ErrorBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -124,10 +124,10 @@
                             <Setter Property="CornerRadius" Value="8"/>
                         </Style>
                         <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#26263A"/>
+                            <Setter Property="Background" Value="{DynamicResource InfoSurfaceBrush}"/>
                         </Style>
                         <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
-                            <Setter Property="Background" Value="#1E1E24"/>
+                            <Setter Property="Background" Value="{DynamicResource AppBorderBrush}"/>
                         </Style>
                         <Style Selector="Button.pinConv">
                             <Setter Property="Opacity" Value="0"/>
@@ -276,7 +276,7 @@
                                  IsVisible="{Binding IsEditingTitle}"
                                  Background="{DynamicResource CardBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                                  SelectionBrush="#4C3A7A"
-                                 BorderBrush="#7C3AED" BorderThickness="1"
+                                 BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
                                  CornerRadius="8" Padding="8,5"
                                  FontSize="14" FontWeight="SemiBold"
                                  LostFocus="TitleEditBox_LostFocus"
@@ -307,7 +307,7 @@
                                   IsEnabled="{Binding !IsSending}"/>
                         <!-- GPU badge — zelený, viditelný pouze pokud model jede na GPU -->
                         <Border IsVisible="{Binding IsGpuBackend}"
-                                Background="#0A2010"
+                                Background="{DynamicResource OkSurfaceBrush}"
                                 CornerRadius="6" Padding="6,3"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="{Binding BackendTooltip}">
@@ -321,7 +321,7 @@
                         </Border>
                         <!-- CPU badge — jantarový, viditelný pokud model jede přes CPU (ne GPU) -->
                         <Border IsVisible="{Binding IsCpuBackend}"
-                                Background="#1A1008"
+                                Background="{DynamicResource WarnSurfaceBrush}"
                                 CornerRadius="6" Padding="6,3"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="{Binding BackendTooltip}">
@@ -356,13 +356,13 @@
                         <!-- Uvolnit model z VRAM -->
                         <Button IsVisible="{Binding IsModelLoaded}"
                                 Command="{Binding UnloadModelCommand}"
-                                Background="#1A1210"
-                                BorderBrush="#3A2010" BorderThickness="1"
+                                Background="{DynamicResource WarnSurfaceBrush}"
+                                BorderBrush="{DynamicResource WarnBorderBrush}" BorderThickness="1"
                                 CornerRadius="8"
                                 Width="28" Height="28" Padding="0"
                                 VerticalAlignment="Center"
                                 ToolTip.Tip="{Binding LoadedModelName, StringFormat='Uvolnit &quot;{0}&quot; z VRAM'}">
-                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Memory}" Width="14" Height="14" Foreground="#D97706" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Memory}" Width="14" Height="14" Foreground="{DynamicResource WarnTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Button>
                         <!-- Thinking mode toggle — pouze pro Qwen3 modely -->
                         <Button IsVisible="{Binding SelectedConversation.IsQwen3Selected}"
@@ -455,7 +455,7 @@
                                  Minimum="0" Maximum="100"
                                  Height="6" CornerRadius="3"
                                  Foreground="{Binding ContextBarBrush}"
-                                 Background="#1C1C24"
+                                 Background="{DynamicResource CardBgBrush}"
                                  VerticalAlignment="Center"/>
                     <TextBlock Grid.Column="2"
                                Text="{Binding ContextUsageLabel}"
@@ -542,7 +542,7 @@
                              Background="{DynamicResource SidebarBgBrush}"
                              BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                              Foreground="{DynamicResource TextLightBrush}"
-                             CaretBrush="#A78BFA"
+                             CaretBrush="{DynamicResource AccentLightBrush}"
                              Padding="12,8"
                              FontSize="12"
                              AcceptsReturn="True"
@@ -558,13 +558,13 @@
                                  Text="{Binding NewPresetName}"
                                  PlaceholderText="Název presetu (např. 'Erotická povídka')…"
                                  Background="{DynamicResource CardBgBrush}"
-                                 BorderBrush="#7C3AED" BorderThickness="1"
-                                 Foreground="{DynamicResource TextLightBrush}" CaretBrush="#A78BFA"
+                                 BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                 Foreground="{DynamicResource TextLightBrush}" CaretBrush="{DynamicResource AccentLightBrush}"
                                  Padding="10,5" FontSize="12" CornerRadius="8"/>
                         <Button Grid.Column="1" Content="Uložit"
                                 Command="{Binding ConfirmSavePresetCommand}"
                                 FontSize="12" Padding="12,5" CornerRadius="8"
-                                Background="#3A1F6A" BorderBrush="#7C3AED" BorderThickness="1"
+                                Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
                                 Foreground="{DynamicResource AccentLighterBrush}"/>
                         <Button Grid.Column="2" Content="Zrušit"
                                 Command="{Binding CancelSavePresetCommand}"
@@ -600,8 +600,8 @@
                     </StackPanel>
                     <Button Command="{Binding NewConversationCommand}"
                             HorizontalAlignment="Center"
-                            Background="#1A1530"
-                            BorderBrush="#3D2A6E" BorderThickness="1"
+                            Background="{DynamicResource InfoSurfaceBrush}"
+                            BorderBrush="{DynamicResource InfoSurfaceBrush}" BorderThickness="1"
                             CornerRadius="10" Padding="20,10">
                         <TextBlock Text="+ Nový chat"
                                    FontSize="13" Foreground="{DynamicResource AccentLightBrush}"/>
@@ -628,8 +628,8 @@
                         </StackPanel>
                         <Button Command="{Binding NavigateToModelsCommand}"
                                 HorizontalAlignment="Center"
-                                Background="#1A1530"
-                                BorderBrush="#3D2A6E" BorderThickness="1"
+                                Background="{DynamicResource InfoSurfaceBrush}"
+                                BorderBrush="{DynamicResource InfoSurfaceBrush}" BorderThickness="1"
                                 CornerRadius="10" Padding="20,10">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Robot}" Width="16" Height="16" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
@@ -677,8 +677,8 @@
                                     <Border Grid.Column="1"
                                             HorizontalAlignment="Right"
                                             MaxWidth="640"
-                                            Background="#2D1F52"
-                                            BorderBrush="#3D2A6E"
+                                            Background="{DynamicResource InfoSurfaceBrush}"
+                                            BorderBrush="{DynamicResource InfoSurfaceBrush}"
                                             BorderThickness="1"
                                             CornerRadius="14,14,2,14"
                                             Padding="14,10,14,14"
@@ -700,7 +700,7 @@
                                                         <DataTemplate x:DataType="x:String">
                                                             <Border CornerRadius="8" ClipToBounds="True"
                                                                     Margin="0,0,8,8" MaxWidth="200"
-                                                                    Background="#1C1530">
+                                                                    Background="{DynamicResource InfoSurfaceBrush}">
                                                                 <Image Stretch="Uniform" MaxHeight="180"
                                                                        Source="{Binding Converter={x:Static conv:ImagePathToThumbnailConverter.Instance}}"/>
                                                             </Border>
@@ -709,22 +709,22 @@
                                                 </ItemsControl>
                                                 <SelectableTextBlock Text="{Binding DisplayText}"
                                                            IsVisible="{Binding DisplayText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                                           Foreground="#E8E0FF"
+                                                           Foreground="{DynamicResource InfoTextBrush}"
                                                            FontSize="14" LineHeight="22"
                                                            TextWrapping="Wrap"/>
                                                 <!-- Řádek: čas + tokeny (vlevo) + akce (vpravo) -->
                                                 <StackPanel Spacing="8" Margin="0,12,0,6">
-                                                <Border Height="1" Background="#A78BFA" Opacity="0.5"/>
+                                                <Border Height="1" Background="{DynamicResource AccentLightBrush}" Opacity="0.5"/>
                                                 <Grid ColumnDefinitions="*,Auto">
                                                     <StackPanel Grid.Column="0" Orientation="Horizontal"
                                                                 Spacing="6" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding TimeLabel}"
                                                                    FontSize="11" FontWeight="SemiBold"
-                                                                   Foreground="#9D8FC6"/>
-                                                        <TextBlock Text="·" FontSize="11" Foreground="#6A5A98"
+                                                                   Foreground="{DynamicResource InfoTextBrush}"/>
+                                                        <TextBlock Text="·" FontSize="11" Foreground="{DynamicResource InfoTextBrush}"
                                                                    IsVisible="{Binding TokenHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                                         <TextBlock Text="{Binding TokenHint}"
-                                                                   FontSize="11" Foreground="#8275B0"
+                                                                   FontSize="11" Foreground="{DynamicResource InfoTextBrush}"
                                                                    IsVisible="{Binding TokenHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1"
@@ -736,7 +736,7 @@
                                                                 CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
                                                             <Panel>
-                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="14" Height="14" Foreground="#C4B5FD" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
+                                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ContentCopy}" Width="14" Height="14" Foreground="{DynamicResource AccentLighterBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !IsCopied}"/>
                                                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Check}" Width="14" Height="14" Foreground="{DynamicResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding IsCopied}"/>
                                                             </Panel>
                                                         </Button>
@@ -746,7 +746,7 @@
                                                                 Width="24" Height="24" Padding="0"
                                                                 CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
-                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="14" Height="14" Foreground="#C4B5FD" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="14" Height="14" Foreground="{DynamicResource AccentLighterBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
                                                         <!-- Větev konverzace od této zprávy -->
                                                         <Button Classes="msgAction"
@@ -756,7 +756,7 @@
                                                                 Width="24" Height="24" Padding="0"
                                                                 CornerRadius="6"
                                                                 Background="Transparent" BorderThickness="0">
-                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="14" Height="14" Foreground="#C4B5FD" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.SourceFork}" Width="14" Height="14" Foreground="{DynamicResource AccentLighterBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                         </Button>
                                                     </StackPanel>
                                                 </Grid>
@@ -766,10 +766,10 @@
                                             <!-- Editační mód -->
                                             <StackPanel Spacing="8" IsVisible="{Binding IsEditing}">
                                                 <TextBox Text="{Binding EditContent}"
-                                                         Background="#1C1530"
-                                                         BorderBrush="#7C3AED" BorderThickness="1"
-                                                         Foreground="#E8E0FF"
-                                                         CaretBrush="#A78BFA"
+                                                         Background="{DynamicResource InfoSurfaceBrush}"
+                                                         BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                                         Foreground="{DynamicResource InfoTextBrush}"
+                                                         CaretBrush="{DynamicResource AccentLightBrush}"
                                                          SelectionBrush="#4C3A7A"
                                                          Padding="10,8"
                                                          FontSize="14"
@@ -789,16 +789,16 @@
                                                             Content="Zrušit"
                                                             FontSize="12" Padding="10,5"
                                                             CornerRadius="8"
-                                                            Background="#2A1515"
-                                                            BorderBrush="#3D2020" BorderThickness="1"
+                                                            Background="{DynamicResource ErrSurfaceBrush}"
+                                                            BorderBrush="{DynamicResource ErrBorderBrush}" BorderThickness="1"
                                                             Foreground="{DynamicResource ErrorBrush}"/>
                                                     <Button Command="{ReflectionBinding $parent[UserControl].DataContext.ConfirmEditCommand}"
                                                             CommandParameter="{Binding}"
                                                             Content="Potvrdit"
                                                             FontSize="12" Padding="10,5"
                                                             CornerRadius="8"
-                                                            Background="#3A1F6A"
-                                                            BorderBrush="#7C3AED" BorderThickness="1"
+                                                            Background="{DynamicResource InfoSurfaceBrush}"
+                                                            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
                                                             Foreground="{DynamicResource AccentLighterBrush}"/>
                                                 </StackPanel>
                                             </StackPanel>
@@ -825,7 +825,7 @@
 
                                                 <!-- Searching placeholder — recommender + live search běží (1-3s) -->
                                                 <Border IsVisible="{Binding IsSearchingForUpgrade}"
-                                                        Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
+                                                        Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoSurfaceBrush}" BorderThickness="1"
                                                         CornerRadius="12" Padding="24,18"
                                                         MinWidth="420" MinHeight="90">
                                                     <StackPanel Orientation="Horizontal" Spacing="14"
@@ -848,7 +848,7 @@
 
                                                 <!-- Upgrade prompt panel — recommender našel lepší nesažený model -->
                                                 <Border IsVisible="{Binding IsAwaitingUpgradeChoice}"
-                                                        Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
+                                                        Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoSurfaceBrush}" BorderThickness="1"
                                                         CornerRadius="10" Padding="16,14"
                                                         MinWidth="320">
                                                     <StackPanel Spacing="10">
@@ -895,13 +895,13 @@
                                                         </Grid>
                                                         <!-- Civitai API klíč warning — pokud nabídka je z Civitai a klíč není nastaven -->
                                                         <Border IsVisible="{Binding CivitaiKeyWarningVisible}"
-                                                                Background="#13120E" BorderBrush="#2A2517" BorderThickness="1"
+                                                                Background="{DynamicResource WarnSurfaceBrush}" BorderBrush="{DynamicResource WarnBorderBrush}" BorderThickness="1"
                                                                 CornerRadius="6" Padding="10,6" Margin="0,2,0,0">
                                                             <StackPanel Orientation="Horizontal" Spacing="8">
                                                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertOutline}"
                                                                                  Width="13" Height="13" Foreground="{DynamicResource WarningBrush}"
                                                                                  VerticalAlignment="Top" Margin="0,1,0,0"/>
-                                                                <TextBlock FontSize="11" Foreground="#A07820"
+                                                                <TextBlock FontSize="11" Foreground="{DynamicResource WarnTextBrush}"
                                                                            TextWrapping="Wrap" MaxWidth="380"
                                                                            Text="Tip: nastav Civitai API klíč v Nastavení → Stahování pro spolehlivější stažení. Bez klíče může selhat rate-limitem."/>
                                                             </StackPanel>
@@ -917,7 +917,7 @@
 
                                                 <!-- Download progress — viditelný jen pokud uživatel zvolí Stáhnout lepší -->
                                                 <Border IsVisible="{Binding IsDownloadingUpgradeModel}"
-                                                        Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
+                                                        Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoSurfaceBrush}" BorderThickness="1"
                                                         CornerRadius="10" Padding="16,14"
                                                         MinWidth="320">
                                                     <StackPanel Spacing="10">
@@ -932,7 +932,7 @@
                                                         <ProgressBar Value="{Binding UpgradeDownloadPercent}"
                                                                      Minimum="0" Maximum="100"
                                                                      Height="4" CornerRadius="2"
-                                                                     Foreground="{DynamicResource AccentBrush}" Background="#1F1B3D"/>
+                                                                     Foreground="{DynamicResource AccentBrush}" Background="{DynamicResource InfoSurfaceBrush}"/>
                                                         <TextBlock Text="{Binding UpgradeDownloadStatusLabel}"
                                                                    FontSize="11" Foreground="{DynamicResource AccentSubtleBrush}"
                                                                    TextWrapping="Wrap"/>
@@ -941,7 +941,7 @@
 
                                                 <!-- Loading placeholder dokud běží generování -->
                                                 <Border IsVisible="{Binding IsImageGenerating}"
-                                                        Background="#15131C" BorderBrush="#2A2050" BorderThickness="1"
+                                                        Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                                                         CornerRadius="12" Padding="24,20"
                                                         MinWidth="420" MinHeight="110">
                                                     <StackPanel Orientation="Horizontal" Spacing="14"
@@ -959,7 +959,7 @@
                                                                          Minimum="0" Maximum="100"
                                                                          Height="6" CornerRadius="3"
                                                                          Foreground="{DynamicResource AccentLightBrush}"
-                                                                         Background="#221C3A"/>
+                                                                         Background="{DynamicResource InfoSurfaceBrush}"/>
                                                             <TextBlock Text="Po dokončení se model uvolní z VRAM."
                                                                        FontSize="11" Foreground="{DynamicResource AccentSubtleBrush}"
                                                                        TextWrapping="Wrap" MaxWidth="360"
@@ -1104,7 +1104,7 @@
                                                  Separator je samostatný Border s vlastní Opacity,
                                                  aby neovlivnil průhlednost children (TextBlock + akce). -->
                                             <StackPanel IsVisible="{Binding !IsStreaming}" Spacing="8" Margin="0,12,0,6">
-                                            <Border Height="1" Background="#3D2A6E" Opacity="0.6"/>
+                                            <Border Height="1" Background="{DynamicResource InfoSurfaceBrush}" Opacity="0.6"/>
                                             <Border Padding="0,2,0,0">
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <StackPanel Grid.Column="0" Orientation="Horizontal"
@@ -1168,14 +1168,14 @@
                                             HorizontalAlignment="Center"
                                             MaxWidth="720"
                                             Margin="0,4"
-                                            Background="#15131C"
-                                            BorderBrush="#2A2050" BorderThickness="1"
+                                            Background="{DynamicResource InfoSurfaceBrush}"
+                                            BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                                             CornerRadius="12"
                                             Padding="16,12"
                                             IsVisible="{Binding Role, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:MessageRole.System}}">
                                         <StackPanel Spacing="6">
                                             <ctrl:MarkdownViewer Markdown="{Binding Content}" Padding="0"/>
-                                            <Border Height="1" Background="#2A2050" Opacity="0.6"/>
+                                            <Border Height="1" Background="{DynamicResource InfoBorderBrush}" Opacity="0.6"/>
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <TextBlock Grid.Column="0"
                                                            Text="Starší zprávy byly shrnuty pro úsporu kontextu"
@@ -1258,8 +1258,8 @@
                       Margin="0,0,28,16"
                       Width="36" Height="36" Padding="0"
                       CornerRadius="18"
-                      Background="#2A2050"
-                      BorderBrush="#4A3080" BorderThickness="1"
+                      Background="{DynamicResource InfoBorderBrush}"
+                      BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                       ToolTip.Tip="Přejít na konec (↓)"
                       Click="ScrollToBottomFab_Click">
                   <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ChevronDown}" Width="16" Height="16" Foreground="{DynamicResource AccentLightBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -1271,30 +1271,30 @@
 
                 <!-- Edit-mode strip — aktivní editace zprávy -->
                 <Border IsVisible="{Binding SelectedConversation.IsAnyMessageEditing}"
-                        Background="#0C0A18"
-                        BorderBrush="#2A1F4A" BorderThickness="0,1,0,0"
+                        Background="{DynamicResource VeryDeepBgBrush}"
+                        BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="0,1,0,0"
                         Padding="20,7,20,7">
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}" Width="14" Height="14" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center"/>
                         <TextBlock Text="Editace zprávy — potvrď nebo zruš"
-                                   FontSize="12" Foreground="#6040A8"
+                                   FontSize="12" Foreground="{DynamicResource InfoTextBrush}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
 
                 <!-- Loading strip -->
                 <Border IsVisible="{Binding IsLoadingModel}"
-                        Background="#12100A"
-                        BorderBrush="#2A2010" BorderThickness="0,1,0,0"
+                        Background="{DynamicResource WarnSurfaceBrush}"
+                        BorderBrush="{DynamicResource WarnSurfaceBrush}" BorderThickness="0,1,0,0"
                         Padding="20,7,20,7">
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <ProgressBar IsIndeterminate="True"
                                      Width="120" Height="2"
                                      Foreground="{DynamicResource WarningBrush}"
-                                     Background="#2A2010"
+                                     Background="{DynamicResource WarnSurfaceBrush}"
                                      VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding ModelStatusText}"
-                                   FontSize="12" Foreground="#A07820"
+                                   FontSize="12" Foreground="{DynamicResource WarnTextBrush}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
                 </Border>
@@ -1306,8 +1306,8 @@
 
                 <!-- Compare model picker strip -->
                 <Border IsVisible="{Binding IsComparePickerVisible}"
-                        Background="#080810"
-                        BorderBrush="#1A1A30" BorderThickness="0,1,0,0"
+                        Background="{DynamicResource VeryDeepBgBrush}"
+                        BorderBrush="{DynamicResource InfoSurfaceBrush}" BorderThickness="0,1,0,0"
                         Padding="20,8,20,8">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
                         <TextBlock Grid.Column="0" Text="Porovnat s modelem:"
@@ -1323,7 +1323,7 @@
                                 Background="#1A1A3A" BorderBrush="#3A3A6A" BorderThickness="1"
                                 CornerRadius="8" Padding="12,5"
                                 ToolTip.Tip="Vytvořit větev a vygenerovat odpověď zvoleným modelem">
-                            <TextBlock Text="Spustit" FontSize="12" Foreground="#818CF8"/>
+                            <TextBlock Text="Spustit" FontSize="12" Foreground="{DynamicResource InfoTextBrush}"/>
                         </Button>
                         <Button Grid.Column="3"
                                 Command="{Binding ToggleComparePickerCommand}"
@@ -1347,7 +1347,7 @@
 
                     <!-- Chip „Upravuji obrázek" — viditelný po kliku na ikonu Upravit -->
                     <Border IsVisible="{Binding HasPendingEdit}"
-                            Background="#1C1830" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                            Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
                             CornerRadius="8" Padding="10,6" HorizontalAlignment="Left">
                         <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Pencil}"
@@ -1383,8 +1383,8 @@
                             <DataTemplate x:DataType="x:String">
                                 <Border Width="64" Height="64" Margin="0,0,8,8"
                                         CornerRadius="8" ClipToBounds="True"
-                                        Background="#111118"
-                                        BorderBrush="#2A2A30" BorderThickness="1">
+                                        Background="{DynamicResource PanelBgBrush}"
+                                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
                                     <Panel>
                                         <!-- Náhled (dekódovaný na ~120 px) -->
                                         <Image Stretch="UniformToFill"
@@ -1458,7 +1458,7 @@
                                      Background="Transparent"
                                      BorderThickness="0"
                                      Foreground="{DynamicResource TextPrimaryBrush}"
-                                     CaretBrush="#A78BFA"
+                                     CaretBrush="{DynamicResource AccentLightBrush}"
                                      Padding="16,12"
                                      FontSize="14"
                                      AcceptsReturn="False"
@@ -1509,8 +1509,8 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     CornerRadius="12"
-                                    Background="#3A1515"
-                                    BorderBrush="#6B2020" BorderThickness="1"
+                                    Background="{DynamicResource ErrSurfaceBrush}"
+                                    BorderBrush="{DynamicResource ErrBorderBrush}" BorderThickness="1"
                                     ToolTip.Tip="Zastavit generování (Esc)">
                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Stop}" Width="18" Height="18" Foreground="{DynamicResource ErrorBrush}"/>
                             </Button>

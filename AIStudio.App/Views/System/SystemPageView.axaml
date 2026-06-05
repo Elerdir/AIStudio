@@ -101,14 +101,14 @@
                                            Text="{Binding GpuUtilizationPercent, StringFormat={}{0:F0} %}"
                                            FontSize="22"
                                            FontWeight="Bold"
-                                           Foreground="#34D399"
+                                           Foreground="{DynamicResource OkTextBrush}"
                                            VerticalAlignment="Center"/>
                             </Grid>
                             <ProgressBar Value="{Binding GpuUtilizationPercent}"
                                          Minimum="0" Maximum="100"
                                          Height="4"
                                          CornerRadius="2"
-                                         Foreground="#10B981"
+                                         Foreground="{DynamicResource OkTextBrush}"
                                          Background="{DynamicResource AppBorderBrush}"/>
                         </StackPanel>
                     </Border>
@@ -237,8 +237,8 @@
                                                            FontWeight="SemiBold"
                                                            Foreground="{DynamicResource TextPrimaryBrush}"/>
                                                 <Border IsVisible="{Binding IsCurrentApp}"
-                                                        Background="#172917"
-                                                        BorderBrush="#264726"
+                                                        Background="{DynamicResource OkSurfaceBrush}"
+                                                        BorderBrush="{DynamicResource OkBorderBrush}"
                                                         BorderThickness="1"
                                                         CornerRadius="4"
                                                         Padding="6,1">

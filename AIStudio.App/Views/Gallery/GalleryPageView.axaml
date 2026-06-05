@@ -41,7 +41,7 @@
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
 
                         <!-- Segmentové rozdělení: Vše / Obrázky / Videa -->
-                        <Border Grid.Column="0" Background="#161618"
+                        <Border Grid.Column="0" Background="{DynamicResource SidebarBgBrush}"
                                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                                 CornerRadius="8" Padding="3" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" Spacing="3">
@@ -290,13 +290,13 @@
                                         Command="{Binding OpenFolderCommand}" Content="Otevřít složku"/>
                                 <Button Grid.Column="1"
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"
-                                        Background="#3A1C1C" Foreground="#E08585" BorderThickness="0" CornerRadius="8"
+                                        Background="{DynamicResource ErrSurfaceBrush}" Foreground="{DynamicResource ErrTextBrush}" BorderThickness="0" CornerRadius="8"
                                         Command="{Binding DeleteCommand}" Content="Smazat"/>
                             </Grid>
 
                             <!-- Busy (upscale / edit) -->
                             <Border IsVisible="{Binding IsBusy}"
-                                    Background="#15131C" BorderBrush="#2A2050" BorderThickness="1"
+                                    Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                                     CornerRadius="10" Padding="14,12" Margin="0,4,0,0">
                                 <StackPanel Spacing="8">
                                     <Grid ColumnDefinitions="*,Auto">
@@ -307,7 +307,7 @@
                                     </Grid>
                                     <ProgressBar Value="{Binding BusyProgress}" Minimum="0" Maximum="100"
                                                  Height="5" CornerRadius="3"
-                                                 Foreground="{DynamicResource AccentLightBrush}" Background="#221C3A"/>
+                                                 Foreground="{DynamicResource AccentLightBrush}" Background="{DynamicResource InfoSurfaceBrush}"/>
                                 </StackPanel>
                             </Border>
 

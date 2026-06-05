@@ -25,7 +25,7 @@
                 <!-- Logo + název aplikace -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="12">
                     <Border Width="32" Height="32" CornerRadius="8"
-                            Background="#7C3AED">
+                            Background="{DynamicResource AccentBrush}">
                         <TextBlock Text="AI" FontSize="13" FontWeight="Bold"
                                    Foreground="White"
                                    HorizontalAlignment="Center"
@@ -44,7 +44,7 @@
 
                     <!-- Dot 0 -->
                     <Panel Width="24" Height="8">
-                        <Border CornerRadius="4" Background="#7C3AED"
+                        <Border CornerRadius="4" Background="{DynamicResource AccentBrush}"
                                 IsVisible="{Binding IsStep0}"
                                 Width="24" Height="8"/>
                         <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
@@ -54,7 +54,7 @@
 
                     <!-- Dot 1 -->
                     <Panel Width="24" Height="8">
-                        <Border CornerRadius="4" Background="#7C3AED"
+                        <Border CornerRadius="4" Background="{DynamicResource AccentBrush}"
                                 IsVisible="{Binding IsStep1}"
                                 Width="24" Height="8"/>
                         <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
@@ -64,7 +64,7 @@
 
                     <!-- Dot 2 -->
                     <Panel Width="24" Height="8">
-                        <Border CornerRadius="4" Background="#7C3AED"
+                        <Border CornerRadius="4" Background="{DynamicResource AccentBrush}"
                                 IsVisible="{Binding IsStep2}"
                                 Width="24" Height="8"/>
                         <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
@@ -74,7 +74,7 @@
 
                     <!-- Dot 3 -->
                     <Panel Width="24" Height="8">
-                        <Border CornerRadius="4" Background="#7C3AED"
+                        <Border CornerRadius="4" Background="{DynamicResource AccentBrush}"
                                 IsVisible="{Binding IsStep3}"
                                 Width="24" Height="8"/>
                         <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
@@ -84,7 +84,7 @@
 
                     <!-- Dot 4 (ComfyUI) -->
                     <Panel Width="24" Height="8">
-                        <Border CornerRadius="4" Background="#7C3AED"
+                        <Border CornerRadius="4" Background="{DynamicResource AccentBrush}"
                                 IsVisible="{Binding IsStep4}"
                                 Width="24" Height="8"/>
                         <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
@@ -94,7 +94,7 @@
 
                     <!-- Dot 5 (doporučené modely) -->
                     <Panel Width="24" Height="8">
-                        <Border CornerRadius="4" Background="#7C3AED"
+                        <Border CornerRadius="4" Background="{DynamicResource AccentBrush}"
                                 IsVisible="{Binding IsStep5}"
                                 Width="24" Height="8"/>
                         <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
@@ -104,7 +104,7 @@
 
                     <!-- Dot 6 (souhrn) -->
                     <Panel Width="24" Height="8">
-                        <Border CornerRadius="4" Background="#7C3AED"
+                        <Border CornerRadius="4" Background="{DynamicResource AccentBrush}"
                                 IsVisible="{Binding IsStep6}"
                                 Width="24" Height="8"/>
                         <Border CornerRadius="4" Background="{DynamicResource AppBorderBrush}"
@@ -137,7 +137,7 @@
                             CornerRadius="12" Padding="20,16">
                         <StackPanel Spacing="14">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <Border Width="32" Height="32" CornerRadius="8" Background="#1A1228">
+                                <Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource InfoSurfaceBrush}">
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Forum}" Width="18" Height="18" Foreground="{DynamicResource AccentLightBrush}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
@@ -150,7 +150,7 @@
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <Border Width="32" Height="32" CornerRadius="8" Background="#0E1A18">
-                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}" Width="18" Height="18" Foreground="#34D399"
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}" Width="18" Height="18" Foreground="{DynamicResource OkTextBrush}"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
@@ -161,7 +161,7 @@
                                 </StackPanel>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <Border Width="32" Height="32" CornerRadius="8" Background="#1A1018">
+                                <Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource ErrSurfaceBrush}">
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Download}" Width="18" Height="18" Foreground="#F472B6"
                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
@@ -202,7 +202,7 @@
                                  Background="Transparent"
                                  BorderThickness="0"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
-                                 CaretBrush="#A78BFA"
+                                 CaretBrush="{DynamicResource AccentLightBrush}"
                                  Padding="12,10"
                                  FontSize="13"
                                  Name="ModelsPathBox"/>
@@ -271,19 +271,19 @@
 
                 <!-- GPU nalezeno -->
                 <Border IsVisible="{Binding GpuDetected}"
-                        Margin="0,24,0,0" Background="#0D1A12"
-                        BorderBrush="#166534" BorderThickness="1"
+                        Margin="0,24,0,0" Background="{DynamicResource OkSurfaceBrush}"
+                        BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
                         CornerRadius="12" Padding="20,16">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
                         <Border Grid.Column="0" Width="44" Height="44"
-                                CornerRadius="10" Background="#14532D">
+                                CornerRadius="10" Background="{DynamicResource OkSurfaceBrush}">
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Harddisk}" Width="22" Height="22" Foreground="{DynamicResource SuccessBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                             <TextBlock Text="{Binding GpuName}"
                                        FontSize="14" FontWeight="SemiBold"
-                                       Foreground="#CCFFCC"/>
+                                       Foreground="{DynamicResource OkTextBrush}"/>
                             <TextBlock FontSize="12" Foreground="{DynamicResource SuccessBrush}">
                                 <Run Text="VRAM: "/>
                                 <Run Text="{Binding VramTotalGb, StringFormat='{}{0:F1} GB'}"/>
@@ -294,14 +294,14 @@
 
                 <!-- GPU nenalezeno (a detekce skončila) -->
                 <Border IsVisible="{Binding !GpuDetected}"
-                        Margin="0,24,0,0" Background="#1A1008"
-                        BorderBrush="#3A2A10" BorderThickness="1"
+                        Margin="0,24,0,0" Background="{DynamicResource WarnSurfaceBrush}"
+                        BorderBrush="{DynamicResource WarnBorderBrush}" BorderThickness="1"
                         CornerRadius="12" Padding="20,16">
                     <StackPanel Spacing="4"
                                 IsVisible="{Binding !IsDetectingGpu}">
                         <TextBlock Text="GPU nedetekováno" FontSize="13"
                                    FontWeight="SemiBold" Foreground="{DynamicResource RatingBrush}"/>
-                        <TextBlock FontSize="12" Foreground="#A07820" TextWrapping="Wrap"
+                        <TextBlock FontSize="12" Foreground="{DynamicResource WarnTextBrush}" TextWrapping="Wrap"
                                    Text="Inference poběží na CPU — bude pomalejší. Pro GPU je potřeba NVIDIA s CUDA 12."/>
                     </StackPanel>
                 </Border>
@@ -335,14 +335,14 @@
                         <StackPanel Spacing="8">
                             <!-- GPU option -->
                             <Border CornerRadius="8" Padding="12,10"
-                                    Background="#1A1228"
+                                    Background="{DynamicResource InfoSurfaceBrush}"
                                     Cursor="Hand"
                                     PointerPressed="GpuOption_Pressed">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                                     <Border Grid.Column="0" Width="18" Height="18"
                                             CornerRadius="8"
-                                            BorderBrush="#7C3AED" BorderThickness="2"
-                                            Background="#7C3AED">
+                                            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2"
+                                            Background="{DynamicResource AccentBrush}">
                                         <Border Width="6" Height="6" CornerRadius="3"
                                                 Background="White"
                                                 IsVisible="{Binding UseGpu}"
@@ -362,7 +362,7 @@
                                 </Grid>
                                 <Border.Styles>
                                     <Style Selector="Border:pointerover">
-                                        <Setter Property="Background" Value="#201830"/>
+                                        <Setter Property="Background" Value="{DynamicResource InfoSurfaceBrush}"/>
                                     </Style>
                                 </Border.Styles>
                             </Border>
@@ -376,7 +376,7 @@
                                             BorderBrush="{DynamicResource CardHoverBgBrush}" BorderThickness="2"
                                             Background="Transparent">
                                         <Border Width="6" Height="6" CornerRadius="3"
-                                                Background="#7C3AED"
+                                                Background="{DynamicResource AccentBrush}"
                                                 IsVisible="{Binding !UseGpu}"
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"/>
@@ -424,7 +424,7 @@
                                  Background="Transparent"
                                  BorderThickness="0"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
-                                 CaretBrush="#A78BFA"
+                                 CaretBrush="{DynamicResource AccentLightBrush}"
                                  Padding="12,10"
                                  FontSize="13"
                                  Name="HfTokenBox"/>
@@ -457,7 +457,7 @@
                                  Background="Transparent"
                                  BorderThickness="0"
                                  Foreground="{DynamicResource TextPrimaryBrush}"
-                                 CaretBrush="#A78BFA"
+                                 CaretBrush="{DynamicResource AccentLightBrush}"
                                  Padding="12,10"
                                  FontSize="13"
                                  Name="CivitaiKeyBox"/>
@@ -498,7 +498,7 @@
 
                         <!-- Hlavička karty -->
                         <StackPanel Orientation="Horizontal" Spacing="12">
-                            <Border Width="32" Height="32" CornerRadius="8" Background="#1A1228">
+                            <Border Width="32" Height="32" CornerRadius="8" Background="{DynamicResource InfoSurfaceBrush}">
                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageMultipleOutline}"
                                                  Width="18" Height="18" Foreground="{DynamicResource AccentLightBrush}"
                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -514,7 +514,7 @@
 
                         <!-- Badge „Nainstalováno" -->
                         <Border IsVisible="{Binding ShowComfyInstalledBadge}"
-                                Background="#0F1A0F" BorderBrush="#1F3A1F" BorderThickness="1"
+                                Background="{DynamicResource OkSurfaceBrush}" BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
                                 CornerRadius="8" Padding="12,10">
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CheckCircleOutline}"
@@ -522,9 +522,9 @@
                                                  VerticalAlignment="Center"/>
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="ComfyUI je nainstalovaný a připravený"
-                                               FontSize="12" FontWeight="SemiBold" Foreground="#86EFAC"/>
+                                               FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource OkTextBrush}"/>
                                     <TextBlock Text="Po dokončení průvodce se spustí automaticky"
-                                               FontSize="11" Foreground="#5a8a5a"/>
+                                               FontSize="11" Foreground="{DynamicResource OkTextBrush}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -545,14 +545,14 @@
 
                             <!-- Chyba předchozího pokusu -->
                             <Border IsVisible="{Binding HasComfyInstallError}"
-                                    Background="#1A0E0E" BorderBrush="#3A1A1A" BorderThickness="1"
+                                    Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrBorderBrush}" BorderThickness="1"
                                     CornerRadius="8" Padding="12,8">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.AlertCircleOutline}"
-                                                     Width="14" Height="14" Foreground="#EF4444"
+                                                     Width="14" Height="14" Foreground="{DynamicResource ErrTextBrush}"
                                                      VerticalAlignment="Top" Margin="0,2,0,0"/>
                                     <TextBlock Text="{Binding ComfyInstallError}"
-                                               FontSize="11" Foreground="#FCA5A5"
+                                               FontSize="11" Foreground="{DynamicResource ErrTextBrush}"
                                                TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>
@@ -573,7 +573,7 @@
                                          Minimum="0" Maximum="100"
                                          Height="6" CornerRadius="3"
                                          Foreground="{DynamicResource AccentBrush}"
-                                         Background="#1F1B3D"/>
+                                         Background="{DynamicResource InfoSurfaceBrush}"/>
                             <Button Classes="secondary"
                                     Command="{Binding CancelComfyInstallCommand}"
                                     HorizontalAlignment="Left"
@@ -652,7 +652,7 @@
                                             <TextBlock Text="{Binding Model.Name}"
                                                        FontSize="14" FontWeight="SemiBold"
                                                        Foreground="{DynamicResource TextLightBrush}"/>
-                                            <Border Background="#1A1228" CornerRadius="4" Padding="6,2"
+                                            <Border Background="{DynamicResource InfoSurfaceBrush}" CornerRadius="4" Padding="6,2"
                                                     VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding KindLabel}"
                                                            FontSize="10" Foreground="{DynamicResource AccentLightBrush}"/>
@@ -811,10 +811,10 @@
                     </StackPanel>
                 </Border>
 
-                <Border Margin="0,16,0,0" Background="#0D150D"
-                        BorderBrush="#14532D" BorderThickness="1"
+                <Border Margin="0,16,0,0" Background="{DynamicResource OkSurfaceBrush}"
+                        BorderBrush="{DynamicResource OkSurfaceBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="16,12">
-                    <TextBlock FontSize="13" Foreground="#86EFAC"
+                    <TextBlock FontSize="13" Foreground="{DynamicResource OkTextBrush}"
                                TextWrapping="Wrap" LineHeight="22">
                         <Run Text="Nyní přejděte do "/>
                         <Run Text="Modely" FontWeight="SemiBold"/>

@@ -26,13 +26,13 @@
                         <Border Grid.Column="0"
                                 Width="48" Height="48" CornerRadius="10" ClipToBounds="True"
                                 VerticalAlignment="Top"
-                                Background="#1A1A2E" BorderBrush="#2A2A3E" BorderThickness="1"
+                                Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                                 IsVisible="{Binding HasThumbnail}">
                             <Panel>
                                 <Image Source="{Binding ThumbnailBitmap}"
                                        Stretch="UniformToFill"
                                        IsVisible="{Binding HasLoadedThumbnail}"/>
-                                <mi:MaterialIcon Kind="ImageOutline" Width="22" Height="22" Foreground="#5B6EAE"
+                                <mi:MaterialIcon Kind="ImageOutline" Width="22" Height="22" Foreground="{DynamicResource InfoTextBrush}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                            IsVisible="{Binding !HasLoadedThumbnail}"/>
                             </Panel>
@@ -53,27 +53,27 @@
                             <!-- Badge — WrapPanel, každý badge má pravý margin místo Spacing -->
                             <WrapPanel>
                                 <Border IsVisible="{Binding IsActive}" Margin="0,0,6,0"
-                                        Background="#172917" BorderBrush="#264726" BorderThickness="1"
+                                        Background="{DynamicResource OkSurfaceBrush}" BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
                                         CornerRadius="4" Padding="7,2">
                                     <TextBlock Text="● Aktivní" FontSize="10" Foreground="{DynamicResource SuccessBrush}"/>
                                 </Border>
                                 <Border IsVisible="{Binding IsDownloaded}" Margin="0,0,6,0"
-                                        Background="#151524" BorderBrush="#252540" BorderThickness="1"
+                                        Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                                         CornerRadius="4" Padding="7,2">
-                                    <TextBlock Text="Staženo" FontSize="10" Foreground="#818CF8"/>
+                                    <TextBlock Text="Staženo" FontSize="10" Foreground="{DynamicResource InfoTextBrush}"/>
                                 </Border>
                                 <Border IsVisible="{Binding IsChatCategory}" Margin="0,0,6,0"
-                                        Background="#1A1830" BorderBrush="#2A2450" BorderThickness="1"
+                                        Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                                         CornerRadius="4" Padding="7,2">
                                     <TextBlock Text="Chat" FontSize="10" Foreground="{DynamicResource AccentLightBrush}"/>
                                 </Border>
                                 <Border IsVisible="{Binding IsImageCategory}" Margin="0,0,6,0"
-                                        Background="#1A2520" BorderBrush="#254035" BorderThickness="1"
+                                        Background="{DynamicResource OkSurfaceBrush}" BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
                                         CornerRadius="4" Padding="7,2">
-                                    <TextBlock Text="Obrázky" FontSize="10" Foreground="#34D399"/>
+                                    <TextBlock Text="Obrázky" FontSize="10" Foreground="{DynamicResource OkTextBrush}"/>
                                 </Border>
                                 <Border IsVisible="{Binding IsNsfw}" Margin="0,0,6,0"
-                                        Background="#2A0E1A" BorderBrush="#5A1A30" BorderThickness="1"
+                                        Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrBorderBrush}" BorderThickness="1"
                                         CornerRadius="4" Padding="7,2">
                                     <TextBlock Text="NSFW" FontSize="10" Foreground="{DynamicResource ErrorBrush}"/>
                                 </Border>
@@ -93,7 +93,7 @@
                                     <TextBlock Text="{Binding Size}" FontSize="11" Foreground="{DynamicResource TextWeakBrush}"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,12,2" IsVisible="{Binding HasBaseModel}">
-                                    <TextBlock Text="{Binding BaseModel}" FontSize="11" Foreground="#5B6EAE"/>
+                                    <TextBlock Text="{Binding BaseModel}" FontSize="11" Foreground="{DynamicResource InfoTextBrush}"/>
                                 </StackPanel>
                                 <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,12,2">
                                     <mi:MaterialIcon Kind="Download" Width="14" Height="14" Foreground="{DynamicResource TextWeakBrush}"/>
@@ -103,16 +103,16 @@
                                     <mi:MaterialIcon Kind="Star" Width="14" Height="14" Foreground="{DynamicResource RatingBrush}"/>
                                     <TextBlock Text="{Binding RatingLabel}" FontSize="11" Foreground="{DynamicResource RatingBrush}"/>
                                 </StackPanel>
-                                <Border Background="#1E1E2A" BorderBrush="#2A2A3E" BorderThickness="1"
+                                <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                                         CornerRadius="4" Padding="6,1" Margin="0,0,8,2">
-                                    <TextBlock Text="{Binding SourceLabel}" FontSize="10" Foreground="#5B6EAE"/>
+                                    <TextBlock Text="{Binding SourceLabel}" FontSize="10" Foreground="{DynamicResource InfoTextBrush}"/>
                                 </Border>
-                                <Border Background="#1E1E2A" BorderBrush="#2A2A3E" BorderThickness="1"
+                                <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                                         CornerRadius="4" Padding="6,1" Margin="0,0,8,2"
                                         IsVisible="{Binding Quantization, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-                                    <TextBlock Text="{Binding Quantization}" FontSize="10" Foreground="#5B6EAE"/>
+                                    <TextBlock Text="{Binding Quantization}" FontSize="10" Foreground="{DynamicResource InfoTextBrush}"/>
                                 </Border>
-                                <Border Background="#162214" BorderBrush="#213320" BorderThickness="1"
+                                <Border Background="{DynamicResource OkSurfaceBrush}" BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
                                         CornerRadius="4" Padding="6,1" Margin="0,0,8,2"
                                         IsVisible="{Binding HasVramInfo}">
                                     <TextBlock Text="{Binding VramLabel}" FontSize="10" Foreground="{DynamicResource SuccessBrush}"/>
@@ -174,7 +174,7 @@
 
                             <!-- Čeká ve frontě -->
                             <StackPanel IsVisible="{Binding IsQueued}" Spacing="5">
-                                <Border Background="#1A1830" BorderBrush="#2A2450" BorderThickness="1"
+                                <Border Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                                         CornerRadius="6" Padding="8,5" HorizontalAlignment="Stretch">
                                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                         <mi:MaterialIcon Kind="TrayFull" Width="13" Height="13" Foreground="{DynamicResource AccentLightBrush}" VerticalAlignment="Center"/>
@@ -241,7 +241,7 @@
                             <mi:MaterialIcon Kind="TrayFull" Width="16" Height="16" VerticalAlignment="Center"/>
                             <TextBlock Text="Fronta" VerticalAlignment="Center"/>
                             <Border IsVisible="{Binding HasQueuedDownloads}"
-                                    Background="#7C3AED" CornerRadius="8" MinWidth="18" Height="18"
+                                    Background="{DynamicResource AccentBrush}" CornerRadius="8" MinWidth="18" Height="18"
                                     Padding="5,0" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding DownloadQueueCount}" FontSize="10" FontWeight="SemiBold"
                                            Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -354,7 +354,7 @@
 
                                 <!-- Per-section error -->
                                 <Border IsVisible="{Binding LoadError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                        Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
+                                        Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrSurfaceBrush}" BorderThickness="1"
                                         CornerRadius="6" Padding="10,6">
                                     <TextBlock Text="{Binding LoadError}" FontSize="11"
                                                Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap"/>
@@ -394,7 +394,7 @@
                                  Classes="chatInputInner"
                                  Text="{Binding SearchQuery}"
                                  PlaceholderText="Hledat — např. magnum, juggernaut, qwen 14b, flux dev"
-                                 Foreground="{DynamicResource TextPrimaryBrush}" CaretBrush="#A78BFA"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" CaretBrush="{DynamicResource AccentLightBrush}"
                                  Padding="8,8" FontSize="13">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter" Command="{Binding RunSearchCommand}"/>
@@ -412,7 +412,7 @@
                 </Border>
 
                 <!-- Filtry: provider + kind + nsfw -->
-                <Border Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="#1E1E22" BorderThickness="1"
+                <Border Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="14,10">
                     <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="14">
                         <TextBlock Grid.Column="0" Text="Zdroj:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
@@ -448,7 +448,7 @@
 
                 <!-- Error -->
                 <Border IsVisible="{Binding SearchError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                        Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
+                        Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrSurfaceBrush}" BorderThickness="1"
                         CornerRadius="8" Padding="12,8">
                     <TextBlock Text="{Binding SearchError}" FontSize="11"
                                Foreground="{DynamicResource ErrorBrush}" TextWrapping="Wrap"/>
@@ -456,7 +456,7 @@
 
                 <!-- Onboarding hint, dokud uživatel nehledal -->
                 <Border IsVisible="{Binding HasNoSearchResults}"
-                        Background="#0F0E1C" BorderBrush="#1F1B3D" BorderThickness="1"
+                        Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoSurfaceBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="14,12">
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                         <mi:MaterialIcon Kind="InformationOutline" Width="16" Height="16" Foreground="{DynamicResource AccentLightBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
@@ -484,7 +484,7 @@
             <StackPanel Spacing="14">
                 <!-- Empty state — žádné modely vůbec -->
                 <Border IsVisible="{Binding HasNoDownloadedModels}"
-                        Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="#1E1E22" BorderThickness="1"
+                        Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="16,14">
                     <StackPanel Spacing="6">
                         <TextBlock Text="Zatím nic není stažené" FontSize="13" FontWeight="SemiBold"
@@ -495,7 +495,7 @@
                 </Border>
 
                 <!-- Filter + sort toolbar — zobrazuje se jen pokud jsou vůbec nějaké modely -->
-                <Border Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="#1E1E22" BorderThickness="1"
+                <Border Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="12,8"
                         IsVisible="{Binding !HasNoDownloadedModels}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
