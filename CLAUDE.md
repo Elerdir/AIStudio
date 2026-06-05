@@ -100,7 +100,7 @@ tools/IconGen/          ← SkiaSharp generátor ikony
 - Všechny VM dědí z `ViewModelBase : ObservableObject`
 - Async příkazy: metoda musí vracet `Task`, ne `async void`
 - `[RelayCommand]` generuje příkaz z private metody
-- VM nesmí dělat I/O ani byznys logiku přímo — to patří do `Infrastructure` services. Refactor `ChatPageViewModel` na orchestrátory zatím v progresu.
+- VM nesmí dělat I/O ani byznys logiku přímo — to patří do `Infrastructure` services. LLM tah v chatu (load modelu + historie + stream) je vytažený do `IChatTurnService`/`ChatTurnService`; `ChatPageViewModel` ho volá v Send/Regenerate/Edit/Compare/Compact. Zbytek VM (1500+ ř.) jsou už převážně UI příkazy a stav.
 
 ### Cross-platform (Windows + macOS)
 - Per-OS service registrace v DI je platform-guarded: `if (OperatingSystem.IsWindows()) ...`
@@ -287,4 +287,4 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
 - ~~**Light theme audit**~~ — HOTOVO: strukturální + semantické barvy ve Views jsou theme-aware (`DynamicResource`). Případný drobný dopilování zbývá jen u záměrných výjimek (overlay scrimy, modré badge).
 - **Pause/resume v Download manageru** — UI tlačítko + perzistence partial soubor přes restarty
 - **macOS reálné ověření + AppIcon.icns + .pkg installer**
-- **Refactor velkých VMs** — `ChatPageViewModel` (1500+ ř.) → ChatOrchestrator service v Infrastructure
+- **Refactor velkých VMs** — částečně: LLM tah vytažen do `ChatTurnService` (Infrastructure, unit-testovaný). Zbývá: případné rozdělení `ChatPageViewModel` (1500+ ř.) na tematické partial soubory + zvážit ChatImageOrchestrator sjednocení image-gen větve.
