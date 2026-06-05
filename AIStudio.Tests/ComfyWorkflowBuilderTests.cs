@@ -697,4 +697,49 @@ public class ComfyWorkflowBuilderTests
         var ks = (Dictionary<string, object>)FindNode(wf, "KSampler")["inputs"];
         ((object[])ks["model"])[0].Should().Be("61");
     }
+
+    // ── Dlouhé video: poslední snímek + upscale pass ──────────────────────────
+
+    [Fact]
+    public void AppendWanLastFrameSave_AddsImageFromBatchAndSaveImage_FromDecode()
+    {
+        var wf = WanT2VWf();
+        ComfyWorkflowBuilder.AppendWanLastFrameSave(wf, length: 33);
+
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+        types.Should().Contain("ImageFromBatch").And.Contain("SaveImage");
+
+        // ImageFromBatch vybírá poslední snímek (index length-1) z VAEDecode "8"
+        var ifb = GetInputs(wf, ComfyWorkflowBuilder.WanLastFrameKey);
+        ((object[])ifb["image"])[0].Should().Be("8");
+        ifb["batch_index"].Should().Be(32);
+        ifb["length"].Should().Be(1);
+
+        // SaveImage bere obrázek z ImageFromBatch
+        var save = GetInputs(wf, ComfyWorkflowBuilder.WanLastFrameSaveKey);
+        ((object[])save["images"])[0].Should().Be(ComfyWorkflowBuilder.WanLastFrameKey);
+    }
+
+    [Fact]
+    public void BuildVideoUpscalePass_LoadsVideo_Upscales_RecombinesMp4()
+    {
+        var wf = ComfyWorkflowBuilder.BuildVideoUpscalePass(
+            @"C:\out\segment_01.mp4", "RealESRGAN_x4plus.pth", fps: 16);
+
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+        types.Should().Contain("VHS_LoadVideoPath")
+             .And.Contain("UpscaleModelLoader")
+             .And.Contain("ImageUpscaleWithModel")
+             .And.Contain("ImageScaleBy")
+             .And.Contain("VHS_VideoCombine");
+
+        ((Dictionary<string, object>)FindNode(wf, "VHS_LoadVideoPath")["inputs"])["video"]
+            .Should().Be(@"C:\out\segment_01.mp4");
+
+        // Výstupní combine bere zvětšené snímky z ImageScaleBy
+        var vc = (Dictionary<string, object>)FindNode(wf, "VHS_VideoCombine")["inputs"];
+        ((string)((Dictionary<string, object>)wf[(string)((object[])vc["images"])[0]])["class_type"])
+            .Should().Be("ImageScaleBy");
+        vc["frame_rate"].Should().Be(16);
+    }
 }

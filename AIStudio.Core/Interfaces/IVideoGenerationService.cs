@@ -12,4 +12,14 @@ public interface IVideoGenerationService
         VideoGenerationRequest request,
         IProgress<int>?        progress = null,
         CancellationToken      ct       = default);
+
+    /// <summary>
+    /// Vygeneruje <b>dlouhé video</b> řetězením ~5s Wan segmentů (každý další image→video
+    /// z posledního snímku předchozího), spojí je do jednoho MP4 a uloží do galerie. Jednotlivé
+    /// segmenty zůstanou jako záloha na disku. Progres hlásí segment k/N + procenta uvnitř.
+    /// </summary>
+    Task<VideoGenerationResult> GenerateLongVideoAsync(
+        LongVideoRequest          request,
+        IProgress<LongVideoProgress>? progress = null,
+        CancellationToken         ct       = default);
 }

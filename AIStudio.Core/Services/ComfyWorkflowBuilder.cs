@@ -781,6 +781,108 @@ public static class ComfyWorkflowBuilder
         }
     }
 
+    // ── Dlouhé video — řetězení segmentů (i2v z posledního snímku) ─────────────
+
+    /// <summary>ID uzlu <c>ImageFromBatch</c> (výběr posledního snímku) ve Wan workflow.</summary>
+    public const string WanLastFrameKey = "80";
+    /// <summary>ID uzlu <c>SaveImage</c> posledního snímku ve Wan workflow.</summary>
+    public const string WanLastFrameSaveKey = "81";
+
+    /// <summary>Filename prefix posledního snímku segmentu (pro <c>/history</c> filtraci).</summary>
+    public const string LastFramePrefix = "AIStudio_lastframe";
+
+    /// <summary>
+    /// Do existujícího Wan workflow přidá výstup <b>posledního snímku</b> jako PNG: vezme
+    /// dekódovaný batch (VAEDecode uzel „8"), <c>ImageFromBatch</c> vybere snímek na indexu
+    /// <c>length−1</c> a <c>SaveImage</c> ho uloží. Slouží jako vstupní obrázek pro navazující
+    /// image→video segment (kontinuita dlouhého videa). Bere <b>nezvětšený</b> dekód (8), aby
+    /// se nemíchal s případným upscale streamem. Idempotentní vůči ostatním uzlům (ID 80/81
+    /// jsou mimo rozsah Wan uzlů).
+    /// </summary>
+    /// <param name="workflow">Wan workflow z <see cref="BuildWanTextToVideo"/> / <see cref="BuildWanImageToVideo"/>.</param>
+    /// <param name="length">Počet snímků segmentu (index posledního = length−1).</param>
+    /// <param name="filenamePrefix">Prefix souboru posledního snímku.</param>
+    public static void AppendWanLastFrameSave(
+        Dictionary<string, object> workflow, int length, string filenamePrefix = LastFramePrefix)
+    {
+        var lastIndex = Math.Max(0, length - 1);
+        workflow[WanLastFrameKey] = Node("ImageFromBatch", new()
+        {
+            ["image"]       = Ref("8", 0),
+            ["batch_index"] = lastIndex,
+            ["length"]      = 1,
+        });
+        workflow[WanLastFrameSaveKey] = Node("SaveImage", new()
+        {
+            ["filename_prefix"] = filenamePrefix,
+            ["images"]          = Ref(WanLastFrameKey, 0),
+        });
+    }
+
+    /// <summary>
+    /// Post-proces pass: <b>zvětší hotové video</b> ESRGAN modelem na vyšší rozlišení.
+    /// Načte MP4 (<c>VHS_LoadVideoPath</c>), protáhne každý snímek <c>ImageUpscaleWithModel</c>
+    /// (model dává typicky 4×), doškáluje na cílový <paramref name="netScale"/> (default 2×)
+    /// a znovu složí do MP4 (<c>VHS_VideoCombine</c>). Běží jako <b>samostatný ComfyUI prompt</b>
+    /// až po uvolnění Wan modelu z VRAM — ESRGAN tak neběží souběžně s 14B difuzí.
+    ///
+    /// <para>Vědomě se pouští na krátké klipy (≤81 snímků na segment), aby se batch snímků
+    /// vešel do paměti i ve vyšším rozlišení.</para>
+    /// </summary>
+    /// <param name="videoPath">Absolutní cesta k MP4, který ComfyUI proces vidí na disku.</param>
+    /// <param name="upscaleModelName">Soubor v <c>upscale_models/</c> (např. RealESRGAN_x4plus.pth).</param>
+    /// <param name="fps">FPS výstupního MP4 (stejné jako zdroj).</param>
+    /// <param name="netScale">Cílový násobek rozlišení (2× = 4× model / 2).</param>
+    /// <param name="modelScale">Nativní násobek ESRGAN modelu (RealESRGAN_x4plus = 4×).</param>
+    /// <param name="filenamePrefix">Prefix výstupního MP4.</param>
+    public static Dictionary<string, object> BuildVideoUpscalePass(
+        string videoPath,
+        string upscaleModelName,
+        int    fps,
+        double netScale       = 2.0,
+        double modelScale     = 4.0,
+        string filenamePrefix = "AIStudio_video_hd")
+    {
+        return new Dictionary<string, object>
+        {
+            ["1"] = Node("VHS_LoadVideoPath", new()
+            {
+                ["video"]             = videoPath,
+                ["force_rate"]        = 0,
+                ["custom_width"]      = 0,
+                ["custom_height"]     = 0,
+                ["frame_load_cap"]    = 0,
+                ["skip_first_frames"] = 0,
+                ["select_every_nth"]  = 1,
+            }),
+            ["2"] = Node("UpscaleModelLoader", new() { ["model_name"] = upscaleModelName }),
+            ["3"] = Node("ImageUpscaleWithModel", new()
+            {
+                ["upscale_model"] = Ref("2", 0),
+                ["image"]         = Ref("1", 0),
+            }),
+            ["4"] = Node("ImageScaleBy", new()
+            {
+                ["image"]          = Ref("3", 0),
+                ["upscale_method"] = "lanczos",
+                ["scale_by"]       = netScale / modelScale,
+            }),
+            [WanSaveKey] = Node("VHS_VideoCombine", new()
+            {
+                ["frame_rate"]      = fps,
+                ["loop_count"]      = 0,
+                ["filename_prefix"] = filenamePrefix,
+                ["format"]          = WanOutputMp4,
+                ["pix_fmt"]         = "yuv420p",
+                ["crf"]             = 19,
+                ["save_metadata"]   = true,
+                ["pingpong"]        = false,
+                ["save_output"]     = true,
+                ["images"]          = Ref("4", 0),
+            }),
+        };
+    }
+
     // ── IMG2IMG – SDXL / SD ───────────────────────────────────────────────────
 
     /// <summary>

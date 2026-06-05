@@ -26,6 +26,7 @@ public partial class VideoPageViewModel : ViewModelBase
     private readonly ISettingsService        _settings;
     private readonly INavigationService      _nav;
     private readonly ILoraLibraryService?    _loraLibrary;
+    private readonly IUpscaleModelService?   _upscaleModels;
 
     private CancellationTokenSource? _genCts;
     private readonly System.Diagnostics.Stopwatch _genStopwatch = new();
@@ -35,13 +36,15 @@ public partial class VideoPageViewModel : ViewModelBase
         IWanDependencyService   wanDeps,
         ISettingsService        settings,
         INavigationService      nav,
-        ILoraLibraryService?    loraLibrary = null)
+        ILoraLibraryService?    loraLibrary   = null,
+        IUpscaleModelService?   upscaleModels = null)
     {
-        _videoGen    = videoGen;
-        _wanDeps     = wanDeps;
-        _settings    = settings;
-        _nav         = nav;
-        _loraLibrary = loraLibrary;
+        _videoGen      = videoGen;
+        _wanDeps       = wanDeps;
+        _settings      = settings;
+        _nav           = nav;
+        _loraLibrary   = loraLibrary;
+        _upscaleModels = upscaleModels;
 
         SelectedLoras.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasLoras));
 
@@ -88,11 +91,41 @@ public partial class VideoPageViewModel : ViewModelBase
     private int _length = 33;          // snímky
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DurationLabel))]
+    [NotifyPropertyChangedFor(nameof(DurationLabel), nameof(SegmentPlanLabel))]
     private int _fps = 16;
 
     [ObservableProperty] private int    _steps = 30;
     [ObservableProperty] private double _cfg   = 6.0;
+
+    // ── Dlouhé video + kvalita ─────────────────────────────────────────────────
+
+    /// <summary>Dlouhé video skládané z řetězených ~5s segmentů (i2v z posledního snímku).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGenerate), nameof(SegmentPlanLabel), nameof(SingleLengthVisible))]
+    private bool _longVideoMode;
+
+    /// <summary>Cílová délka dlouhého videa v sekundách (rozpláno na segmenty).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SegmentPlanLabel))]
+    private int _targetSeconds = 20;
+
+    /// <summary>Zvýšit rozlišení 2× ESRGAN upscalem (nad nativních 480/720p).</summary>
+    [ObservableProperty] private bool _upscale;
+
+    /// <summary>Klasický posuvník délky (snímky) se schová v režimu dlouhého videa.</summary>
+    public bool SingleLengthVisible => !LongVideoMode;
+
+    /// <summary>Náhled rozplánování dlouhého videa — počet segmentů a odhad výsledné délky.</summary>
+    public string SegmentPlanLabel
+    {
+        get
+        {
+            if (!LongVideoMode) return string.Empty;
+            var plan = VideoSegmentPlanner.Plan(TargetSeconds, Fps);
+            var eff  = VideoSegmentPlanner.EffectiveSeconds(plan, Fps);
+            return $"{plan.Count}× segment (~5 s) → výsledek ~{eff:0.0} s";
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasStartImage), nameof(CanGenerate))]
@@ -260,7 +293,9 @@ public partial class VideoPageViewModel : ViewModelBase
 
     public bool CanGenerate =>
         DepsReady && !IsGenerating && !IsDownloadingDeps &&
-        (IsImageToVideo ? HasStartImage : !string.IsNullOrWhiteSpace(Prompt));
+        (LongVideoMode
+            ? (HasStartImage || !string.IsNullOrWhiteSpace(Prompt))
+            : (IsImageToVideo ? HasStartImage : !string.IsNullOrWhiteSpace(Prompt)));
 
     [RelayCommand]
     private async Task GenerateAsync()
@@ -273,33 +308,24 @@ public partial class VideoPageViewModel : ViewModelBase
         Progress     = 0;
         EtaLabel     = string.Empty;
         ErrorMessage = string.Empty;
-        StatusLine   = "Generuji video…";
+        StatusLine   = LongVideoMode ? "Připravuji dlouhé video…" : "Generuji video…";
         _genStopwatch.Restart();
 
-        var model = SelectedModel;
-        var seed  = Random.Shared.NextInt64(1, long.MaxValue);
-        var req = new VideoGenerationRequest(
-            Model:  model,
-            Prompt: Prompt.Trim(),
-            Width:  Width,
-            Height: Height,
-            Length: Length,
-            Steps:  Steps,
-            Cfg:    Cfg,
-            Seed:   seed,
-            StartImagePath: IsImageToVideo ? StartImagePath : null,
-            Fps:    Fps,
-            NegativePrompt: string.IsNullOrWhiteSpace(NegativePrompt) ? null : NegativePrompt.Trim(),
-            Loras:  SelectedLoras.Count > 0 ? SelectedLoras.ToList() : null);
-
-        var progress = new Progress<int>(p => Dispatcher.UIThread.Post(() => UpdateProgress(p)));
         try
         {
-            var result = await _videoGen.GenerateAsync(req, progress, cts.Token);
+            // Upscale (volitelný) potřebuje ESRGAN model — malý (~64 MB), doženeme implicitně.
+            var upscaleModel = await EnsureUpscaleModelAsync(cts.Token);
+
+            var result = LongVideoMode
+                ? await RunLongVideoAsync(upscaleModel, cts.Token)
+                : await RunSingleVideoAsync(upscaleModel, cts.Token);
+
             if (result.Success)
             {
                 ResultVideoPath = result.FilePath ?? string.Empty;
-                StatusLine      = "Hotovo — video je v galerii.";
+                StatusLine      = string.IsNullOrEmpty(result.ErrorMessage)
+                    ? "Hotovo — video je v galerii."
+                    : "Hotovo — " + result.ErrorMessage;   // např. info o nespojení segmentů
             }
             else if (result.MissingDependencies is { Count: > 0 })
             {
@@ -327,6 +353,82 @@ public partial class VideoPageViewModel : ViewModelBase
             _genCts      = null;
             _genStopwatch.Stop();
             EtaLabel = string.Empty;
+        }
+    }
+
+    private async Task<VideoGenerationResult> RunSingleVideoAsync(string? upscaleModel, CancellationToken ct)
+    {
+        var req = new VideoGenerationRequest(
+            Model:  SelectedModel,
+            Prompt: Prompt.Trim(),
+            Width:  Width,
+            Height: Height,
+            Length: Length,
+            Steps:  Steps,
+            Cfg:    Cfg,
+            Seed:   Random.Shared.NextInt64(1, long.MaxValue),
+            StartImagePath: IsImageToVideo ? StartImagePath : null,
+            Fps:    Fps,
+            NegativePrompt: string.IsNullOrWhiteSpace(NegativePrompt) ? null : NegativePrompt.Trim(),
+            Loras:  SelectedLoras.Count > 0 ? SelectedLoras.ToList() : null,
+            Upscale: upscaleModel is not null,
+            UpscaleModel: upscaleModel);
+
+        var progress = new Progress<int>(p => Dispatcher.UIThread.Post(() => UpdateProgress(p)));
+        return await _videoGen.GenerateAsync(req, progress, ct);
+    }
+
+    private async Task<VideoGenerationResult> RunLongVideoAsync(string? upscaleModel, CancellationToken ct)
+    {
+        var startFromImage = HasStartImage;
+        // Navazující (a image-start) segmenty: i2v model dle rozlišení. Text-start 1. segment: t2v.
+        var i2vModel = (Height >= 720 || Width >= 1280) ? WanModels.I2V_720P_14B : WanModels.I2V_480P_14B;
+        WanVideoModel? t2vModel = startFromImage
+            ? null
+            : (SelectedModel.Mode == WanVideoMode.TextToVideo ? SelectedModel : WanModels.T2V_14B);
+
+        var req = new LongVideoRequest(
+            I2VModel:       i2vModel,
+            T2VModel:       t2vModel,
+            Prompt:         Prompt.Trim(),
+            Width:          Width,
+            Height:         Height,
+            TargetSeconds:  TargetSeconds,
+            Fps:            Fps,
+            Steps:          Steps,
+            Cfg:            Cfg,
+            Seed:           Random.Shared.NextInt64(1, long.MaxValue),
+            StartImagePath: startFromImage ? StartImagePath : null,
+            NegativePrompt: string.IsNullOrWhiteSpace(NegativePrompt) ? null : NegativePrompt.Trim(),
+            Loras:          SelectedLoras.Count > 0 ? SelectedLoras.ToList() : null,
+            Upscale:        upscaleModel is not null,
+            UpscaleModel:   upscaleModel);
+
+        var progress = new Progress<LongVideoProgress>(p => Dispatcher.UIThread.Post(() =>
+        {
+            UpdateProgress(p.OverallPercent);
+            StatusLine = p.Stage;
+        }));
+        return await _videoGen.GenerateLongVideoAsync(req, progress, ct);
+    }
+
+    /// <summary>Když je zapnutý upscale, zajistí ESRGAN model a vrátí jeho název; jinak null.</summary>
+    private async Task<string?> EnsureUpscaleModelAsync(CancellationToken ct)
+    {
+        if (!Upscale || _upscaleModels is null) return null;
+        try
+        {
+            if (!_upscaleModels.IsAvailable(ModelsDir()))
+            {
+                StatusLine = "Stahuji upscale model (RealESRGAN)…";
+                await _upscaleModels.EnsureAsync(ModelsDir(), null, ct);
+            }
+            return _upscaleModels.ModelFileName;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "VideoPage: zajištění upscale modelu selhalo — pokračuji bez upscale");
+            return null;
         }
     }
 

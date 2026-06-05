@@ -109,7 +109,7 @@
                 <StackPanel Spacing="6">
                     <TextBlock Text="PARAMETRY" Classes="sectionHeader"/>
                     <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
-                        <StackPanel Grid.Column="0" Spacing="3">
+                        <StackPanel Grid.Column="0" Spacing="3" IsVisible="{Binding SingleLengthVisible}">
                             <TextBlock Text="Délka (snímků)" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
                             <NumericUpDown Value="{Binding Length}" Minimum="9" Maximum="129" Increment="4"
                                            FormatString="0" MinWidth="90"
@@ -139,7 +139,38 @@
                                    Foreground="{DynamicResource TextHintBrush}"/>
                     </StackPanel>
                     <TextBlock FontSize="11" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
+                               IsVisible="{Binding SingleLengthVisible}"
                                Text="Délku videa řídíš počtem snímků ÷ FPS. Wan 2.1 zvládá krátké klipy — doporučeno do ~81 snímků (≈ 5 s); víc = výrazně víc VRAM a času."/>
+                </StackPanel>
+
+                <!-- Dlouhé video (řetězení segmentů) -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="DLOUHÉ VIDEO" Classes="sectionHeader"/>
+                    <CheckBox IsChecked="{Binding LongVideoMode}"
+                              Content="Složit delší video z navazujících ~5s segmentů"
+                              ToolTip.Tip="Wan zvládne nativně jen ~5 s. Delší video appka složí z více segmentů — každý navazuje na poslední snímek předchozího (kontinuita). Segmenty se nakonec spojí do jednoho MP4."/>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsVisible="{Binding LongVideoMode}">
+                        <StackPanel Grid.Column="0" Spacing="3">
+                            <TextBlock Text="Cílová délka (s)" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                            <NumericUpDown Value="{Binding TargetSeconds}" Minimum="5" Maximum="180" Increment="5"
+                                           FormatString="0" MinWidth="100"
+                                           ToolTip.Tip="Cílová délka výsledného videa v sekundách. Appka ji sama rozplánuje na segmenty (čím delší, tím víc segmentů a času)."/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SegmentPlanLabel}" FontSize="12"
+                                       Foreground="{DynamicResource AccentLightBrush}"/>
+                            <TextBlock FontSize="11" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
+                                       Text="Pozn.: každé navázání mírně driftuje barvy/detail a čas roste lineárně (víc segmentů = víc minut). Bez vstupního obrázku začne 1. segment z textu (potřebuje i text→video model)."/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <!-- Kvalita (upscale) -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="KVALITA" Classes="sectionHeader"/>
+                    <CheckBox IsChecked="{Binding Upscale}"
+                              Content="Zvýšit rozlišení 2× (ESRGAN upscale nad 480/720p)"
+                              ToolTip.Tip="Wan generuje nativně 480/720p. Tahle volba po vygenerování protáhne snímky ESRGAN modelem na ~2× rozlišení (skutečné HD+). Přidá samostatný krok a čas; model (~64 MB) se případně stáhne sám."/>
                 </StackPanel>
 
                 <!-- LoRA (volitelné) -->

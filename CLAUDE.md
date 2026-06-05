@@ -258,15 +258,20 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
 - **ComfyUI řízená aktualizace (část 2)** — část 1 hotová (zobrazení verze v Nastavení, `ComfyVersion.ReadFromDirectory` + `TestedVersion` pin). Zbývá: tlačítko „Aktualizovat ComfyUI" → zastavit proces → `git` checkout na **další ověřený ref** (NE bleeding edge) → reinstal `requirements.txt` + custom node deps → restart → ověřit. Default = bezpečná pinned verze; update explicitní/hlídaný.
 
 ### Plánováno (roadmap — větší věci)
-- **Dlouhé video přes řetězení segmentů** — Wan 2.1 zvládne nativně jen ~5 s (81 snímků).
-  Pro minutová videa: uživatel zadá cílovou délku (např. 2 min) → appka spočítá N segmentů
-  po ~5 s → 1. segment t2v (z promptu) nebo i2v (z obrázku), každý další **i2v ze
-  posledního snímku předchozího segmentu** (kontinuita) → uloží každý segment zvlášť (join
-  v DaVinci) + volitelně auto-concat přes ffmpeg. Potřebné: workflow node pro uložení
-  posledního snímku batche (zůstane v ComfyUI, bez app-side ffmpeg), `GenerateLongVideoAsync`
-  orchestrace s progresem „segment k/N", UI „cílová délka" mód. Pozn.: kvalita po mnoha
-  segmentech driftuje (barvy/detail), čas roste lineárně (24 segmentů ≈ desítky minut na 3090).
-  **Až po runtime ověření základní generace** (stavět to na neověřeném základu je riziko).
+- **Dlouhé video + 2× upscale (IMPLEMENTOVÁNO, čeká runtime ověření)** — řetězení ~5s Wan
+  segmentů na delší video + ESRGAN upscale nad 480/720p. Hotovo: `VideoSegmentPlanner` (čistá,
+  testovaná „smart" segmentace dle cílových sekund × FPS, minimalizuje počet segmentů/drift,
+  délky 4n+1, počítá s překryvem posledního snímku), `ComfyWorkflowBuilder.AppendWanLastFrameSave`
+  (`ImageFromBatch` index length−1 → `SaveImage` posledního snímku z VAEDecode „8"),
+  `BuildVideoUpscalePass` (`VHS_LoadVideoPath`→`ImageUpscaleWithModel`→`ImageScaleBy`→`VHS_VideoCombine`,
+  samostatný pass až po uvolnění VRAM), `LongVideoRequest`/`LongVideoProgress`,
+  `IVideoGenerationService.GenerateLongVideoAsync` (seg1 t2v z promptu / i2v z obrázku, další i2v
+  z carry-frame, per-segment upscale, `FfmpegVideoJoiner` concat `-c copy` přes imageio-ffmpeg
+  z ComfyUI, segmenty zůstanou v `longvideo_*` složce jako záloha), Video tab UI (přepínač
+  „dlouhé video" + cílová délka s náhledem plánu, checkbox upscale 2×, schování single-length).
+  `VideoGenerationRequest` má `Upscale`/`UpscaleModel`. **Zbývá runtime:** ověřit `ImageFromBatch`/
+  `VHS_LoadVideoPath` názvy nodů, ffmpeg concat path, drift/čas u delších videí. Pozn.: 60 FPS ×
+  2 min = ~90 segmentů (hodiny) — vysoký FPS chce spíš interpolaci (RIFE, budoucí), ne generaci.
 - **Video → LoRA pipeline** (až budou videa hotová): uživatel vloží 1..X videí (volitelně + referenční obrázek subjektu, který má „hlídat"). Aplikace videa zanalyzuje — detekce/popis osob, objektů, zvířat atd. (frame sampling + detekce/segmentace + caption), uživatel zaškrtne/potvrdí, co chce. Z vybraných framů/crops se sestaví **dataset** (obrázky + captiony) a spustí se **LoRA trénink** (využije stávající `SdScriptsLoraTrainer`). Výsledné LoRA jdou použít v **Image Studiu i ve videích**. Otevřené otázky: jaký detekční model (YOLO/GroundingDINO/SAM přes Python proces? nebo lokální VLM caption?), jak řešit kvalitu/duplicitu framů, NSFW/consent guardrails (viz pravidlo o reálných osobách).
 - **Vlastní generátor (nezávislost na ComfyUI)** — dlouhodobý cíl: vlastní inference pipeline **přímo integrovaná v aplikaci** (ne jako externí Python proces), kde si verze modelů/závislostí řeší AI Studio samo a postupně. Kandidáti: managed inference (ONNX Runtime / TorchSharp / vlastní wrapper nad stable-diffusion.cpp / candle), nebo embedded Python s plnou kontrolou. Cíl: one-click, žádná závislost na ComfyUI portable, vlastní správa verzí. Velký záběr — navrhnout architekturu zvlášť.
 
