@@ -231,6 +231,21 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
             Log.Warning(ex, "ComfyService: instalace FaceDetailer selhala — vylepšení obličeje nebude k dispozici");
         }
 
+        // ── ComfyUI-Frame-Interpolation (RIFE → plynulejší video), best-effort ──
+        try
+        {
+            if (!_installer.IsFrameInterpolationInstalled(dir))
+            {
+                SetStatus(ComfyStatus.Starting, "Instaluji Frame-Interpolation (RIFE)…");
+                await _installer.EnsureFrameInterpolationInstalledAsync(dir, python, progress: null, ct);
+                Log.Information("ComfyService: ComfyUI-Frame-Interpolation nainstalován");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ComfyService: instalace Frame-Interpolation selhala — plynulejší video nebude k dispozici");
+        }
+
         // ── DirectML pro AMD / Intel (Phase B.2) ────────────────────────────
         // Pokud máme AMD nebo Intel kartu a torch-directml chybí, doinstalujeme
         // ho hned před startem. Pro NVIDIA tento krok přeskakujeme — CUDA build

@@ -285,6 +285,51 @@ public sealed class MacOsComfyInstaller : IComfyInstaller
         progress?.Report(new(ComfyInstallStage.Done, "FaceDetailer nainstalován", 100, 0, 0, 0, null));
     }
 
+    // ── ComfyUI-Frame-Interpolation (RIFE VFI → plynulejší video) ─────────────
+
+    public bool IsFrameInterpolationInstalled(string comfyUiDir)
+    {
+        if (string.IsNullOrWhiteSpace(comfyUiDir)) return false;
+        var nodePath = Path.Combine(comfyUiDir, "custom_nodes", "ComfyUI-Frame-Interpolation");
+        return Directory.Exists(nodePath)
+            && (File.Exists(Path.Combine(nodePath, "__init__.py"))
+                || Directory.Exists(Path.Combine(nodePath, "vfi_models")));
+    }
+
+    public async Task EnsureFrameInterpolationInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default)
+    {
+        if (IsFrameInterpolationInstalled(comfyUiDir))
+        {
+            Log.Information("MacOsComfyInstaller: ComfyUI-Frame-Interpolation už nainstalovaný");
+            return;
+        }
+
+        var customNodesDir = Path.Combine(comfyUiDir, "custom_nodes");
+        Directory.CreateDirectory(customNodesDir);
+
+        progress?.Report(new(ComfyInstallStage.Extracting,
+            "Stahuji ComfyUI-Frame-Interpolation…", 50, 0, 0, 0, null));
+
+        if (!Directory.Exists(Path.Combine(customNodesDir, "ComfyUI-Frame-Interpolation")))
+            await RunAsync("git",
+                "clone --depth 1 https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git",
+                workingDir: customNodesDir, timeoutMinutes: 5, ct);
+
+        var nodeDir = Path.Combine(customNodesDir, "ComfyUI-Frame-Interpolation");
+        var reqPath = Path.Combine(nodeDir, "requirements-no-cupy.txt");
+        if (!File.Exists(reqPath)) reqPath = Path.Combine(nodeDir, "requirements.txt");
+        if (File.Exists(reqPath))
+            await RunAsync(pythonExe, $"-m pip install -r \"{reqPath}\"",
+                workingDir: comfyUiDir, timeoutMinutes: 10, ct);
+
+        progress?.Report(new(ComfyInstallStage.Done, "ComfyUI-Frame-Interpolation nainstalován",
+            100, 0, 0, 0, null));
+    }
+
     // ── DirectML — N/A na macOS ──────────────────────────────────────────────
 
     public bool IsDirectMlInstalled(string pythonExe) => false;

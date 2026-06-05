@@ -742,4 +742,36 @@ public class ComfyWorkflowBuilderTests
             .Should().Be("ImageScaleBy");
         vc["frame_rate"].Should().Be(16);
     }
+
+    [Fact]
+    public void BuildVideoInterpolatePass_LoadsVideo_RifeVfi_RecombinesAtMultipliedFps()
+    {
+        var wf = ComfyWorkflowBuilder.BuildVideoInterpolatePass(
+            @"C:\out\segment_01.mp4", sourceFps: 16, multiplier: 2);
+
+        var types = wf.Values.Cast<Dictionary<string, object>>().Select(n => (string)n["class_type"]).ToList();
+        types.Should().Contain("VHS_LoadVideoPath")
+             .And.Contain("RIFE VFI")
+             .And.Contain("VHS_VideoCombine");
+
+        // RIFE bere snímky z VHS_LoadVideoPath a má nastavený multiplier
+        var rife = (Dictionary<string, object>)FindNode(wf, "RIFE VFI")["inputs"];
+        ((string)((Dictionary<string, object>)wf[(string)((object[])rife["frames"])[0]])["class_type"])
+            .Should().Be("VHS_LoadVideoPath");
+        rife["multiplier"].Should().Be(2);
+
+        // Combine: zdrojové FPS × násobek, snímky z RIFE
+        var vc = (Dictionary<string, object>)FindNode(wf, "VHS_VideoCombine")["inputs"];
+        vc["frame_rate"].Should().Be(32);
+        ((string)((Dictionary<string, object>)wf[(string)((object[])vc["images"])[0]])["class_type"])
+            .Should().Be("RIFE VFI");
+    }
+
+    [Fact]
+    public void BuildVideoInterpolatePass_ClampsMultiplierToAtLeastTwo()
+    {
+        var wf   = ComfyWorkflowBuilder.BuildVideoInterpolatePass(@"C:\v.mp4", sourceFps: 16, multiplier: 1);
+        var rife = (Dictionary<string, object>)FindNode(wf, "RIFE VFI")["inputs"];
+        rife["multiplier"].Should().Be(2);
+    }
 }

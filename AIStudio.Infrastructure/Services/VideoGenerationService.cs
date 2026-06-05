@@ -100,19 +100,12 @@ public sealed class VideoGenerationService : IVideoGenerationService
             return Fail("Generování videa selhalo: " + ex.Message);
         }
 
-        // Volitelný 2× ESRGAN upscale (samostatný pass — Wan model je už uvolněn z VRAM).
-        var finalPath = videoPath;
-        if (request.Upscale && !string.IsNullOrWhiteSpace(request.UpscaleModel))
-        {
-            try
-            {
-                var hd = await RunUpscalePassAsync(videoPath, request.UpscaleModel!, request.Fps,
-                    outputDir, $"AIStudio_video_hd_{DateTime.Now:yyyyMMdd_HHmmss}", progress, ct);
-                if (hd is not null) finalPath = hd;
-            }
-            catch (OperationCanceledException) { /* base video zůstává */ }
-            catch (Exception ex) { Log.Warning(ex, "VideoGenerationService: upscale pass selhal — ponechávám base video"); }
-        }
+        // Volitelný post-proces (2× ESRGAN upscale → RIFE interpolace), samostatné passy.
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var finalPath = await PostProcessAsync(
+            videoPath, request.Upscale, request.UpscaleModel,
+            request.Interpolate, request.InterpolateMultiplier, request.Fps,
+            outputDir, $"AIStudio_video_{stamp}", progress, ct);
 
         await SaveToGalleryAsync(finalPath, request.Prompt, model.Label, request.Seed,
             request.Width, request.Height, request.Steps, request.Cfg, ct);
@@ -198,16 +191,20 @@ public sealed class VideoGenerationService : IVideoGenerationService
                     return Fail($"Z segmentu {k + 1}/{n} se nepodařilo získat poslední snímek pro navázání.");
             }
 
-            // Volitelný upscale každého segmentu zvlášť (paměťově bezpečné — krátké klipy).
-            if (request.Upscale && !string.IsNullOrWhiteSpace(request.UpscaleModel))
+            // Volitelný post-proces každého segmentu zvlášť (paměťově bezpečné — krátké klipy).
+            if (request.Upscale || request.Interpolate)
             {
-                Report(progress, n, n, "Zvyšuji rozlišení segmentů…", 90);
+                var stage = request.Upscale && request.Interpolate ? "Vylepšuji segmenty (rozlišení + plynulost)…"
+                          : request.Upscale ? "Zvyšuji rozlišení segmentů…"
+                          : "Vyhlazuji pohyb segmentů…";
+                Report(progress, n, n, stage, 90);
                 for (var k = 0; k < segmentVideoPaths.Count; k++)
                 {
                     ct.ThrowIfCancellationRequested();
-                    var hd = await RunUpscalePassAsync(segmentVideoPaths[k], request.UpscaleModel!, request.Fps,
-                        segmentsDir, $"segment_{k + 1:00}_hd", upscaleProgress: null, ct);
-                    if (hd is not null) segmentVideoPaths[k] = hd;
+                    segmentVideoPaths[k] = await PostProcessAsync(
+                        segmentVideoPaths[k], request.Upscale, request.UpscaleModel,
+                        request.Interpolate, request.InterpolateMultiplier, request.Fps,
+                        segmentsDir, $"segment_{k + 1:00}_pp", progress: null, ct);
                 }
             }
 
@@ -300,6 +297,73 @@ public sealed class VideoGenerationService : IVideoGenerationService
         }
 
         return (videoPath, lastFramePath);
+    }
+
+    /// <summary>
+    /// Aplikuje volitelné post-procesy na hotové video v pořadí <b>upscale → interpolace</b>
+    /// (upscale dřív = běží na méně snímcích, je levnější). Každý je samostatný ComfyUI pass.
+    /// Při selhání kteréhokoli kroku se vrací nejlepší dosažený výsledek (nikdy nevyhodí).
+    /// </summary>
+    private async Task<string> PostProcessAsync(
+        string videoPath, bool upscale, string? upscaleModel,
+        bool interpolate, int multiplier, int fps, string outputDir, string prefix,
+        IProgress<int>? progress, CancellationToken ct)
+    {
+        var current = videoPath;
+
+        if (upscale && !string.IsNullOrWhiteSpace(upscaleModel))
+        {
+            try
+            {
+                var hd = await RunUpscalePassAsync(current, upscaleModel!, fps, outputDir, prefix + "_hd", progress, ct);
+                if (hd is not null) current = hd;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { Log.Warning(ex, "VideoGenerationService: upscale pass selhal — ponechávám předchozí video"); }
+        }
+
+        if (interpolate)
+        {
+            try
+            {
+                var smooth = await RunInterpolatePassAsync(current, fps, multiplier, outputDir, prefix + "_smooth", progress, ct);
+                if (smooth is not null) current = smooth;
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { Log.Warning(ex, "VideoGenerationService: interpolace selhala — ponechávám předchozí video"); }
+        }
+
+        return current;
+    }
+
+    /// <summary>
+    /// Samostatný RIFE interpolační pass (dopočítá mezisnímky → plynulejší pohyb). Vrací cestu
+    /// k plynulejšímu videu, nebo null při selhání.
+    /// </summary>
+    private async Task<string?> RunInterpolatePassAsync(
+        string videoLocalPath, int fps, int multiplier, string outputDir, string prefix,
+        IProgress<int>? progress, CancellationToken ct)
+    {
+        var workflow = ComfyWorkflowBuilder.BuildVideoInterpolatePass(videoLocalPath, fps, multiplier, filenamePrefix: prefix);
+
+        ComfyGenerationResult? result;
+        try
+        {
+            var promptId = await _comfy.QueuePromptAsync(workflow, ct);
+            result       = await _comfy.WaitForResultAsync(promptId, progress, ct);
+        }
+        finally
+        {
+            await _comfy.FreeMemoryAsync(CancellationToken.None);
+        }
+
+        if (result is null || result.Images.Count == 0) return null;
+        var videoRef = result.Images.FirstOrDefault(IsVideoRef) ?? result.Images[0];
+        var ext      = Path.GetExtension(videoRef.Filename);
+        if (string.IsNullOrEmpty(ext)) ext = ".mp4";
+        var path = Path.Combine(outputDir, prefix + ext);
+        await DownloadToFileAsync(videoRef, path, ct);
+        return path;
     }
 
     /// <summary>

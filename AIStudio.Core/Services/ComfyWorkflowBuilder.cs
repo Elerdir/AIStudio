@@ -883,6 +883,67 @@ public static class ComfyWorkflowBuilder
         };
     }
 
+    /// <summary>Výchozí RIFE model (ComfyUI-Frame-Interpolation si ho dotáhne sám při 1. běhu).</summary>
+    public const string DefaultRifeCkpt = "rife47.pth";
+
+    /// <summary>
+    /// Post-proces pass: <b>plynulejší pohyb</b> dopočítáním mezisnímků (RIFE interpolace).
+    /// Načte MP4 (<c>VHS_LoadVideoPath</c>), <c>RIFE VFI</c> z každého páru snímků dopočítá
+    /// <paramref name="multiplier"/>× snímků (16→32 fps při ×2) a znovu složí do MP4 s
+    /// odpovídajícím <c>frame_rate</c> (zdrojové × násobek). Řeší „sekané" video bez nutnosti
+    /// generovat víc snímků difuzí. Běží jako samostatný ComfyUI prompt (po uvolnění Wan z VRAM).
+    /// </summary>
+    /// <param name="videoPath">Absolutní cesta k MP4, který ComfyUI proces vidí na disku.</param>
+    /// <param name="sourceFps">FPS zdrojového videa (např. 16).</param>
+    /// <param name="multiplier">Kolikrát zahustit snímky (2 = 32 fps, 3 = 48 fps).</param>
+    /// <param name="rifeCkpt">RIFE model (default rife47.pth).</param>
+    /// <param name="filenamePrefix">Prefix výstupního MP4.</param>
+    public static Dictionary<string, object> BuildVideoInterpolatePass(
+        string videoPath,
+        int    sourceFps,
+        int    multiplier     = 2,
+        string rifeCkpt       = DefaultRifeCkpt,
+        string filenamePrefix = "AIStudio_video_smooth")
+    {
+        if (multiplier < 2) multiplier = 2;
+        return new Dictionary<string, object>
+        {
+            ["1"] = Node("VHS_LoadVideoPath", new()
+            {
+                ["video"]             = videoPath,
+                ["force_rate"]        = 0,
+                ["custom_width"]      = 0,
+                ["custom_height"]     = 0,
+                ["frame_load_cap"]    = 0,
+                ["skip_first_frames"] = 0,
+                ["select_every_nth"]  = 1,
+            }),
+            ["2"] = Node("RIFE VFI", new()
+            {
+                ["ckpt_name"]                   = rifeCkpt,
+                ["frames"]                      = Ref("1", 0),
+                ["clear_cache_after_n_frames"]  = 10,
+                ["multiplier"]                  = multiplier,
+                ["fast_mode"]                   = true,
+                ["ensemble"]                    = true,
+                ["scale_factor"]                = 1.0,
+            }),
+            [WanSaveKey] = Node("VHS_VideoCombine", new()
+            {
+                ["frame_rate"]      = sourceFps * multiplier,
+                ["loop_count"]      = 0,
+                ["filename_prefix"] = filenamePrefix,
+                ["format"]          = WanOutputMp4,
+                ["pix_fmt"]         = "yuv420p",
+                ["crf"]             = 19,
+                ["save_metadata"]   = true,
+                ["pingpong"]        = false,
+                ["save_output"]     = true,
+                ["images"]          = Ref("2", 0),
+            }),
+        };
+    }
+
     // ── IMG2IMG – SDXL / SD ───────────────────────────────────────────────────
 
     /// <summary>

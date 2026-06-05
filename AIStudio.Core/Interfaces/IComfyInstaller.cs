@@ -81,6 +81,22 @@ public interface IComfyInstaller
         IProgress<ComfyInstallProgress>?  progress = null,
         CancellationToken                 ct       = default);
 
+    /// <summary>
+    /// True pokud je nainstalovaný custom node ComfyUI-Frame-Interpolation
+    /// (poskytuje <c>RIFE VFI</c> pro dopočítání mezisnímků = plynulejší video).
+    /// </summary>
+    bool IsFrameInterpolationInstalled(string comfyUiDir);
+
+    /// <summary>
+    /// Doinstaluje ComfyUI-Frame-Interpolation (RIFE interpolace) + jeho pip závislosti.
+    /// RIFE model se dotáhne automaticky až při prvním běhu nodu. Idempotentní.
+    /// </summary>
+    Task EnsureFrameInterpolationInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default);
+
     /// <summary>True pokud je v embedded Pythonu nainstalován <c>torch-directml</c>.</summary>
     bool IsDirectMlInstalled(string pythonExe);
 

@@ -271,7 +271,15 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
   „dlouhé video" + cílová délka s náhledem plánu, checkbox upscale 2×, schování single-length).
   `VideoGenerationRequest` má `Upscale`/`UpscaleModel`. **Zbývá runtime:** ověřit `ImageFromBatch`/
   `VHS_LoadVideoPath` názvy nodů, ffmpeg concat path, drift/čas u delších videí. Pozn.: 60 FPS ×
-  2 min = ~90 segmentů (hodiny) — vysoký FPS chce spíš interpolaci (RIFE, budoucí), ne generaci.
+  2 min = ~90 segmentů (hodiny) — pro plynulost se používá interpolace (níž), ne generace víc FPS.
+- **RIFE interpolace — plynulejší video (IMPLEMENTOVÁNO, čeká runtime)** — `ComfyWorkflowBuilder.BuildVideoInterpolatePass`
+  (`VHS_LoadVideoPath`→`RIFE VFI` ×2/×3→`VHS_VideoCombine` s frame_rate = zdroj×násobek),
+  auto-install `ComfyUI-Frame-Interpolation` (Fannovel16) ve `ComfyInstaller`/`MacOsComfyInstaller`
+  + ComfyService startup (RIFE model se dotáhne sám za běhu nodu). `VideoGenerationService.PostProcessAsync`
+  řetězí **upscale → interpolace** (upscale dřív = levnější, běží na míň snímcích) pro jedno i dlouhé
+  video (per-segment). `VideoGenerationRequest`/`LongVideoRequest` mají `Interpolate`/`InterpolateMultiplier`.
+  UI: checkbox „Plynulejší pohyb (RIFE)" + násobek 2–4 s náhledem „16 → 32 fps". **Zbývá runtime:**
+  ověřit node `RIFE VFI` (název s mezerou) + auto-download RIFE modelu + requirements-no-cupy.txt.
 - **Video → LoRA pipeline** (až budou videa hotová): uživatel vloží 1..X videí (volitelně + referenční obrázek subjektu, který má „hlídat"). Aplikace videa zanalyzuje — detekce/popis osob, objektů, zvířat atd. (frame sampling + detekce/segmentace + caption), uživatel zaškrtne/potvrdí, co chce. Z vybraných framů/crops se sestaví **dataset** (obrázky + captiony) a spustí se **LoRA trénink** (využije stávající `SdScriptsLoraTrainer`). Výsledné LoRA jdou použít v **Image Studiu i ve videích**. Otevřené otázky: jaký detekční model (YOLO/GroundingDINO/SAM přes Python proces? nebo lokální VLM caption?), jak řešit kvalitu/duplicitu framů, NSFW/consent guardrails (viz pravidlo o reálných osobách).
 - **Vlastní generátor (nezávislost na ComfyUI)** — dlouhodobý cíl: vlastní inference pipeline **přímo integrovaná v aplikaci** (ne jako externí Python proces), kde si verze modelů/závislostí řeší AI Studio samo a postupně. Kandidáti: managed inference (ONNX Runtime / TorchSharp / vlastní wrapper nad stable-diffusion.cpp / candle), nebo embedded Python s plnou kontrolou. Cíl: one-click, žádná závislost na ComfyUI portable, vlastní správa verzí. Velký záběr — navrhnout architekturu zvlášť.
 

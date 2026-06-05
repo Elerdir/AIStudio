@@ -165,12 +165,24 @@
                     </Grid>
                 </StackPanel>
 
-                <!-- Kvalita (upscale) -->
+                <!-- Kvalita (upscale + interpolace) -->
                 <StackPanel Spacing="6">
                     <TextBlock Text="KVALITA" Classes="sectionHeader"/>
                     <CheckBox IsChecked="{Binding Upscale}"
                               Content="Zvýšit rozlišení 2× (ESRGAN upscale nad 480/720p)"
                               ToolTip.Tip="Wan generuje nativně 480/720p. Tahle volba po vygenerování protáhne snímky ESRGAN modelem na ~2× rozlišení (skutečné HD+). Přidá samostatný krok a čas; model (~64 MB) se případně stáhne sám."/>
+                    <CheckBox IsChecked="{Binding Interpolate}"
+                              Content="Plynulejší pohyb (interpolace mezisnímků – RIFE)"
+                              ToolTip.Tip="Wan generuje 16 fps, což může působit lehce sekaně. RIFE dopočítá mezisnímky a video bude plynulejší, aniž by se generovalo víc. Přidá samostatný krok; potřebný node se případně doinstaluje sám."/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding Interpolate}" Margin="26,0,0,0">
+                        <TextBlock Text="Násobek" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextHintBrush}"/>
+                        <NumericUpDown Value="{Binding InterpolateMultiplier}" Minimum="2" Maximum="4" Increment="1"
+                                       FormatString="0" MinWidth="80"
+                                       ToolTip.Tip="2 = dvojnásobné FPS (16→32), 3 = trojnásobné (16→48). Vyšší = plynulejší, ale pomalejší."/>
+                        <TextBlock Text="{Binding InterpolationLabel}" FontSize="12" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AccentLightBrush}"/>
+                    </StackPanel>
                 </StackPanel>
 
                 <!-- LoRA (volitelné) -->

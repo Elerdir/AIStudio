@@ -91,7 +91,7 @@ public partial class VideoPageViewModel : ViewModelBase
     private int _length = 33;          // snímky
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DurationLabel), nameof(SegmentPlanLabel))]
+    [NotifyPropertyChangedFor(nameof(DurationLabel), nameof(SegmentPlanLabel), nameof(InterpolationLabel))]
     private int _fps = 16;
 
     [ObservableProperty] private int    _steps = 30;
@@ -111,6 +111,20 @@ public partial class VideoPageViewModel : ViewModelBase
 
     /// <summary>Zvýšit rozlišení 2× ESRGAN upscalem (nad nativních 480/720p).</summary>
     [ObservableProperty] private bool _upscale;
+
+    /// <summary>Plynulejší pohyb dopočítáním mezisnímků (RIFE interpolace).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(InterpolationLabel))]
+    private bool _interpolate;
+
+    /// <summary>Násobek interpolace (2 = dvojnásobné FPS, 3 = trojnásobné).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(InterpolationLabel))]
+    private int _interpolateMultiplier = 2;
+
+    /// <summary>Popisek výsledného FPS po interpolaci („16 → 32 fps").</summary>
+    public string InterpolationLabel =>
+        Interpolate ? $"{Fps} → {Fps * Math.Max(2, InterpolateMultiplier)} fps" : string.Empty;
 
     /// <summary>Klasický posuvník délky (snímky) se schová v režimu dlouhého videa.</summary>
     public bool SingleLengthVisible => !LongVideoMode;
@@ -372,7 +386,9 @@ public partial class VideoPageViewModel : ViewModelBase
             NegativePrompt: string.IsNullOrWhiteSpace(NegativePrompt) ? null : NegativePrompt.Trim(),
             Loras:  SelectedLoras.Count > 0 ? SelectedLoras.ToList() : null,
             Upscale: upscaleModel is not null,
-            UpscaleModel: upscaleModel);
+            UpscaleModel: upscaleModel,
+            Interpolate: Interpolate,
+            InterpolateMultiplier: Math.Max(2, InterpolateMultiplier));
 
         var progress = new Progress<int>(p => Dispatcher.UIThread.Post(() => UpdateProgress(p)));
         return await _videoGen.GenerateAsync(req, progress, ct);
@@ -402,7 +418,9 @@ public partial class VideoPageViewModel : ViewModelBase
             NegativePrompt: string.IsNullOrWhiteSpace(NegativePrompt) ? null : NegativePrompt.Trim(),
             Loras:          SelectedLoras.Count > 0 ? SelectedLoras.ToList() : null,
             Upscale:        upscaleModel is not null,
-            UpscaleModel:   upscaleModel);
+            UpscaleModel:   upscaleModel,
+            Interpolate:    Interpolate,
+            InterpolateMultiplier: Math.Max(2, InterpolateMultiplier));
 
         var progress = new Progress<LongVideoProgress>(p => Dispatcher.UIThread.Post(() =>
         {

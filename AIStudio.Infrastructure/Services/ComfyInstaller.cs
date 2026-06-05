@@ -68,6 +68,12 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
     private const string FaceDetectorModelUrl =
         "https://huggingface.co/Bingsu/adetailer/resolve/main/face_yolov8m.pt";
 
+    // RIFE frame interpolation = ComfyUI-Frame-Interpolation (node „RIFE VFI"). RIFE model
+    // si node dotáhne sám při prvním běhu, takže instalujeme jen node + jeho requirements.
+    private const string FrameInterpZipUrl =
+        "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation/archive/refs/heads/main.zip";
+    private const string FrameInterpFolderName = "ComfyUI-Frame-Interpolation";
+
     public string DefaultInstallDirectory =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -740,6 +746,50 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
         }
 
         progress?.Report(new(ComfyInstallStage.Done, "FaceDetailer nainstalován", 100, 0, 0, 0, null));
+    }
+
+    // ── ComfyUI-Frame-Interpolation (RIFE VFI → plynulejší video) ─────────────
+
+    public bool IsFrameInterpolationInstalled(string comfyUiDir)
+    {
+        if (string.IsNullOrWhiteSpace(comfyUiDir)) return false;
+        var nodePath = Path.Combine(comfyUiDir, "custom_nodes", FrameInterpFolderName);
+        if (!Directory.Exists(nodePath)) return false;
+        return File.Exists(Path.Combine(nodePath, "__init__.py"))
+            || Directory.Exists(Path.Combine(nodePath, "vfi_models"));
+    }
+
+    public async Task EnsureFrameInterpolationInstalledAsync(
+        string                            comfyUiDir,
+        string                            pythonExe,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default)
+    {
+        if (IsFrameInterpolationInstalled(comfyUiDir))
+        {
+            Log.Information("ComfyInstaller: ComfyUI-Frame-Interpolation už nainstalovaný");
+            return;
+        }
+
+        var customNodesDir = Path.Combine(comfyUiDir, "custom_nodes");
+        Directory.CreateDirectory(customNodesDir);
+        var targetDir = Path.Combine(customNodesDir, FrameInterpFolderName);
+
+        await DownloadAndExtractGitHubZipAsync(
+            FrameInterpZipUrl, targetDir, "ComfyUI-Frame-Interpolation", progress, ct);
+
+        // requirements.txt (cupy/opencv… — RIFE model se dotáhne až za běhu nodu).
+        var reqPath = Path.Combine(targetDir, "requirements-no-cupy.txt");
+        if (!File.Exists(reqPath)) reqPath = Path.Combine(targetDir, "requirements.txt");
+        if (File.Exists(reqPath))
+        {
+            progress?.Report(new(ComfyInstallStage.Finishing,
+                "Instaluji závislosti Frame-Interpolation (RIFE)…", 80, 0, 0, 0, null));
+            await RunPipInstallAsync(pythonExe, $"-r \"{reqPath}\"", ct);
+        }
+
+        progress?.Report(new(ComfyInstallStage.Done,
+            "ComfyUI-Frame-Interpolation nainstalován", 100, 0, 0, 0, null));
     }
 
     /// <summary>

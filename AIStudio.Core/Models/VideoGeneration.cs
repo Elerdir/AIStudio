@@ -21,7 +21,9 @@ public sealed record VideoGenerationRequest(
     string?       NegativePrompt = null,
     IReadOnlyList<LoraItem>? Loras = null,
     bool          Upscale = false,        // post-proces 2× ESRGAN (nad 720p)
-    string?       UpscaleModel = null);   // soubor v upscale_models/ (RealESRGAN_x4plus.pth)
+    string?       UpscaleModel = null,    // soubor v upscale_models/ (RealESRGAN_x4plus.pth)
+    bool          Interpolate = false,    // RIFE interpolace (plynulejší pohyb)
+    int           InterpolateMultiplier = 2);
 
 /// <summary>
 /// Zadání pro <b>dlouhé video</b> skládané z řetězených ~5s Wan segmentů. Segment 1 je
@@ -44,7 +46,9 @@ public sealed record LongVideoRequest(
     string?        NegativePrompt = null,
     IReadOnlyList<LoraItem>? Loras = null,
     bool           Upscale = false,
-    string?        UpscaleModel = null);
+    string?        UpscaleModel = null,
+    bool           Interpolate = false,
+    int            InterpolateMultiplier = 2);
 
 /// <summary>Průběh generování dlouhého videa — segment k/N + procenta uvnitř segmentu.</summary>
 public sealed record LongVideoProgress(
