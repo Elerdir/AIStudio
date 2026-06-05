@@ -19,6 +19,7 @@ namespace AIStudio.App.ViewModels.Chat;
 public partial class ChatPageViewModel : ViewModelBase
 {
     private readonly ILlamaService              _llama;
+    private readonly IChatTurnService           _turn;
     private readonly IChatRepository            _repo;
     private readonly ISettingsService           _settings;
     private readonly INavigationService         _nav;
@@ -250,7 +251,8 @@ public partial class ChatPageViewModel : ViewModelBase
     // Sledovaná konverzace pro CollectionChanged (kvůli CanRegenerate)
     private ConversationViewModel? _subscribedConv;
 
-    public ChatPageViewModel(ILlamaService llama, IChatRepository repo, ISettingsService settings,
+    public ChatPageViewModel(ILlamaService llama, IChatTurnService turn,
+                             IChatRepository repo, ISettingsService settings,
                              INavigationService nav, ISystemPromptPresetService presetService,
                              ISystemMonitorService?    monitor      = null,
                              IChatImageIntentDetector? imageIntent  = null,
@@ -258,6 +260,7 @@ public partial class ChatPageViewModel : ViewModelBase
                              IVisionService?           vision       = null)
     {
         _llama         = llama;
+        _turn          = turn;
         _repo          = repo;
         _settings      = settings;
         _nav           = nav;
@@ -935,12 +938,10 @@ public partial class ChatPageViewModel : ViewModelBase
 
         try
         {
-            await EnsureModelLoadedAsync(conv, assistantMsg, cts.Token);
-
-            var history = BuildHistory(conv);
+            await _turn.EnsureModelLoadedAsync(conv.SelectedModelName, cts.Token);
 
             await StreamIntoMessageAsync(
-                _llama.ChatAsync(history, conv.MaxTokens, conv.Temperature, cts.Token),
+                _turn.StreamReplyAsync(BuildTurnRequest(conv), cts.Token),
                 assistantMsg,
                 cts.Token);
 
@@ -952,9 +953,14 @@ public partial class ChatPageViewModel : ViewModelBase
             // ohlídá podmínky a tichounce skončí, když nejsou splněné.
             _ = MaybeAutoRenameAsync(conv);
         }
-        catch (ModelNotAvailableException)
+        catch (ModelNotAvailableException ex)
         {
-            Dispatcher.UIThread.Post(() => { assistantMsg.IsStreaming = false; assistantMsg.IsError = true; });
+            Dispatcher.UIThread.Post(() =>
+            {
+                assistantMsg.IsStreaming = false;
+                assistantMsg.IsError     = true;
+                assistantMsg.Content     = $"⚠️ Model **{ex.ModelName}** není stažen. Stáhni ho v sekci *Modely*.";
+            });
         }
         catch (AIStudio.Core.Models.ModelLoadFailedException loadEx)
         {
@@ -1030,21 +1036,24 @@ public partial class ChatPageViewModel : ViewModelBase
 
         try
         {
-            await EnsureModelLoadedAsync(conv, lastMsg, cts.Token);
-
-            var history = BuildHistory(conv);
+            await _turn.EnsureModelLoadedAsync(conv.SelectedModelName, cts.Token);
 
             await StreamIntoMessageAsync(
-                _llama.ChatAsync(history, conv.MaxTokens, conv.Temperature, cts.Token),
+                _turn.StreamReplyAsync(BuildTurnRequest(conv), cts.Token),
                 lastMsg,
                 cts.Token);
 
             await TrySaveMessageAsync(lastMsg, conv);
             _ = TrySaveConversationAsync(conv);
         }
-        catch (ModelNotAvailableException)
+        catch (ModelNotAvailableException ex)
         {
-            Dispatcher.UIThread.Post(() => { lastMsg.IsStreaming = false; lastMsg.IsError = true; });
+            Dispatcher.UIThread.Post(() =>
+            {
+                lastMsg.IsStreaming = false;
+                lastMsg.IsError     = true;
+                lastMsg.Content     = $"⚠️ Model **{ex.ModelName}** není stažen. Stáhni ho v sekci *Modely*.";
+            });
         }
         catch (OperationCanceledException)
         {
@@ -1113,20 +1122,24 @@ public partial class ChatPageViewModel : ViewModelBase
 
         try
         {
-            await EnsureModelLoadedAsync(conv, assistantMsg, cts.Token);
-            var history = BuildHistory(conv);
+            await _turn.EnsureModelLoadedAsync(conv.SelectedModelName, cts.Token);
 
             await StreamIntoMessageAsync(
-                _llama.ChatAsync(history, conv.MaxTokens, conv.Temperature, cts.Token),
+                _turn.StreamReplyAsync(BuildTurnRequest(conv), cts.Token),
                 assistantMsg,
                 cts.Token);
 
             await TrySaveMessageAsync(assistantMsg, conv);
             _ = TrySaveConversationAsync(conv);
         }
-        catch (ModelNotAvailableException)
+        catch (ModelNotAvailableException ex)
         {
-            Dispatcher.UIThread.Post(() => { assistantMsg.IsStreaming = false; assistantMsg.IsError = true; });
+            Dispatcher.UIThread.Post(() =>
+            {
+                assistantMsg.IsStreaming = false;
+                assistantMsg.IsError     = true;
+                assistantMsg.Content     = $"⚠️ Model **{ex.ModelName}** není stažen. Stáhni ho v sekci *Modely*.";
+            });
         }
         catch (OperationCanceledException)
         {
@@ -1209,50 +1222,32 @@ public partial class ChatPageViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Zajistí načtení modelu pokud ještě není. Aktualizuje placeholder bublinu.</summary>
-    private async Task EnsureModelLoadedAsync(
-        ConversationViewModel conv,
-        ChatMessage           placeholder,
-        CancellationToken     ct)
-    {
-        if (_llama.IsLoaded && _llama.LoadedModelName == conv.SelectedModelName)
-            return;
+    /// <summary>
+    /// Sestaví zadání LLM tahu pro <see cref="IChatTurnService"/>: systémový prompt, model,
+    /// thinking flag, předchozí zprávy (bez posledního — placeholder asistenta) a parametry
+    /// generování. Mapování UI typu (<see cref="ChatMessage"/>) na primitivy zůstává tady;
+    /// vlastní načtení modelu + stream řeší služba.
+    /// </summary>
+    private ChatTurnRequest BuildTurnRequest(ConversationViewModel conv) =>
+        new(conv.SystemPrompt, conv.SelectedModelName, conv.IsThinkingEnabled,
+            BuildPriorMessages(conv), conv.MaxTokens, conv.Temperature);
 
-        var modelPath = GetModelPath(conv.SelectedModelName);
-        if (!File.Exists(modelPath))
-        {
-            // Zobrazíme chybu v bublině — ale NEUKLÁDÁME do DB
-            // (po stažení modelu uživatel neuvidí starou chybovou zprávu)
-            Dispatcher.UIThread.Post(() =>
-                placeholder.Content =
-                    $"⚠️ Model **{conv.SelectedModelName}** není stažen. " +
-                    $"Stáhni ho v sekci *Modely*.");
-            throw new ModelNotAvailableException(conv.SelectedModelName);
-        }
-
-        // C10: placeholder bublina zůstane prázdná — loading UX zajišťuje IsLoadingModel strip v Row 3
-        var gpuLayers   = _settings.Settings.UseGpu ? -1 : 0;
-        var contextSize = _settings.Settings.ChatContextSize;
-        await _llama.LoadModelAsync(modelPath, conv.SelectedModelName,
-                                    gpuLayers: gpuLayers,
-                                    contextSize: contextSize,
-                                    ct: ct);
-    }
+    /// <summary>Předchozí zprávy konverzace (bez posledního placeholderu) jako primitivy role/obsah.</summary>
+    private List<(string Role, string Content)> BuildPriorMessages(ConversationViewModel conv) =>
+        conv.Messages
+            .Take(conv.Messages.Count - 1)
+            .Select(m => (RoleToString(m.Role), m.Content))
+            .ToList();
 
     /// <summary>
-    /// Sestaví historii zpráv pro LlamaSharp. Mapuje UI typy (ChatMessage) na
-    /// primitivy a deleguje na <see cref="AIStudio.Core.Services.ChatPromptBuilder"/>
-    /// (pure logika system promptu + Qwen3 thinking, unit-testovaná v Core).
-    /// Pořadí: systémový prompt → zprávy konverzace bez posledního (placeholder).
+    /// Cesta k GGUF souboru modelu. Používá image-gen flow (vlastní no-throw načtení modelu
+    /// pro parsování intentu) — hlavní chat tah jde přes <see cref="IChatTurnService"/>.
     /// </summary>
-    private List<(string Role, string Content)> BuildHistory(ConversationViewModel conv)
+    private string GetModelPath(string modelName)
     {
-        var prior = conv.Messages
-            .Take(conv.Messages.Count - 1)
-            .Select(m => (RoleToString(m.Role), m.Content));
-
-        return AIStudio.Core.Services.ChatPromptBuilder.BuildHistory(
-            conv.SystemPrompt, conv.SelectedModelName, conv.IsThinkingEnabled, prior);
+        var modelsDir = AIStudio.Core.Services.AppPaths.ResolveModelsDirectory(
+            _settings.Settings.ModelsDirectory);
+        return ModelPathResolver.Resolve(modelsDir, modelName);
     }
 
     private static string RoleToString(MessageRole role) => role switch
@@ -1297,13 +1292,9 @@ public partial class ChatPageViewModel : ViewModelBase
         IsCompacting = true;
         ModelStatusText = "Shrnuji konverzaci…";
 
-        // Dummy placeholder — EnsureModelLoadedAsync do něj píše jen při chybě
-        // „model není stažen"; nepřidáváme ho do konverzace.
-        var probe = new ChatMessage { Role = MessageRole.Assistant };
-
         try
         {
-            await EnsureModelLoadedAsync(conv, probe, cts.Token);
+            await _turn.EnsureModelLoadedAsync(conv.SelectedModelName, cts.Token);
 
             var prompt = AIStudio.Core.Services.ConversationCompactor.BuildSummaryPrompt(toSummarize);
 
@@ -1508,20 +1499,24 @@ public partial class ChatPageViewModel : ViewModelBase
 
         try
         {
-            await EnsureModelLoadedAsync(branch, assistantMsg, cts.Token);
-            var history = BuildHistory(branch);
+            await _turn.EnsureModelLoadedAsync(branch.SelectedModelName, cts.Token);
 
             await StreamIntoMessageAsync(
-                _llama.ChatAsync(history, branch.MaxTokens, branch.Temperature, cts.Token),
+                _turn.StreamReplyAsync(BuildTurnRequest(branch), cts.Token),
                 assistantMsg,
                 cts.Token);
 
             await TrySaveMessageAsync(assistantMsg, branch);
             _ = TrySaveConversationAsync(branch);
         }
-        catch (ModelNotAvailableException)
+        catch (ModelNotAvailableException ex)
         {
-            Dispatcher.UIThread.Post(() => { assistantMsg.IsStreaming = false; assistantMsg.IsError = true; });
+            Dispatcher.UIThread.Post(() =>
+            {
+                assistantMsg.IsStreaming = false;
+                assistantMsg.IsError     = true;
+                assistantMsg.Content     = $"⚠️ Model **{ex.ModelName}** není stažen. Stáhni ho v sekci *Modely*.";
+            });
         }
         catch (OperationCanceledException)
         {
@@ -1614,13 +1609,6 @@ public partial class ChatPageViewModel : ViewModelBase
         {
             Log.Error(ex, "Failed to save message {Id}", msg.Id);
         }
-    }
-
-    private string GetModelPath(string modelName)
-    {
-        var modelsDir = AIStudio.Core.Services.AppPaths.ResolveModelsDirectory(
-            _settings.Settings.ModelsDirectory);
-        return ModelPathResolver.Resolve(modelsDir, modelName);
     }
 
     // ── Auto-rename ────────────────────────────────────────────────────────────

@@ -143,6 +143,8 @@ public partial class App : Application
         RegisterWindowsPlatformServices(services);
 
         services.AddSingleton<ILlamaService, LlamaService>();
+        // Orchestrace LLM tahu v chatu (load modelu + historie + stream) — vytaženo z VM.
+        services.AddSingleton<IChatTurnService, ChatTurnService>();
         services.AddSingleton<IDownloadService, DownloadService>();
         services.AddSingleton<IChatRepository, SqliteChatRepository>();
         services.AddSingleton<IComfyHttpClient, ComfyHttpClient>();
