@@ -48,9 +48,9 @@
 
                 <!-- Status dot — Panel se čtyřmi Ellipsy, vždy právě jeden viditelný -->
                 <Panel Grid.Column="0" Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,8,0">
-                    <Ellipse Fill="#4ADE80" IsVisible="{Binding ComfyRunning}"/>
-                    <Ellipse Fill="#F59E0B" IsVisible="{Binding ComfyStarting}"/>
-                    <Ellipse Fill="#EF4444" IsVisible="{Binding ComfyError}"/>
+                    <Ellipse Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding ComfyRunning}"/>
+                    <Ellipse Fill="{DynamicResource WarningBrush}" IsVisible="{Binding ComfyStarting}"/>
+                    <Ellipse Fill="{DynamicResource ErrTextBrush}" IsVisible="{Binding ComfyError}"/>
                     <Ellipse Fill="{DynamicResource TextDisabledBrush}" IsVisible="{Binding ComfyIdle}"/>
                 </Panel>
 
@@ -99,8 +99,8 @@
                         Padding="12,5"
                         FontSize="12"
                         Margin="8,0,0,0"
-                        Background="#1A1010"
-                        BorderBrush="#3A1515"
+                        Background="{DynamicResource ErrSurfaceBrush}"
+                        BorderBrush="{DynamicResource ErrSurfaceBrush}"
                         BorderThickness="1"
                         CornerRadius="8"
                         Command="{Binding StopComfyCommand}"
@@ -269,11 +269,11 @@
                                                 <Setter Property="BorderThickness" Value="0"/>
                                             </Style>
                                             <Style Selector="Button.activeToggle /template/ ContentPresenter">
-                                                <Setter Property="Background" Value="#2A1F5A"/>
+                                                <Setter Property="Background" Value="{DynamicResource InfoBorderBrush}"/>
                                                 <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                             </Style>
                                             <Style Selector="Button.activeToggle:pointerover /template/ ContentPresenter">
-                                                <Setter Property="Background" Value="#2A1F5A"/>
+                                                <Setter Property="Background" Value="{DynamicResource InfoBorderBrush}"/>
                                                 <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                             </Style>
                                             <Style Selector="Button.inactiveToggle">
@@ -309,11 +309,11 @@
                                                 <Setter Property="BorderThickness" Value="0"/>
                                             </Style>
                                             <Style Selector="Button.activeToggle /template/ ContentPresenter">
-                                                <Setter Property="Background" Value="#2A1F5A"/>
+                                                <Setter Property="Background" Value="{DynamicResource InfoBorderBrush}"/>
                                                 <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                             </Style>
                                             <Style Selector="Button.activeToggle:pointerover /template/ ContentPresenter">
-                                                <Setter Property="Background" Value="#2A1F5A"/>
+                                                <Setter Property="Background" Value="{DynamicResource InfoBorderBrush}"/>
                                                 <Setter Property="TextElement.Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                             </Style>
                                             <Style Selector="Button.inactiveToggle">
@@ -339,8 +339,8 @@
                             <!-- ══ SMART MÓD — sekce jsou přímí potomci vnějšího StackPanelu ══ -->
 
                             <!-- Info banner: Smart mód bez LLM -->
-                            <Border Background="#1A140A"
-                                    BorderBrush="#4A3010"
+                            <Border Background="{DynamicResource WarnSurfaceBrush}"
+                                    BorderBrush="{DynamicResource WarnBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="8"
                                     Padding="10,8"
@@ -348,12 +348,12 @@
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.InformationOutline}"
                                                      Width="14" Height="14"
-                                                     Foreground="#D97706"
+                                                     Foreground="{DynamicResource WarnTextBrush}"
                                                      VerticalAlignment="Top"
                                                      Margin="0,1,0,0"/>
                                     <TextBlock TextWrapping="Wrap"
                                                FontSize="11"
-                                               Foreground="#B45309"
+                                               Foreground="{DynamicResource WarnTextBrush}"
                                                MaxWidth="240">
                                         <Run Text="LLM model není načten — popis bude použit přímo jako prompt (bez překladu do angličtiny). Načti model v "/>
                                         <Run Text="Chatu" FontWeight="SemiBold"/>
@@ -414,8 +414,8 @@
                                                 Classes.activeOrientation="{Binding OrientationSquare}">
                                             <Border.Styles>
                                                 <Style Selector="Border.activeOrientation">
-                                                    <Setter Property="Background" Value="#2A1F5A"/>
-                                                    <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                    <Setter Property="Background" Value="{DynamicResource InfoBorderBrush}"/>
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                                 </Style>
                                                 <Style Selector="Border:not(.activeOrientation)">
                                                     <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
@@ -435,7 +435,7 @@
                                                             HorizontalAlignment="Center">
                                                         <Border.Styles>
                                                             <Style Selector="Border">
-                                                                <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                                             </Style>
                                                         </Border.Styles>
                                                     </Border>
@@ -451,8 +451,8 @@
                                                 Classes.activeOrientation="{Binding OrientationPortrait}">
                                             <Border.Styles>
                                                 <Style Selector="Border.activeOrientation">
-                                                    <Setter Property="Background" Value="#2A1F5A"/>
-                                                    <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                    <Setter Property="Background" Value="{DynamicResource InfoBorderBrush}"/>
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                                 </Style>
                                                 <Style Selector="Border:not(.activeOrientation)">
                                                     <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
@@ -472,7 +472,7 @@
                                                             HorizontalAlignment="Center">
                                                         <Border.Styles>
                                                             <Style Selector="Border">
-                                                                <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                                             </Style>
                                                         </Border.Styles>
                                                     </Border>
@@ -488,8 +488,8 @@
                                                 Classes.activeOrientation="{Binding OrientationLandscape}">
                                             <Border.Styles>
                                                 <Style Selector="Border.activeOrientation">
-                                                    <Setter Property="Background" Value="#2A1F5A"/>
-                                                    <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                    <Setter Property="Background" Value="{DynamicResource InfoBorderBrush}"/>
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                                 </Style>
                                                 <Style Selector="Border:not(.activeOrientation)">
                                                     <Setter Property="Background" Value="{DynamicResource CardBgBrush}"/>
@@ -509,7 +509,7 @@
                                                             HorizontalAlignment="Center">
                                                         <Border.Styles>
                                                             <Style Selector="Border">
-                                                                <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                                             </Style>
                                                         </Border.Styles>
                                                     </Border>
@@ -1051,8 +1051,8 @@
                                 <Button HorizontalAlignment="Stretch"
                                         HorizontalContentAlignment="Center"
                                         Padding="0,14"
-                                        Background="#3A1515"
-                                        BorderBrush="#6B2020"
+                                        Background="{DynamicResource ErrSurfaceBrush}"
+                                        BorderBrush="{DynamicResource ErrBorderBrush}"
                                         BorderThickness="1"
                                         CornerRadius="8"
                                         Command="{Binding StopGenerationCommand}"
@@ -1074,7 +1074,7 @@
             <GridSplitter Grid.Column="1"
                           ResizeDirection="Columns"
                           ResizeBehavior="PreviousAndNext"
-                          Background="#1A1A1E"
+                          Background="{DynamicResource CardBgBrush}"
                           Cursor="SizeWestEast"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"/>
@@ -1165,7 +1165,7 @@
                         <!-- Image metadata bar -->
                         <Border Grid.Row="1"
                                 Background="{DynamicResource VeryDeepBgBrush}"
-                                BorderBrush="#1E1E24"
+                                BorderBrush="{DynamicResource AppBorderBrush}"
                                 BorderThickness="0,1,0,0"
                                 Padding="16,6">
                             <StackPanel DataContext="{Binding LatestImage}" Spacing="3">
@@ -1240,16 +1240,16 @@
 
                 <!-- ── Thumbnail strip ──────────────────────────────────────── -->
                 <Border Grid.Row="1"
-                        Background="#080809"
-                        BorderBrush="#1E1E24"
+                        Background="{DynamicResource VeryDeepBgBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}"
                         BorderThickness="0,1,0,0"
                         Padding="8,6"
                         IsVisible="{Binding HasGeneratedImages}">
                     <DockPanel>
                         <!-- Pravý sloupec: status + „Načíst další" -->
                         <Border DockPanel.Dock="Right"
-                                Background="#0C0C10"
-                                BorderBrush="#1E1E24" BorderThickness="1,0,0,0"
+                                Background="{DynamicResource VeryDeepBgBrush}"
+                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1,0,0,0"
                                 Padding="12,6"
                                 MinWidth="140">
                             <StackPanel Spacing="6" VerticalAlignment="Center">
@@ -1260,7 +1260,7 @@
                                 <Button Command="{Binding LoadMoreImagesCommand}"
                                         IsVisible="{Binding CanLoadMoreImages}"
                                         IsEnabled="{Binding !IsLoadingMoreImages}"
-                                        Background="#1A1228"
+                                        Background="{DynamicResource InfoSurfaceBrush}"
                                         BorderBrush="#2A1A44" BorderThickness="1"
                                         CornerRadius="6" Padding="10,5"
                                         HorizontalAlignment="Stretch"
@@ -1301,7 +1301,7 @@
                                             Classes.selected="{Binding IsSelected}">
                                         <Border.Styles>
                                             <Style Selector="Border.selected">
-                                                <Setter Property="BorderBrush" Value="#7C3AED"/>
+                                                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
                                             </Style>
                                             <Style Selector="Border:not(.selected)">
                                                 <Setter Property="BorderBrush" Value="Transparent"/>
@@ -1372,7 +1372,7 @@
                         <!-- Záhlaví: zavřít + jméno souboru -->
                         <Border Grid.Row="0"
                                 Background="{DynamicResource VeryDeepBgBrush}"
-                                BorderBrush="#1E1E24"
+                                BorderBrush="{DynamicResource AppBorderBrush}"
                                 BorderThickness="0,0,0,1"
                                 Padding="16,8">
                             <Grid ColumnDefinitions="*,Auto" DataContext="{Binding LatestImage}">

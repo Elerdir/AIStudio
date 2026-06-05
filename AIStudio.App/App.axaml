@@ -55,6 +55,21 @@
                     <SolidColorBrush x:Key="SuccessBrush"          Color="#4ADE80"/>
                     <SolidColorBrush x:Key="WarningBrush"          Color="#F59E0B"/>
                     <SolidColorBrush x:Key="RatingBrush"           Color="#FBBF24"/>
+                    <!-- Semantic surfaces — pozadí/okraj/text barevných info-panelů
+                         (progress, chyba, úspěch, varování). Dark hodnoty drží stávající
+                         vzhled, Light přidává čitelnou světlou variantu. -->
+                    <SolidColorBrush x:Key="InfoSurfaceBrush"      Color="#1A1830"/>
+                    <SolidColorBrush x:Key="InfoBorderBrush"       Color="#2A2550"/>
+                    <SolidColorBrush x:Key="InfoTextBrush"         Color="#818CF8"/>
+                    <SolidColorBrush x:Key="WarnSurfaceBrush"      Color="#1C1810"/>
+                    <SolidColorBrush x:Key="WarnBorderBrush"       Color="#3A2E0E"/>
+                    <SolidColorBrush x:Key="WarnTextBrush"         Color="#E0B050"/>
+                    <SolidColorBrush x:Key="ErrSurfaceBrush"       Color="#2A1414"/>
+                    <SolidColorBrush x:Key="ErrBorderBrush"        Color="#5A2424"/>
+                    <SolidColorBrush x:Key="ErrTextBrush"          Color="#E08585"/>
+                    <SolidColorBrush x:Key="OkSurfaceBrush"        Color="#142814"/>
+                    <SolidColorBrush x:Key="OkBorderBrush"         Color="#1F3A1F"/>
+                    <SolidColorBrush x:Key="OkTextBrush"           Color="#86EFAC"/>
                 </ResourceDictionary>
 
                 <!-- ── Light theme ─────────────────────────────────────── -->
@@ -89,6 +104,19 @@
                     <SolidColorBrush x:Key="SuccessBrush"          Color="#16A34A"/>
                     <SolidColorBrush x:Key="WarningBrush"          Color="#D97706"/>
                     <SolidColorBrush x:Key="RatingBrush"           Color="#CA8A04"/>
+                    <!-- Semantic surfaces — světlé tinty pro barevné info-panely -->
+                    <SolidColorBrush x:Key="InfoSurfaceBrush"      Color="#ECECFB"/>
+                    <SolidColorBrush x:Key="InfoBorderBrush"       Color="#C7C7EE"/>
+                    <SolidColorBrush x:Key="InfoTextBrush"         Color="#4F46E5"/>
+                    <SolidColorBrush x:Key="WarnSurfaceBrush"      Color="#FBF1D6"/>
+                    <SolidColorBrush x:Key="WarnBorderBrush"       Color="#E3C778"/>
+                    <SolidColorBrush x:Key="WarnTextBrush"         Color="#8A5A00"/>
+                    <SolidColorBrush x:Key="ErrSurfaceBrush"       Color="#FCE3E3"/>
+                    <SolidColorBrush x:Key="ErrBorderBrush"        Color="#E8A5A5"/>
+                    <SolidColorBrush x:Key="ErrTextBrush"          Color="#B91C1C"/>
+                    <SolidColorBrush x:Key="OkSurfaceBrush"        Color="#DDF4E1"/>
+                    <SolidColorBrush x:Key="OkBorderBrush"         Color="#A5D7AF"/>
+                    <SolidColorBrush x:Key="OkTextBrush"           Color="#15803D"/>
                 </ResourceDictionary>
 
             </ResourceDictionary.ThemeDictionaries>

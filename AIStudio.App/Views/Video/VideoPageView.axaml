@@ -237,7 +237,7 @@
 
                 <!-- Závislosti (velké modely) -->
                 <Border IsVisible="{Binding !DepsReady}"
-                        Background="#1C1606" BorderBrush="#3A2E0E" BorderThickness="1"
+                        Background="{DynamicResource WarnSurfaceBrush}" BorderBrush="{DynamicResource WarnBorderBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="14,12">
                     <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -276,7 +276,7 @@
 
                 <!-- Průběh generování -->
                 <Border IsVisible="{Binding IsGenerating}"
-                        Background="#15131C" BorderBrush="#2A2050" BorderThickness="1"
+                        Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="14,12">
                     <StackPanel Spacing="8">
                         <Grid ColumnDefinitions="*,Auto">
@@ -287,7 +287,7 @@
                         </Grid>
                         <ProgressBar Value="{Binding Progress}" Minimum="0" Maximum="100"
                                      Height="5" CornerRadius="3"
-                                     Foreground="{DynamicResource AccentLightBrush}" Background="#221C3A"/>
+                                     Foreground="{DynamicResource AccentLightBrush}" Background="{DynamicResource InfoSurfaceBrush}"/>
                         <Grid ColumnDefinitions="Auto,*">
                             <TextBlock Grid.Column="0" Text="{Binding ProgressLabel}" FontSize="11"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -300,21 +300,21 @@
 
                 <!-- Chyba -->
                 <Border IsVisible="{Binding HasError}"
-                        Background="#2A1414" BorderBrush="#5A2424" BorderThickness="1"
+                        Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrBorderBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="14,10">
-                    <TextBlock Text="{Binding ErrorMessage}" FontSize="12" Foreground="#E08585" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding ErrorMessage}" FontSize="12" Foreground="{DynamicResource ErrTextBrush}" TextWrapping="Wrap"/>
                 </Border>
 
                 <!-- Výsledek -->
                 <Border IsVisible="{Binding HasResult}"
-                        Background="#0F1A0F" BorderBrush="#1F3A1F" BorderThickness="1"
+                        Background="{DynamicResource OkSurfaceBrush}" BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="14,12">
                     <StackPanel Spacing="10">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CheckCircleOutline}"
                                              Width="16" Height="16" Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
                             <TextBlock Text="Video vygenerováno a uloženo do galerie." FontSize="12"
-                                       Foreground="#86EFAC" VerticalAlignment="Center"/>
+                                       Foreground="{DynamicResource OkTextBrush}" VerticalAlignment="Center"/>
                         </StackPanel>
                         <Border CornerRadius="8" ClipToBounds="True" Height="300"
                                 Background="#000000">

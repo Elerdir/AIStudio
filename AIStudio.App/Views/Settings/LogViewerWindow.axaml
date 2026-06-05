@@ -62,7 +62,7 @@
                                  Text="{Binding SearchText}"
                                  PlaceholderText="Hledat v logu..."
                                  Background="Transparent" BorderThickness="0"
-                                 Foreground="{DynamicResource TextPrimaryBrush}" CaretBrush="#A78BFA"
+                                 Foreground="{DynamicResource TextPrimaryBrush}" CaretBrush="{DynamicResource AccentLightBrush}"
                                  Padding="8,8" FontSize="12"/>
                     </Grid>
                 </Border>

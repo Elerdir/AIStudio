@@ -44,8 +44,8 @@
 
                 <!-- Thumbnail -->
                 <Border IsVisible="{Binding HasThumbnail}" CornerRadius="10" ClipToBounds="True"
-                        MaxHeight="260" Background="#1A1A2E"
-                        BorderBrush="#2A2A3E" BorderThickness="1">
+                        MaxHeight="260" Background="{DynamicResource InfoSurfaceBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
                     <Panel>
                         <Image Source="{Binding ThumbnailBitmap}"
                                Stretch="UniformToFill" MaxHeight="260"
@@ -53,9 +53,9 @@
                         <StackPanel IsVisible="{Binding !HasLoadedThumbnail}"
                                     HorizontalAlignment="Center" VerticalAlignment="Center"
                                     Spacing="6" Margin="0,24">
-                            <mi:MaterialIcon Kind="ImageOutline" Width="32" Height="32" Foreground="#5B6EAE" HorizontalAlignment="Center"/>
+                            <mi:MaterialIcon Kind="ImageOutline" Width="32" Height="32" Foreground="{DynamicResource InfoTextBrush}" HorizontalAlignment="Center"/>
                             <TextBlock Text="Načítám náhled…" FontSize="10"
-                                       Foreground="#5B6EAE" HorizontalAlignment="Center"/>
+                                       Foreground="{DynamicResource InfoTextBrush}" HorizontalAlignment="Center"/>
                         </StackPanel>
                     </Panel>
                 </Border>
@@ -65,15 +65,15 @@
                     <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="Bold"
                                Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Border Background="#172917" BorderBrush="#264726" BorderThickness="1"
+                        <Border Background="{DynamicResource OkSurfaceBrush}" BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
                                 CornerRadius="4" Padding="7,2" IsVisible="{Binding IsActive}">
                             <TextBlock Text="● Aktivní" FontSize="10" Foreground="{DynamicResource SuccessBrush}"/>
                         </Border>
-                        <Border Background="#151524" BorderBrush="#252540" BorderThickness="1"
+                        <Border Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                                 CornerRadius="4" Padding="7,2" IsVisible="{Binding IsDownloaded}">
-                            <TextBlock Text="Staženo" FontSize="10" Foreground="#818CF8"/>
+                            <TextBlock Text="Staženo" FontSize="10" Foreground="{DynamicResource InfoTextBrush}"/>
                         </Border>
-                        <Border Background="#2A0E1A" BorderBrush="#5A1A30" BorderThickness="1"
+                        <Border Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrBorderBrush}" BorderThickness="1"
                                 CornerRadius="4" Padding="7,2" IsVisible="{Binding IsNsfw}">
                             <TextBlock Text="NSFW" FontSize="10" Foreground="{DynamicResource ErrorBrush}"/>
                         </Border>
@@ -114,13 +114,13 @@
 
                 <!-- Chyba stahování -->
                 <Border IsVisible="{Binding ShowDownloadError}"
-                        Background="#1A0E0E" BorderBrush="#3D1515" BorderThickness="1"
+                        Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrBorderBrush}" BorderThickness="1"
                         CornerRadius="10" Padding="14">
                     <StackPanel Spacing="8">
                         <TextBlock Text="Chyba stahování" FontSize="12"
                                    FontWeight="SemiBold" Foreground="{DynamicResource ErrorBrush}"/>
                         <TextBlock Text="{Binding DownloadError}" FontSize="11"
-                                   Foreground="#CC5C5C" TextWrapping="Wrap"/>
+                                   Foreground="{DynamicResource ErrTextBrush}" TextWrapping="Wrap"/>
                         <Button Classes="secondary" Foreground="{DynamicResource ErrorBrush}" HorizontalAlignment="Left"
                                 Content="Zkusit znovu"
                                 Command="{ReflectionBinding $parent[Window].DataContext.DownloadCommand}"
@@ -166,7 +166,7 @@
                                                 </StackPanel>
                                             </Button>
                                             <Border IsVisible="{Binding IsQueued}"
-                                                    Background="#1A1830" BorderBrush="#2A2450" BorderThickness="1"
+                                                    Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                                                     CornerRadius="6" Padding="8,5">
                                                 <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
                                                     <mi:MaterialIcon Kind="TrayFull" Width="12" Height="12" Foreground="{DynamicResource AccentLightBrush}" VerticalAlignment="Center"/>
@@ -174,7 +174,7 @@
                                                 </StackPanel>
                                             </Border>
                                             <Border IsVisible="{Binding IsDownloading}"
-                                                    Background="#1A1024" BorderBrush="#3A2450" BorderThickness="1"
+                                                    Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="#3A2450" BorderThickness="1"
                                                     CornerRadius="6" Padding="8,5">
                                                 <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
                                                     <mi:MaterialIcon Kind="DownloadCircleOutline" Width="12" Height="12" Foreground="{DynamicResource AccentLightBrush}" VerticalAlignment="Center"/>
@@ -182,11 +182,11 @@
                                                 </StackPanel>
                                             </Border>
                                             <Border IsVisible="{Binding IsDownloaded}"
-                                                    Background="#151524" BorderBrush="#252540" BorderThickness="1"
+                                                    Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}" BorderThickness="1"
                                                     CornerRadius="6" Padding="8,5">
                                                 <StackPanel Orientation="Horizontal" Spacing="5" HorizontalAlignment="Center">
-                                                    <mi:MaterialIcon Kind="CheckCircle" Width="12" Height="12" Foreground="#818CF8" VerticalAlignment="Center"/>
-                                                    <TextBlock Text="Staženo" FontSize="10.5" Foreground="#818CF8" VerticalAlignment="Center"/>
+                                                    <mi:MaterialIcon Kind="CheckCircle" Width="12" Height="12" Foreground="{DynamicResource InfoTextBrush}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Staženo" FontSize="10.5" Foreground="{DynamicResource InfoTextBrush}" VerticalAlignment="Center"/>
                                                 </StackPanel>
                                             </Border>
                                         </Panel>
@@ -290,7 +290,7 @@
                     </Button>
 
                     <Border IsVisible="{Binding IsConfirmingDelete}"
-                            Background="#1A0E0E" BorderBrush="#3A1515" BorderThickness="1"
+                            Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrSurfaceBrush}" BorderThickness="1"
                             CornerRadius="10" Padding="14,12">
                         <StackPanel Spacing="10">
                             <StackPanel Orientation="Horizontal" Spacing="10">
@@ -299,7 +299,7 @@
                                 <StackPanel Spacing="3">
                                     <TextBlock Text="Opravdu smazat tento model?" FontSize="13"
                                                FontWeight="SemiBold" Foreground="{DynamicResource ErrorBrush}"/>
-                                    <TextBlock FontSize="11" Foreground="#9c6a6a" TextWrapping="Wrap"
+                                    <TextBlock FontSize="11" Foreground="{DynamicResource ErrTextBrush}" TextWrapping="Wrap"
                                                Text="Soubor se smaže ze složky modelů. Pokud byl výchozí v chatu, výchozí volba se vyresetuje. Stažení můžeš kdykoliv opakovat."/>
                                 </StackPanel>
                             </StackPanel>
@@ -310,7 +310,7 @@
                                         Content="Zrušit"/>
                                 <Button Grid.Column="1" HorizontalAlignment="Stretch"
                                         HorizontalContentAlignment="Center"
-                                        Background="#3A1515" BorderBrush="#6B2020" BorderThickness="1"
+                                        Background="{DynamicResource ErrSurfaceBrush}" BorderBrush="{DynamicResource ErrBorderBrush}" BorderThickness="1"
                                         Foreground="{DynamicResource ErrorBrush}" CornerRadius="8" Padding="0,8"
                                         Command="{ReflectionBinding $parent[Window].DataContext.DeleteModelCommand}"
                                         CommandParameter="{Binding}"
