@@ -186,6 +186,23 @@ public partial class ModelItemViewModel : ViewModelBase
     private bool _isQueued;
 
     /// <summary>
+    /// True když je stahování <b>pozastavené</b> — částečný <c>.tmp</c> soubor zůstal na disku
+    /// a jde navázat (resume). Udrží se i po restartu aplikace (.tmp leží ve složce Models).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDownloadButton), nameof(ShowDirectDownloadButton),
+                              nameof(ShowResume), nameof(ShowPauseButton),
+                              nameof(ShowDownloading), nameof(DownloadProgressLabel))]
+    private bool _isPaused;
+
+    /// <summary>
+    /// Přechodný příznak: uživatel klikl na Pauzu (ne na úplné Zrušit). Říká cancel handleru,
+    /// aby <c>.tmp</c> ponechal a přepnul do <see cref="IsPaused"/> místo smazání partial souboru.
+    /// Není observable — je to jen interní signál mezi Pause a cancel-handlerem.
+    /// </summary>
+    public bool IsPausing { get; set; }
+
+    /// <summary>
     /// True pokud uživatel klikl na „Odebrat model" a teď čekáme na potvrzení.
     /// Při true XAML zobrazuje místo tlačítka „Odebrat" inline panel
     /// „Opravdu smazat? [Ano] [Zrušit]" — prevence překlepnutí bez modálního dialogu.
@@ -201,15 +218,21 @@ public partial class ModelItemViewModel : ViewModelBase
     private void CancelDeleteConfirmation() => IsConfirmingDelete = false;
 
     // ── Computed: viditelnost stavů ───────────────────────────────────────────
-    public bool ShowDownloading    => IsDownloading || IsVerifyingChecksum;
+    public bool ShowDownloading    => IsDownloading || IsVerifyingChecksum || IsPaused;
     public bool ShowDownloadError  => !IsDownloading && HasError;
     public bool ShowDownloaded     => IsDownloaded && !IsDownloading && !HasError;
-    public bool ShowDownloadButton => !IsDownloaded && !IsDownloading && !IsQueued && !HasError;
+    public bool ShowDownloadButton => !IsDownloaded && !IsDownloading && !IsQueued && !HasError && !IsPaused;
     public bool HasError           => !string.IsNullOrEmpty(DownloadError);
     public bool HasContextLength   => ContextLength > 0;
 
+    /// <summary>Tlačítko „Pozastavit" — během aktivního stahování (ne během checksum verifikace).</summary>
+    public bool ShowPauseButton    => IsDownloading && !IsVerifyingChecksum && !IsPaused;
+    /// <summary>Tlačítko „Pokračovat" — když je stahování pozastavené.</summary>
+    public bool ShowResume         => IsPaused;
+
     // ── Computed: formátovaný stav stahování ─────────────────────────────────
     public string DownloadProgressLabel =>
+        IsPaused            ? $"Pozastaveno {DownloadProgress:F0} %" :
         IsVerifyingChecksum ? "Ověřuji…" :
         TotalBytes > 0 ? $"{DownloadProgress:F0} %" : "…";
 

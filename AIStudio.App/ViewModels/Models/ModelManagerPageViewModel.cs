@@ -679,18 +679,28 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
+            // Rozliš pauzu (necháme .tmp + IsPaused, jde navázat) od úplného zrušení.
+            var pausing = model.IsPausing;
             Dispatcher.UIThread.Post(() =>
             {
                 model.IsVerifyingChecksum      = false;
                 model.IsDownloading            = false;
-                model.DownloadProgress         = 0;
-                model.DownloadedBytes          = 0;
-                model.TotalBytes               = 0;
                 model.DownloadSpeedBytesPerSec = 0;
                 _activeDownloads.Remove(model);
 
-                // .tmp cleanup — pokud je soubor zamčený (antivir scan), nesmí to
-                // vyhodit unobserved exception uvnitř Dispatcher.Post lambda.
+                if (pausing)
+                {
+                    // Pauza: ponech .tmp i průběh (progress/bytes), přepni do IsPaused.
+                    model.IsPausing = false;
+                    model.IsPaused  = true;
+                    Log.Information("ModelManager: {Name} pozastaveno na {Pct:F0} %", model.Name, model.DownloadProgress);
+                    return;
+                }
+
+                // Úplné zrušení: vynuluj průběh a smaž .tmp.
+                model.DownloadProgress = 0;
+                model.DownloadedBytes  = 0;
+                model.TotalBytes       = 0;
                 try
                 {
                     var tmp = ResolveModelDiskPath(model) + ".tmp";
@@ -718,6 +728,27 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Pozastaví běžící stahování — partial <c>.tmp</c> zůstane, jde navázat (Resume).</summary>
+    [RelayCommand]
+    private void PauseDownload(ModelItemViewModel model)
+    {
+        if (model is null) return;
+        if (_activeDownloads.TryGetValue(model, out var cts))
+        {
+            model.IsPausing = true;   // signál pro cancel handler: nemaž .tmp
+            cts.Cancel();
+        }
+    }
+
+    /// <summary>Naváže pozastavené stahování — DownloadService dotáhne zbytek z <c>.tmp</c>.</summary>
+    [RelayCommand]
+    private void ResumeDownload(ModelItemViewModel model)
+    {
+        if (model is null || !model.IsPaused) return;
+        model.IsPaused = false;
+        EnqueueDownload(model);   // znovu zařadí; DownloadFileAsync naváže díky Range hlavičce
+    }
+
     [RelayCommand]
     private void CancelDownload(ModelItemViewModel model)
     {
@@ -727,6 +758,22 @@ public partial class ModelManagerPageViewModel : ViewModelBase
         if (_activeDownloads.TryGetValue(model, out var cts))
         {
             cts.Cancel();
+            return;
+        }
+
+        // Pozastavené (mimo aktivní frontu) → úplné zrušení: vynuluj + smaž .tmp.
+        if (model.IsPaused)
+        {
+            model.IsPaused        = false;
+            model.DownloadProgress = 0;
+            model.DownloadedBytes  = 0;
+            model.TotalBytes       = 0;
+            try
+            {
+                var tmp = ResolveModelDiskPath(model) + ".tmp";
+                if (File.Exists(tmp)) File.Delete(tmp);
+            }
+            catch (Exception ex) { Log.Warning(ex, "CancelDownload: úklid .tmp pozastaveného selhal"); }
             return;
         }
 
