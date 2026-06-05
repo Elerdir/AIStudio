@@ -100,7 +100,7 @@ tools/IconGen/          ← SkiaSharp generátor ikony
 - Všechny VM dědí z `ViewModelBase : ObservableObject`
 - Async příkazy: metoda musí vracet `Task`, ne `async void`
 - `[RelayCommand]` generuje příkaz z private metody
-- VM nesmí dělat I/O ani byznys logiku přímo — to patří do `Infrastructure` services. LLM tah v chatu (load modelu + historie + stream) je vytažený do `IChatTurnService`/`ChatTurnService`; `ChatPageViewModel` ho volá v Send/Regenerate/Edit/Compare/Compact. Zbytek VM (1500+ ř.) jsou už převážně UI příkazy a stav.
+- VM nesmí dělat I/O ani byznys logiku přímo — to patří do `Infrastructure` services. LLM tah v chatu (load modelu + historie + stream) je vytažený do `IChatTurnService`/`ChatTurnService`; `ChatPageViewModel` ho volá v Send/Regenerate/Edit/Compare/Compact. `ChatPageViewModel` je rozdělený na partial soubory: hlavní (stav/ctor/startup/model load, ~920 ř.) + `.Messaging.cs` (Send/Regenerate/Edit/stream/Compact) + `.Conversations.cs` (název/nová/smazat/kopie/export/pin/branch) + `.ImageGen.cs` + `.Presets.cs` + `.SystemMonitor.cs`.
 
 ### Cross-platform (Windows + macOS)
 - Per-OS service registrace v DI je platform-guarded: `if (OperatingSystem.IsWindows()) ...`
