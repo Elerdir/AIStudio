@@ -16,6 +16,8 @@ public partial class SettingsPageViewModel : ViewModelBase
     private readonly IComfyInstaller         _comfyInstaller;
     private readonly IChatRepository         _chatRepo;
     private readonly IFluxDependencyService? _fluxDeps;
+    private readonly IComfyUpdateService?    _comfyUpdate;
+    private readonly IComfyService?          _comfy;
     private CancellationTokenSource? _saveDebounceCts;
     private CancellationTokenSource? _installCts;
 
@@ -114,13 +116,17 @@ public partial class SettingsPageViewModel : ViewModelBase
                                  IComfyInstaller comfyInstaller,
                                  IChatRepository chatRepo,
                                  ILocalizationService? loc = null,
-                                 IFluxDependencyService? fluxDeps = null)
+                                 IFluxDependencyService? fluxDeps = null,
+                                 IComfyUpdateService? comfyUpdate = null,
+                                 IComfyService? comfy = null)
     {
         _settings        = settings;
         _comfyInstaller  = comfyInstaller;
         _chatRepo        = chatRepo;
         _loc             = loc;
         _fluxDeps        = fluxDeps;
+        _comfyUpdate     = comfyUpdate;
+        _comfy           = comfy;
 
         // Načteme hodnoty ze stávajících nastavení
         var s = _settings.Settings;
@@ -203,7 +209,8 @@ public partial class SettingsPageViewModel : ViewModelBase
     /// <summary>Verze nainstalovaného ComfyUI (z comfyui_version.py). Prázdné = neznámá.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ComfyUiVersionLabel), nameof(IsComfyUpToDate),
-                              nameof(HasComfyVersion))]
+                              nameof(HasComfyVersion), nameof(CanUpdateComfy),
+                              nameof(ComfyUpdateUnavailableHint), nameof(HasComfyUpdateUnavailableHint))]
     private string _comfyUiVersion = string.Empty;
 
     public bool   HasComfyVersion     => !string.IsNullOrEmpty(ComfyUiVersion);
@@ -217,6 +224,71 @@ public partial class SettingsPageViewModel : ViewModelBase
     public bool IsComfyUpToDate =>
         HasComfyVersion &&
         string.Equals(ComfyUiVersion, TestedComfyVersion, StringComparison.OrdinalIgnoreCase);
+
+    // ── Řízená aktualizace ComfyUI (na ověřenou verzi) ────────────────────────
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanUpdateComfy))]
+    private bool _isUpdatingComfy;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasComfyUpdateStatus))]
+    private string _comfyUpdateStatus = string.Empty;
+
+    public bool HasComfyUpdateStatus => !string.IsNullOrEmpty(ComfyUpdateStatus);
+    public bool HasComfyUpdateUnavailableHint => !string.IsNullOrEmpty(ComfyUpdateUnavailableHint);
+
+    /// <summary>Tlačítko „Sladit s ověřenou verzí" jde nabídnout (git repo + git dostupné + neaktuální).</summary>
+    public bool CanUpdateComfy =>
+        IsComfyInstalled && HasComfyVersion && !IsComfyUpToDate && !IsUpdatingComfy &&
+        _comfyUpdate is not null &&
+        _comfyUpdate.IsGitRepo(ComfyUiDirectory) && _comfyUpdate.IsGitAvailable();
+
+    /// <summary>Hint, proč nejde aktualizovat, když verze nesedí (chybí git / není git repo).</summary>
+    public string ComfyUpdateUnavailableHint
+    {
+        get
+        {
+            if (IsComfyUpToDate || !IsComfyInstalled || !HasComfyVersion || _comfyUpdate is null) return string.Empty;
+            if (!_comfyUpdate.IsGitRepo(ComfyUiDirectory))
+                return "Automatická aktualizace není možná — tahle instalace ComfyUI není git repozitář.";
+            if (!_comfyUpdate.IsGitAvailable())
+                return "Pro aktualizaci je potřeba Git (git-scm.com) — nenašel jsem ho v systému.";
+            return string.Empty;
+        }
+    }
+
+    [RelayCommand]
+    private async Task UpdateComfyAsync()
+    {
+        if (_comfyUpdate is null || IsUpdatingComfy) return;
+
+        IsUpdatingComfy   = true;
+        ComfyUpdateStatus = "Spouštím aktualizaci…";
+        var progress = new Progress<string>(m => Dispatcher.UIThread.Post(() => ComfyUpdateStatus = m));
+        try
+        {
+            var res = await _comfyUpdate.UpdateToVersionAsync(TestedComfyVersion, progress);
+            ComfyUpdateStatus = res.Message;
+
+            if (res.Success && _comfy is not null)
+            {
+                ComfyUpdateStatus = res.Message + " Spouštím ComfyUI…";
+                try { await _comfy.StartAsync(); ComfyUpdateStatus = $"Hotovo — ComfyUI běží na ověřené verzi {TestedComfyVersion}."; }
+                catch (Exception ex) { Log.Warning(ex, "ComfyUpdate: restart ComfyUI selhal"); }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "ComfyUpdate: aktualizace selhala");
+            ComfyUpdateStatus = "Aktualizace selhala: " + ex.Message;
+        }
+        finally
+        {
+            IsUpdatingComfy = false;
+            RefreshComfyVersion();
+        }
+    }
 
     // ── Custom nody (instalují se při startu ComfyUI) ─────────────────────────
 
