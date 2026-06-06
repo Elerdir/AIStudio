@@ -78,6 +78,7 @@ public sealed class NativeImageGenerator : INativeImageGenerator
             var threads = _backend == NativeGenBackend.Cpu ? Math.Max(1, Environment.ProcessorCount) : 0;
             var args    = SdCliArgsBuilder.Build(request with { ModelPath = model! }, outPath, threads);
 
+            Log.Information("sd-cli: {Cli} {Args}", _cliPath, string.Join(" ", args));
             progress?.Report(0);
             var (ok, tail) = await RunCliAsync(_cliPath, args, progress, ct);
 
@@ -85,7 +86,10 @@ public sealed class NativeImageGenerator : INativeImageGenerator
                                     .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
                                     .ToList();
             if (produced.Count == 0)
-                return Fail(ok ? "sd-cli neprodukoval žádný obrázek." : "sd-cli selhal: " + Truncate(tail, 400));
+            {
+                Log.Warning("sd-cli: žádný výstupní PNG (exit_ok={Ok}). výstup procesu:\n{Tail}", ok, Truncate(tail, 1500));
+                return Fail(ok ? "sd-cli neprodukoval žádný obrázek (viz log)." : "sd-cli selhal: " + Truncate(tail, 400));
+            }
 
             progress?.Report(100);
             Log.Information("NativeImageGenerator: hotovo ({N} obr.) přes {Cli}", produced.Count, Path.GetFileName(_cliPath));

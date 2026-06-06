@@ -891,9 +891,12 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         // sd-cli potřebuje cestu k souboru modelu, ne jen jméno checkpointu.
         var modelPath = await Task.Run(() => SafetensorsInspector.FindModelPath(
             SelectedModel, _settings.Settings.ModelsDirectory, _settings.Settings.ComfyUiDirectory), ct);
+        Log.Information("Native gen: model '{Sel}' -> {Path}", SelectedModel, modelPath ?? "(nenalezen)");
         if (string.IsNullOrEmpty(modelPath) || !File.Exists(modelPath))
         {
             GenerationStatus = $"Vestavěný generátor: model '{SelectedModel}' jsem nenašel jako soubor na disku.";
+            Log.Warning("Native gen: model '{Sel}' se nenašel jako soubor (ModelsDir={Md}, ComfyDir={Cd})",
+                SelectedModel, _settings.Settings.ModelsDirectory, _settings.Settings.ComfyUiDirectory);
             return;
         }
 
@@ -917,8 +920,10 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         if (!result.Success)
         {
             GenerationStatus = "Vestavěný generátor: " + (result.ErrorMessage ?? "generování selhalo");
+            Log.Warning("Native gen: selhalo — {Err}", result.ErrorMessage);
             return;
         }
+        Log.Information("Native gen: hotovo, {N} obrázků", result.FilePaths.Count);
 
         foreach (var filePath in result.FilePaths)
         {
