@@ -1,0 +1,149 @@
+# Vlastní generátor obrázků — návrh architektury
+
+Status: **návrh / foundation** (Fáze 0). Cíl dlouhodobý — nahradit závislost na
+externím ComfyUI vlastní inference pipeline integrovanou přímo v AI Studiu.
+
+## 1. Cíl a kontext
+
+Dnes generování obrázků/videa jede přes **ComfyUI** — externí Python proces, který
+AI Studio spouští, instaluje a řídí přes HTTP/WebSocket. Funguje, ale:
+
+- **Velká závislost**: ComfyUI portable (~2 GB), embedded Python, custom nody, ruční
+  správa verzí, křehké názvy nodů, nutnost auto-instalací při startu.
+- **Není „one-click“ v plném smyslu**: instalace ComfyUI trvá, občas se rozbije
+  (názvy větví, requirements, git checkout).
+- **Verze řeší uživatel/ComfyUI**, ne AI Studio.
+
+**Cíl:** vlastní inference přímo v aplikaci — žádný externí proces, žádný Python,
+žádné ComfyUI. AI Studio si samo stáhne model (GGUF/safetensors) a vygeneruje obrázek
+nativně. ComfyUI zůstává jako **pokročilá volitelná cesta** (ControlNet, custom nody,
+exotické workflow), ne jako jediná možnost.
+
+## 2. Kandidátní technologie
+
+| Kandidát | Plus | Minus |
+|---|---|---|
+| **stable-diffusion.cpp** (leejet, ggml/GGUF) | C API → snadné P/Invoke; GGUF kvantizace; backendy CPU/CUDA/Vulkan/Metal; SD1.x/2/SDXL/SD3/FLUX; LoRA/VAE/ControlNet/TAESD; **stejný ekosystém jako llama.cpp** který už používáme přes LlamaSharp | nutné prebuilt nativní liby per backend (jako `LLamaSharp.Backend.*`); feature gap vs ComfyUI (ne celý node graph) |
+| **ONNX Runtime** | managed, .NET-friendly, DirectML/CUDA | nutný ONNX export modelů (FLUX/SDXL export je těžký a omezený); méně flexibilní; velké soubory |
+| **TorchSharp** (libtorch) | plný PyTorch ekosystém | obří nativní závislosti (~2 GB libtorch); ruční implementace celé diffusion pipeline; složité |
+| **Embedded Python** (vlastní, řízený) | plná kompatibilita s diffusers | popírá cíl „žádný Python“; stejné bolesti jako ComfyUI |
+
+## 3. Doporučení: **stable-diffusion.cpp** přes P/Invoke
+
+Nejlepší fit, protože:
+
+1. **Konzistence s existující architekturou.** Už wrapujeme `llama.cpp` přes LlamaSharp
+   s **multi-backend dispatch** (CUDA / Vulkan / Metal, lazy init při prvním load —
+   viz `LlamaService.EnsureBackendInitializedAsync`). `stable-diffusion.cpp` je SD
+   analog od stejné ggml/GGUF rodiny → **stejný mentální model, stejná backend strategie**
+   (prebuilt nativní liby per backend, runtime dispatch dle `IGpuDetector`).
+2. **GGUF.** Už pracujeme s GGUF u LLM. SD modely v GGUF jsou malé (kvantizace) a rychle
+   se načtou. Zapadá do stávající správy modelů (Models složka, `ModelManager`).
+3. **One-click, bez Pythonu.** Nativní lib + managed wrapper, nula externích procesů,
+   nula ComfyUI portable, nula Pythonu. AI Studio si verze nativní liby řeší samo
+   (jako `LLamaSharp.Backend.*` NuGet).
+4. **Pokrytí modelů.** SD1.5, SD2, SDXL, SD3, FLUX (schnell/dev) — pokrývá současné
+   ComfyUI use-cases (txt2img, img2img, LoRA, VAE).
+5. **Backendy = naše cílové platformy.** CPU (všude), CUDA (NVIDIA), Vulkan (AMD/Intel
+   Windows), Metal (Apple Silicon) — přesně matchuje cross-vendor/cross-platform cíle.
+
+### Managed binding
+
+Dvě varianty (rozhodne se ve Fázi 1):
+- **(a) Existující .NET binding** (např. `StableDiffusion.NET`) — pokud je dost zralý a
+  udržovaný a má prebuilt backendy. Rychlejší start.
+- **(b) Vlastní P/Invoke** nad `stable-diffusion.h` C API (`new_sd_ctx`, `txt2img`,
+  `img2img`, `free_sd_ctx`, `sd_set_progress_callback`). Plná kontrola, vlastní správa
+  nativních libů (mirror `LLamaSharp.Backend.*` přístupu). Bezpečnější dlouhodobě.
+
+Doporučení: **začít (a) na ověření konceptu**, ale abstrakce (`INativeImageGenerator`)
+je nezávislá na bindingu, takže přechod na (b) nic nerozbije.
+
+## 4. Architektura
+
+### Abstrakční vrstva (Core)
+
+```
+INativeImageGenerator (Core/Interfaces)
+  ├─ Status: NativeGeneratorStatus (IsAvailable, Backend, BackendInfo, UnavailableReason)
+  ├─ IsModelLoaded
+  ├─ LoadModelAsync(modelPath, backend, ct)
+  ├─ GenerateAsync(NativeImageRequest, IProgress<int>, ct) → NativeImageResult
+  └─ UnloadAsync()
+```
+
+Modely (Core/Models/NativeGeneration.cs): `NativeImageRequest`, `NativeImageResult`,
+`NativeLora`, `NativeGeneratorStatus`, enum `NativeGenBackend` (Cpu/Cuda/Vulkan/Metal),
+`NativeModelFamily` (Sd1, Sd2, Sdxl, Sd3, Flux, Unknown).
+
+**Proč vlastní abstrakce a ne sdílení s ComfyUI?** Stávající image-gen je hluboko
+svázaný s ComfyUI (`ComfyWorkflowBuilder` node graph, `ComfyService` HTTP/WS). Nativní
+generátor má jiný model (přímá inference, ne workflow JSON). Čistší je **paralelní
+abstrakce** + v UI přepínač „Generátor: ComfyUI / Vestavěný“, než násilné sjednocení.
+Sjednocení (společné `IImageGenerator`) se může udělat později, až bude nativní cesta
+zralá.
+
+### Integrace do appky
+
+- **Settings**: `AppSettings.ImageGeneratorBackend` = `ComfyUI` | `Native` (default ComfyUI,
+  dokud nativní není zralý). Přepínač v Nastavení.
+- **ImageStudio**: dnes volá ComfyUI přes `IChatImageOrchestrator`/`IComfyService`. Až
+  bude nativní cesta hotová, `ImageGeneratorViewModel` se podle nastavení rozhodne, kam
+  request poslat. Abstrakce drží UI nezměněné.
+- **Backend dispatch**: stejně jako `LlamaService` — lazy init nativního backendu při
+  prvním `LoadModelAsync`, výběr dle `IGpuDetector` (Cuda → CUDA lib, Vulkan → Vulkan lib,
+  Metal → Metal lib, jinak CPU). VRAM delta heuristika pro detekci CPU fallbacku (stejný
+  vzor jako u LLM).
+- **Správa modelů**: SD GGUF/safetensors modely jdou do Models složky (jako dnes). Rodinu
+  modelu (SDXL/FLUX/…) detekuje rozšířený `SafetensorsInspector` (dnes umí jen
+  CLIP/VAE/UNet přítomnost — doplní se klasifikace rodiny dle klíčových tensorů/shape).
+
+### Tok generování (txt2img)
+
+```
+ImageGeneratorViewModel
+  → INativeImageGenerator.LoadModelAsync(model, backend)   (lazy, jen při změně modelu)
+  → INativeImageGenerator.GenerateAsync(request, progress) (nativní txt2img, progress callback)
+  → výsledek PNG → uložit do galerie (stejně jako dnes ComfyUI výstup)
+```
+
+## 5. Fázový plán
+
+- **Fáze 0 (TATO PR) — foundation/design**: tento dokument + `INativeImageGenerator` +
+  modely + čistý `NativeSamplerMap` (mapování samplerů na sd.cpp) + testy. Nic se nepřipojuje
+  do běžící appky, žádná nativní lib. Cíl: pevný základ + dohodnutá architektura.
+- **Fáze 1 — P/Invoke + CPU**: binding na stable-diffusion.cpp, **CPU backend první**
+  (běží všude, snadno se ověří), základní txt2img. `NativeImageGenerator` (Infrastructure)
+  + lazy backend init + model loader. Ověřit na CPU (pomalé, ale funkční).
+- **Fáze 2 — GPU backendy**: CUDA / Vulkan / Metal prebuilt liby podmíněně v csproj
+  (mirror `LLamaSharp.Backend.*`), runtime dispatch dle `IGpuDetector`.
+- **Fáze 3 — parita základu**: img2img, LoRA, VAE, samplery/schedulery, seed/CFG/steps.
+- **Fáze 4 — UI integrace**: přepínač generátoru v Nastavení; `ImageGeneratorViewModel`
+  routuje dle nastavení; nativní jako „beta“ vedle ComfyUI.
+- **Fáze 5 — model management**: katalog SD GGUF modelů pro nativní cestu (download,
+  checksum), FLUX/SDXL varianty, doporučení dle VRAM.
+- **Fáze 6 — pokročilé**: ControlNet, upscaling (sd.cpp/ESRGAN), TAESD náhledy, výhledově
+  video (až sd.cpp / jiný nativní stack podpoří).
+
+## 6. Rizika a otevřené otázky
+
+- **Nativní liby**: kde je brát? Existující NuGet vs vlastní build/CI. Velikost (CUDA lib
+  je velká — jako `LLamaSharp.Backend.Cuda12`). Distribuce přes náš lokální feed / NuGet.
+- **Feature gap**: ControlNet/IP-Adapter/custom nody — sd.cpp pokrývá část, ne celý
+  ComfyUI graph. Proto **komplementární**, ne náhrada na 100 % hned. ComfyUI zůstává pro
+  pokročilé.
+- **Výkon**: sd.cpp je solidní, ale PyTorch/ComfyUI může být u některých operací rychlejší.
+  Akceptovatelné kvůli hodnotě „nula závislostí“.
+- **FLUX**: velký (12 GB), GGUF kvantizace nutná; ověřit že sd.cpp FLUX cesta je stabilní.
+- **macOS**: Metal backend sd.cpp + Apple Silicon — ověřit (stejné parkoviště jako Metal
+  LLM).
+- **Paměť/VRAM**: souběh s LLM v chatu (FLUX ~12 GB + LLM se na 24 GB nevejdou) — stejný
+  problém jako dnes, řeší `FreeMemory`/unload mezi režimy.
+
+## 7. Co je v této (foundation) PR
+
+- Tento návrh.
+- `INativeImageGenerator` (Core) + modely + enumy.
+- `NativeSamplerMap` (Core, čistá funkce mapování samplerů) + unit testy.
+- **Zatím se nic nepřipojuje do běžící appky** (žádné DI, žádná UI, žádná nativní lib) —
+  je to čistý základ, na kterém staví Fáze 1+. Build + testy zelené.
