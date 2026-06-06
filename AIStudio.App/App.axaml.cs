@@ -181,6 +181,9 @@ public partial class App : Application
         services.AddSingleton<IWanDependencyService, WanDependencyService>();
         // Generování videa přes Wan 2.1 (workflow → ComfyUI → MP4 → galerie).
         services.AddSingleton<IVideoGenerationService, VideoGenerationService>();
+        // Vestavěný generátor (stable-diffusion.cpp) — nezávislost na ComfyUI. Fáze 1:
+        // zapojený, ale hlásí „nedostupné" dokud není přibalená nativní lib (Fáze 2).
+        services.AddSingleton<INativeImageGenerator, NativeImageGenerator>();
         // FLUX.1 Kontext — instrukční editace obrázku (přilož + uprav). Orchestrátor
         // si ho vyzvedne (optional dep) a použije pro editaci s referencí; auto-download
         // UNET (~12 GB) + sdílené FLUX závislosti při prvním použití.

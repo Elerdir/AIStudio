@@ -112,9 +112,12 @@ ImageGeneratorViewModel
 - **Fáze 0 (TATO PR) — foundation/design**: tento dokument + `INativeImageGenerator` +
   modely + čistý `NativeSamplerMap` (mapování samplerů na sd.cpp) + testy. Nic se nepřipojuje
   do běžící appky, žádná nativní lib. Cíl: pevný základ + dohodnutá architektura.
-- **Fáze 1 — P/Invoke + CPU**: binding na stable-diffusion.cpp, **CPU backend první**
-  (běží všude, snadno se ověří), základní txt2img. `NativeImageGenerator` (Infrastructure)
-  + lazy backend init + model loader. Ověřit na CPU (pomalé, ale funkční).
+- **Fáze 1 — P/Invoke + CPU** *(scaffold HOTOVO, čeká nativní lib + runtime ověření)*:
+  managed pipeline kompletní — `StableDiffusionInterop` (P/Invoke na sd.cpp, pinnuté
+  signatury), `NativeImageGenerator` (load → txt2img → PNG → uložit, lazy probe nativní
+  liby, **graceful fallback** když chybí), `PngEncoder` + `NativeModelDefaults` (čisté,
+  testované), DI registrace. **Zbývá ve Fázi 2**: přibalit nativní libu a runtime ověřit
+  P/Invoke signatury + reálnou inference na CPU.
 - **Fáze 2 — GPU backendy**: CUDA / Vulkan / Metal prebuilt liby podmíněně v csproj
   (mirror `LLamaSharp.Backend.*`), runtime dispatch dle `IGpuDetector`.
 - **Fáze 3 — parita základu**: img2img, LoRA, VAE, samplery/schedulery, seed/CFG/steps.
