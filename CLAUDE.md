@@ -295,16 +295,16 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
   + modely (`NativeImageRequest`/`Result`/`NativeLora`/`NativeGeneratorStatus`, enumy
   `NativeGenBackend`/`NativeModelFamily`) + čistý `NativeSamplerMap` (mapování samplerů na
   sd.cpp, testováno). **Paralelní k ComfyUI** (ne sjednocené) — v UI se přepne dle nastavení.
-  **Fáze 1 scaffold HOTOVO** (čeká nativní lib + runtime): `StableDiffusionInterop` (P/Invoke
-  na sd.cpp, pinnuté signatury — ověřit ve Fázi 2), `NativeImageGenerator` (Infrastructure;
-  load→txt2img→PNG→uložit, lazy probe nativní liby, graceful fallback když chybí, DI
-  zaregistrováno), `PngEncoder` + `NativeModelDefaults` (Core, čisté, testované).
-  **Fáze 2 (integrace) ROZPRACOVÁNO**: `AppSettings.ImageGeneratorBackend` (comfyui/native),
-  `NativeModelFamilyDetector` (Core, čistý, testovaný — odhad SD1/SDXL/FLUX z názvu), Nastavení →
-  sekce „Generátor obrázků" (přepínač + stav přes `INativeImageGenerator.Status`). **Zbývá ve
-  Fázi 2**: přibalit nativní libu + runtime ověřit P/Invoke/inference (návod „jak otestovat
-  nativně" v `docs/native-generator-design.md` §5b), pak GPU backendy + routing ImageStudio na
-  nativní cestu (kritická ComfyUI cesta se zatím nesahá).
+  Integrace: `AppSettings.ImageGeneratorBackend` (comfyui/native), `NativeModelFamilyDetector`
+  (Core, čistý — odhad SD1/SDXL/FLUX z názvu), Nastavení → sekce „Generátor obrázků" (přepínač +
+  stav přes `INativeImageGenerator.Status`).
+  **PIVOT z P/Invoke na `sd-cli.exe`** (zjištění: sd.cpp C API je struct-based a volatilní, viz
+  `docs/native-generator-design.md §6`): `NativeImageGenerator` teď **shell-outuje na `sd-cli.exe`**
+  (lokátor vedle appky/`runtimes`/PATH, parsování progresu ze stdout, sběr PNG, graceful fallback),
+  args staví čistý `SdCliArgsBuilder` (Core, testováno). Mrtvý `StableDiffusionInterop` smazán.
+  **Zbývá:** routing tlačítka Generovat v Image Studiu na nativní cestu (Fáze 4 — kritická ComfyUI
+  cesta se zatím nesahá), pak runtime ověření (drop `sd-cli.exe` + model → 1. obrázek mimo ComfyUI),
+  GPU build sd-cli, přibalení binárky přes CI.
 
 ### Menší / technický dluh
 - ~~**Light theme audit**~~ — HOTOVO: strukturální + semantické barvy ve Views jsou theme-aware (`DynamicResource`). Případný drobný dopilování zbývá jen u záměrných výjimek (overlay scrimy, modré badge).

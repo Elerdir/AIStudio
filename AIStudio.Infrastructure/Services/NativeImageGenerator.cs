@@ -1,4 +1,6 @@
-using System.Runtime.InteropServices;
+using System.Diagnostics;
+using System.Text;
+using System.Text.RegularExpressions;
 using Serilog;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
@@ -7,167 +9,208 @@ using AIStudio.Core.Services;
 namespace AIStudio.Infrastructure.Services;
 
 /// <summary>
-/// Vestavěný generátor obrázků nad <c>stable-diffusion.cpp</c> (viz <c>docs/native-generator-design.md</c>).
-/// Lazy probe nativní knihovny; když chybí (dnes všude — přibalí se ve Fázi 2), hlásí
-/// <c>Status.IsAvailable = false</c> a generování graceful selže (UI fallbackne na ComfyUI).
-/// Všechna nativní volání jsou obalená try/catch, takže chybějící/nesedící lib nezpůsobí pád.
-///
-/// <para><b>Fáze 1:</b> kompletní managed pipeline (load → txt2img → PNG → uložit) je zapojená;
-/// reálná nativní inference + GPU backendy + ověření P/Invoke signatur = Fáze 2 (vyžaduje
-/// runtime na stroji s přibalenou nativní libou).</para>
+/// Vestavěný generátor obrázků přes <c>sd-cli.exe</c> (stable-diffusion.cpp CLI) — nezávislost
+/// na ComfyUI a Pythonu. Místo křehkého P/Invoke (sd.cpp C ABI se mezi verzemi mění) voláme
+/// CLI binárku se **stabilními argumenty** (viz <c>docs/native-generator-design.md §6</c>):
+/// sestaví args (<see cref="SdCliArgsBuilder"/>), spustí proces, parsuje progres ze stdout/stderr
+/// a posbírá výsledné PNG. Když <c>sd-cli</c> není přibalený, <see cref="Status"/> hlásí
+/// „nedostupné" a UI fallbackne na ComfyUI.
 /// </summary>
 public sealed class NativeImageGenerator : INativeImageGenerator
 {
+    private static readonly Regex StepRegex = new(@"(\d+)\s*/\s*(\d+)", RegexOptions.Compiled);
+
     private readonly string?       _outputDirOverride;
-    private readonly bool          _libPresent;
+    private readonly string?       _cliPath;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    private IntPtr           _ctx = IntPtr.Zero;
-    private string?          _loadedModelPath;
+    private string?          _modelPath;
     private NativeGenBackend _backend = NativeGenBackend.Cpu;
 
-    public NativeImageGenerator(string? outputDirOverride = null)
+    public NativeImageGenerator(string? outputDirOverride = null, string? cliPathOverride = null)
     {
         _outputDirOverride = outputDirOverride;
-        _libPresent        = SafeIsLibraryPresent();
+        _cliPath           = ResolveCliPath(cliPathOverride);
     }
 
-    private static bool SafeIsLibraryPresent()
-    {
-        try { return StableDiffusionInterop.IsLibraryPresent(); }
-        catch (Exception ex) { Log.Debug(ex, "NativeImageGenerator: probe nativní knihovny selhal"); return false; }
-    }
-
-    public NativeGeneratorStatus Status => _libPresent
-        ? new(true, _backend, $"stable-diffusion.cpp ({_backend})")
+    public NativeGeneratorStatus Status => _cliPath is not null
+        ? new(true, _backend, $"sd-cli ({Path.GetFileName(_cliPath)})")
         : new(false, NativeGenBackend.Cpu, "nedostupné",
-              "Vestavěný generátor zatím není přibalený (nativní knihovna stable-diffusion chybí). " +
-              "Použij ComfyUI — vestavěná inference přijde v další fázi.");
+              "Vestavěný generátor: nenašel jsem sd-cli.exe. Stáhni build stable-diffusion.cpp " +
+              "(github.com/leejet/stable-diffusion.cpp) a dej sd-cli.exe vedle aplikace. " +
+              "Zatím se generuje přes ComfyUI.");
 
-    public bool IsModelLoaded => _ctx != IntPtr.Zero;
+    public bool IsModelLoaded => _modelPath is not null;
 
-    public async Task LoadModelAsync(string modelPath, NativeGenBackend backend, CancellationToken ct = default)
+    public Task LoadModelAsync(string modelPath, NativeGenBackend backend, CancellationToken ct = default)
     {
-        if (!_libPresent)
-            throw new InvalidOperationException("Vestavěný generátor není dostupný (chybí nativní knihovna stable-diffusion).");
+        if (_cliPath is null)
+            throw new InvalidOperationException("Vestavěný generátor není dostupný (chybí sd-cli.exe).");
         if (string.IsNullOrWhiteSpace(modelPath) || !File.Exists(modelPath))
             throw new FileNotFoundException("Model nenalezen.", modelPath);
 
-        await _gate.WaitAsync(ct);
-        try
-        {
-            if (_ctx != IntPtr.Zero && _loadedModelPath == modelPath) return;  // už načtený
-            UnloadInternal();
-            _backend = backend;
-
-            await Task.Run(() =>
-            {
-                _ctx = StableDiffusionInterop.NewSdCtx(
-                    modelPath, "", "", "", "", "", "", "", "", "", "",
-                    vaeDecodeOnly: false, vaeTiling: false, freeParamsImmediately: false,
-                    nThreads: Math.Max(1, Environment.ProcessorCount),
-                    wtype: -1, rngType: 0, schedule: 0,
-                    keepClipOnCpu: false, keepControlNetCpu: false, keepVaeOnCpu: false,
-                    diffusionFlashAttn: false);
-            }, ct);
-
-            if (_ctx == IntPtr.Zero)
-                throw new InvalidOperationException("Načtení modelu do stable-diffusion.cpp selhalo (null kontext).");
-            _loadedModelPath = modelPath;
-            Log.Information("NativeImageGenerator: model načten {Path} ({Backend})", modelPath, _backend);
-        }
-        finally { _gate.Release(); }
+        // sd-cli nemá perzistentní kontext — model se předává při každé generaci. „Load" tu jen
+        // zapamatuje výchozí model + backend (počet vláken pro CPU).
+        _modelPath = modelPath;
+        _backend   = backend;
+        return Task.CompletedTask;
     }
 
     public async Task<NativeImageResult> GenerateAsync(
         NativeImageRequest request, IProgress<int>? progress = null, CancellationToken ct = default)
     {
-        if (request is null) return new(false, Array.Empty<string>(), "Chybí zadání.");
-        if (!_libPresent)   return new(false, Array.Empty<string>(), Status.UnavailableReason);
-        if (_ctx == IntPtr.Zero) return new(false, Array.Empty<string>(), "Model není načtený — zavolej LoadModelAsync.");
+        if (request is null) return Fail("Chybí zadání.");
+        if (_cliPath is null) return Fail(Status.UnavailableReason!);
+
+        var model = !string.IsNullOrWhiteSpace(request.ModelPath) ? request.ModelPath : _modelPath;
+        if (string.IsNullOrWhiteSpace(model) || !File.Exists(model))
+            return Fail("Model nenalezen: " + model);
 
         await _gate.WaitAsync(ct);
         try
         {
-            progress?.Report(0);
-            var sdSampler = NativeSamplerMap.ToSdCpp(request.SamplerName);
-            var method    = (int)StableDiffusionInterop.SampleMethodFromName(sdSampler);
-            var batch     = Math.Max(1, request.BatchCount);
-
-            var resultPtr = IntPtr.Zero;
-            await Task.Run(() =>
-            {
-                resultPtr = StableDiffusionInterop.Txt2Img(
-                    _ctx, request.Prompt ?? "", request.NegativePrompt ?? "",
-                    clipSkip: -1, cfgScale: (float)request.CfgScale, guidance: 3.5f, eta: 0f,
-                    width: request.Width, height: request.Height, sampleMethod: method, sampleSteps: request.Steps,
-                    seed: request.Seed, batchCount: batch,
-                    controlCond: IntPtr.Zero, controlStrength: 0.9f, styleStrength: 0f,
-                    normalizeInput: false, inputIdImagesPath: "",
-                    skipLayers: IntPtr.Zero, skipLayersCount: (nuint)0, slgScale: 0f, skipLayerStart: 0.01f, skipLayerEnd: 0.2f);
-            }, ct);
-            progress?.Report(95);
-
-            if (resultPtr == IntPtr.Zero)
-                return new(false, Array.Empty<string>(), "Generování nevrátilo žádný obrázek.");
-
             var outDir = GetOutputDirectory();
             Directory.CreateDirectory(outDir);
-            var stamp   = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var imgSize = Marshal.SizeOf<StableDiffusionInterop.SdImage>();
-            var paths   = new List<string>(batch);
 
-            for (var i = 0; i < batch; i++)
-            {
-                var img = Marshal.PtrToStructure<StableDiffusionInterop.SdImage>(resultPtr + i * imgSize);
-                if (img.Data == IntPtr.Zero || img.Width == 0 || img.Height == 0) continue;
+            // Unikátní prefix → po běhu posbíráme všechny PNG (batch vytvoří víc souborů).
+            var prefix  = $"AIStudio_native_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}"[..46];
+            var outPath = Path.Combine(outDir, prefix + ".png");
+            var threads = _backend == NativeGenBackend.Cpu ? Math.Max(1, Environment.ProcessorCount) : 0;
+            var args    = SdCliArgsBuilder.Build(request with { ModelPath = model! }, outPath, threads);
 
-                var len    = (int)(img.Width * img.Height * img.Channel);
-                var pixels = new byte[len];
-                Marshal.Copy(img.Data, pixels, 0, len);
+            progress?.Report(0);
+            var (ok, tail) = await RunCliAsync(_cliPath, args, progress, ct);
 
-                var png  = PngEncoder.Encode(pixels, (int)img.Width, (int)img.Height, (int)img.Channel);
-                var file = Path.Combine(outDir, $"AIStudio_native_{stamp}_{i}.png");
-                await File.WriteAllBytesAsync(file, png, ct);
-                paths.Add(file);
-            }
-
-            // POZN Fáze 2: uvolnit sd_image_t buffery (sd.cpp je alokuje malloc-em) — vyžaduje
-            // přibalenou libu pro ověření správného free; teď se sem stejně nedostaneme.
+            var produced = Directory.EnumerateFiles(outDir, prefix + "*.png")
+                                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                                    .ToList();
+            if (produced.Count == 0)
+                return Fail(ok ? "sd-cli neprodukoval žádný obrázek." : "sd-cli selhal: " + Truncate(tail, 400));
 
             progress?.Report(100);
-            return paths.Count > 0
-                ? new(true, paths)
-                : new(false, Array.Empty<string>(), "Žádný obrázek se neuložil.");
+            Log.Information("NativeImageGenerator: hotovo ({N} obr.) přes {Cli}", produced.Count, Path.GetFileName(_cliPath));
+            return new(true, produced);
         }
-        catch (DllNotFoundException ex)        { return new(false, Array.Empty<string>(), "Nativní knihovna nenalezena: " + ex.Message); }
-        catch (EntryPointNotFoundException ex) { return new(false, Array.Empty<string>(), "Nativní funkce nenalezena (verze knihovny nesedí): " + ex.Message); }
-        catch (OperationCanceledException)     { return new(false, Array.Empty<string>(), "Generování zrušeno."); }
+        catch (OperationCanceledException) { return Fail("Generování zrušeno."); }
         catch (Exception ex)
         {
-            Log.Error(ex, "NativeImageGenerator: generování selhalo");
-            return new(false, Array.Empty<string>(), "Generování selhalo: " + ex.Message);
+            Log.Error(ex, "NativeImageGenerator(CLI): generování selhalo");
+            return Fail("Generování selhalo: " + ex.Message);
         }
         finally { _gate.Release(); }
     }
 
     public Task UnloadAsync()
     {
-        UnloadInternal();
+        _modelPath = null;
         return Task.CompletedTask;
     }
 
-    private void UnloadInternal()
+    // ── Spuštění CLI + parsování progresu ──────────────────────────────────────
+
+    private static async Task<(bool Ok, string Tail)> RunCliAsync(
+        string cli, List<string> args, IProgress<int>? progress, CancellationToken ct)
     {
-        if (_ctx != IntPtr.Zero)
+        var psi = new ProcessStartInfo
         {
-            try { StableDiffusionInterop.FreeSdCtx(_ctx); }
-            catch (Exception ex) { Log.Warning(ex, "NativeImageGenerator: free_sd_ctx selhal"); }
-            _ctx = IntPtr.Zero;
+            FileName               = cli,
+            WorkingDirectory       = Path.GetDirectoryName(cli) ?? Environment.CurrentDirectory,
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+            UseShellExecute        = false,
+            CreateNoWindow         = true,
+        };
+        foreach (var a in args) psi.ArgumentList.Add(a);
+
+        var tail = new StringBuilder();
+        void Handle(string? line)
+        {
+            if (line is null) return;
+            // Progres: sd-cli tiskne „<step>/<total>" během samplingu → mapuj na 5–95 %.
+            var m = StepRegex.Match(line);
+            if (m.Success
+                && int.TryParse(m.Groups[1].Value, out var step)
+                && int.TryParse(m.Groups[2].Value, out var total) && total > 0)
+            {
+                var pct = (int)Math.Clamp(5 + step / (double)total * 90, 5, 95);
+                progress?.Report(pct);
+            }
+            lock (tail)
+            {
+                tail.AppendLine(line);
+                if (tail.Length > 8000) tail.Remove(0, tail.Length - 8000);
+            }
         }
-        _loadedModelPath = null;
+
+        using var proc = new Process { StartInfo = psi };
+        proc.OutputDataReceived += (_, e) => Handle(e.Data);
+        proc.ErrorDataReceived  += (_, e) => Handle(e.Data);
+
+        if (!proc.Start()) return (false, "sd-cli se nepodařilo spustit");
+        proc.BeginOutputReadLine();
+        proc.BeginErrorReadLine();
+
+        try { await proc.WaitForExitAsync(ct); }
+        catch (OperationCanceledException)
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { /* už skončil */ }
+            throw;
+        }
+
+        string captured;
+        lock (tail) captured = tail.ToString();
+        return (proc.ExitCode == 0, captured);
     }
+
+    // ── Lokátor sd-cli ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Najde <c>sd-cli</c> binárku: override → vedle aplikace → <c>runtimes/&lt;rid&gt;/native/</c>
+    /// → PATH. Vrací cestu nebo null. (Drop nové binárky za běhu vyžaduje restart appky.)
+    /// </summary>
+    private static string? ResolveCliPath(string? overridePath)
+    {
+        if (!string.IsNullOrWhiteSpace(overridePath) && File.Exists(overridePath)) return overridePath;
+
+        // Jen „sd-cli" (název z aktuálního releasu). Bare „sd" by kolidovalo s jiným
+        // nástrojem na PATH (sd = sed-alternativa) → falešná dostupnost.
+        var names = OperatingSystem.IsWindows()
+            ? new[] { "sd-cli.exe" }
+            : new[] { "sd-cli" };
+
+        var baseDir = AppContext.BaseDirectory;
+        foreach (var n in names)
+        {
+            var p = Path.Combine(baseDir, n);
+            if (File.Exists(p)) return p;
+        }
+
+        var rid = OperatingSystem.IsWindows() ? "win-x64"
+                : OperatingSystem.IsMacOS()   ? "osx-arm64"
+                : "linux-x64";
+        foreach (var n in names)
+        {
+            var p = Path.Combine(baseDir, "runtimes", rid, "native", n);
+            if (File.Exists(p)) return p;
+        }
+
+        var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        foreach (var dir in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            foreach (var n in names)
+            {
+                try { var p = Path.Combine(dir.Trim(), n); if (File.Exists(p)) return p; }
+                catch { /* neplatný PATH segment */ }
+            }
+        }
+        return null;
+    }
+
+    private NativeImageResult Fail(string msg) => new(false, Array.Empty<string>(), msg);
 
     private string GetOutputDirectory() =>
         !string.IsNullOrEmpty(_outputDirOverride) ? _outputDirOverride : AppPaths.DefaultImagesDirectory;
+
+    private static string Truncate(string s, int max) =>
+        string.IsNullOrEmpty(s) || s.Length <= max ? s : s[..max] + "…";
 }

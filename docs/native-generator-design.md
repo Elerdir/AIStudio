@@ -183,6 +183,19 @@ Ověřeno proti reálné hlavičce `include/stable-diffusion.h` z aktuálního r
 Rozhodnutí je na další iteraci. `INativeImageGenerator` abstrakce zůstává beze změny ať tak
 či tak — mění se jen implementace pod ní.
 
+### ✅ ROZHODNUTO + IMPLEMENTOVÁNO: pivot na bundled `sd-cli.exe`
+
+`NativeImageGenerator` přepsán z P/Invoke na **shell-out na `sd-cli.exe`**:
+- `SdCliArgsBuilder` (Core, čistý, testovaný) — sestaví CLI args z `NativeImageRequest`
+  (model, prompt/negative, W/H, steps, cfg, seed, sampler přes `NativeSamplerMap`, batch,
+  volitelně VAE/LoRA/img2img). CFG/strength v invariant kultuře (tečka).
+- `NativeImageGenerator` — lokátor `sd-cli` (vedle appky → `runtimes/<rid>/native/` → PATH),
+  spustí proces, parsuje progres ze stdout/stderr (`step/total` → 5–95 %), posbírá výstupní
+  PNG. Graceful: bez sd-cli hlásí „nedostupné". Mrtvý `StableDiffusionInterop` (P/Invoke) smazán.
+- **Zbývá (Fáze 4 — UI integrace):** přepojit tlačítko Generovat v Image Studiu, aby při
+  zapnutém vestavěném generátoru (a dostupném sd-cli) šlo mimo ComfyUI; jinak fallback. Pak
+  reálné runtime ověření (drop sd-cli + model → první obrázek mimo ComfyUI).
+
 
 - **Nativní liby**: kde je brát? Existující NuGet vs vlastní build/CI. Velikost (CUDA lib
   je velká — jako `LLamaSharp.Backend.Cuda12`). Distribuce přes náš lokální feed / NuGet.
