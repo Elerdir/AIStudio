@@ -7,13 +7,17 @@ namespace AIStudio.Infrastructure.Services;
 /// bez ComfyUI. Mirror přístupu LlamaSharp/llama.cpp: nativní lib se přibalí per backend
 /// (CPU/CUDA/Vulkan/Metal) a runtime se dispatchuje.
 ///
-/// <para><b>POZOR — Fáze 1 scaffold.</b> Signatury jsou pinnuté na upstream C API
-/// <c>stable-diffusion.cpp</c> (positional <c>new_sd_ctx</c>/<c>txt2img</c>) a <b>vyžadují
-/// runtime ověření proti přibalené verzi nativní knihovny ve Fázi 2</b> — sd.cpp C API se
-/// mezi verzemi mění (přibývají parametry). Dokud lib není přibalená,
-/// <see cref="IsLibraryPresent"/> vrací false a <see cref="NativeImageGenerator"/> hlásí
-/// „nedostupné" + fallback na ComfyUI. Všechna volání jsou navíc obalená try/catch, takže
-/// chybějící/nesedící lib nezpůsobí pád, jen graceful chybu.</para>
+/// <para><b>⚠️ NEAKTUÁLNÍ SIGNATURY — NEPOUŽÍVAT bez přepsání (viz docs/native-generator-design.md §6).</b>
+/// Ověřeno proti reálné hlavičce releasu <c>master-672-1f9ee88</c>: poziční
+/// <c>new_sd_ctx(...)</c>/<c>txt2img(...)</c> níže <b>v aktuálním sd.cpp UŽ NEEXISTUJÍ</b>.
+/// Současné API je struct-based: <c>new_sd_ctx(const sd_ctx_params_t*)</c> +
+/// <c>generate_image(ctx, const sd_img_gen_params_t*)</c> (vnořené struktury). Tyhle deklarace
+/// by spadly na <c>EntryPointNotFound</c>/ABI mismatch. Zvažuje se pivot na bundled
+/// <c>sd-cli.exe</c> (shell-out, stabilní args) místo křehkého struct marshalingu.</para>
+///
+/// <para>Dokud lib není přibalená, <see cref="IsLibraryPresent"/> vrací false a
+/// <see cref="NativeImageGenerator"/> hlásí „nedostupné" + fallback na ComfyUI; všechna volání
+/// jsou obalená try/catch, takže chybějící/nesedící lib nezpůsobí pád, jen graceful chybu.</para>
 /// </summary>
 internal static class StableDiffusionInterop
 {

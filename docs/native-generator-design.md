@@ -130,6 +130,40 @@ ImageGeneratorViewModel
 
 ## 6. Rizika a otevřené otázky
 
+### ⚠️ ZJIŠTĚNÍ (2026-06): sd.cpp C API je struct-based a volatilní → P/Invoke přehodnotit
+
+Ověřeno proti reálné hlavičce `include/stable-diffusion.h` z aktuálního releasu
+(`master-672-1f9ee88`, ten samý, co shipuje Windows binárky):
+
+- **Náš `StableDiffusionInterop` cílí na STAROU poziční API** (`new_sd_ctx(...22 args...)`,
+  `txt2img(...23 args...)`). **Ta už neexistuje.** Při testu by spadl na `EntryPointNotFound`
+  / ABI mismatch.
+- **Aktuální API je struct-based:** `new_sd_ctx(const sd_ctx_params_t*)` +
+  `generate_image(ctx, const sd_img_gen_params_t*)` (ne `txt2img`!). `sd_ctx_params_t` má
+  ~50 polí, `sd_img_gen_params_t` má **vnořené struktury** (`sd_image_t`, `sd_sample_params_t`,
+  `sd_pm_params_t`, `sd_tiling_params_t`, `sd_cache_params_t`, `sd_hires_params_t`) + pole
+  `sd_lora_t[]`. Volá se přes `sd_ctx_params_init()` → override → `new_sd_ctx`.
+- API **rychle bobtná** (spectrum, taylorseer, qwen, chroma, audio…). Ruční marshalling
+  těchhle vnořených struktur je **vysoce křehký a údržbově drahý** — každý update sd.cpp
+  může rozbít ABI.
+- **Release zip navíc shipuje `sd-cli.exe` a `sd-server.exe`** (vedle `stable-diffusion.dll`).
+
+**Doporučení — přehodnotit Fázi 2 binding:** místo ruční struct P/Invoke (křehké) zvážit:
+
+1. **Bundled `sd-cli.exe`** *(doporučeno)* — shell-out per generace s CLI argumenty
+   (`-M txt2img -m model -p prompt -W -H --steps --cfg-scale -s --sampling-method -o out.png`).
+   CLI args jsou **stabilní napříč verzemi** (na rozdíl od struct ABI), robustní, jednorázový
+   proces (ne server). Konzistentní s tím, jak už shell-outujeme na ffmpeg/git. Pořád „bez
+   Pythonu / bez ComfyUI". `sd_image_t` + `PngEncoder` nepotřeba (CLI rovnou zapíše PNG).
+2. **`sd-server.exe`** — malý lokální HTTP server (jako mini-ComfyUI, ale bundled/náš) —
+   reintrodukuje proces na pozadí, ale stabilní HTTP API.
+3. **Struct P/Invoke** — plná kontrola, ale ruční sync ~50-pole + vnořené struktury proti
+   každé verzi. Nejvíc práce a nejkřehčí.
+
+Rozhodnutí je na další iteraci. `INativeImageGenerator` abstrakce zůstává beze změny ať tak
+či tak — mění se jen implementace pod ní.
+
+
 - **Nativní liby**: kde je brát? Existující NuGet vs vlastní build/CI. Velikost (CUDA lib
   je velká — jako `LLamaSharp.Backend.Cuda12`). Distribuce přes náš lokální feed / NuGet.
 - **Feature gap**: ControlNet/IP-Adapter/custom nody — sd.cpp pokrývá část, ne celý
