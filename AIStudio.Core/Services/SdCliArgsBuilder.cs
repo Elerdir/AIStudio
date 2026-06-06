@@ -62,7 +62,9 @@ public static class SdCliArgsBuilder
 
         if (r.Loras is { Count: > 0 })
         {
-            var dir = System.IO.Path.GetDirectoryName(r.Loras[0].Path);
+            // Normalizuj '\' → '/' před GetDirectoryName — jinak Windows cesta na Unixu vrátí
+            // prázdno (backslash tam není oddělovač) a --lora-model-dir by chyběl.
+            var dir = System.IO.Path.GetDirectoryName(r.Loras[0].Path.Replace('\\', '/'));
             if (!string.IsNullOrEmpty(dir))
             {
                 args.Add("--lora-model-dir");
