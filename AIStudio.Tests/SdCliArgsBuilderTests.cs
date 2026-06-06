@@ -24,7 +24,7 @@ public class SdCliArgsBuilderTests
     {
         var a = SdCliArgsBuilder.Build(Req(), "/out/x.png");
 
-        ValueAfter(a, "-M").Should().Be("txt2img");
+        ValueAfter(a, "-M").Should().Be("img_gen");
         ValueAfter(a, "-m").Should().Be("model.gguf");
         ValueAfter(a, "-p").Should().Be("a fox");
         ValueAfter(a, "-n").Should().Be("blurry");
@@ -48,7 +48,7 @@ public class SdCliArgsBuilderTests
     public void Build_Img2Img_AddsModeInitAndStrength()
     {
         var a = SdCliArgsBuilder.Build(Req(init: "/in/seed.png"), "/o.png");
-        ValueAfter(a, "-M").Should().Be("img2img");
+        ValueAfter(a, "-M").Should().Be("img_gen");      // jeden režim; img2img = přítomnost -i
         ValueAfter(a, "-i").Should().Be("/in/seed.png");
         ValueAfter(a, "--strength").Should().Be("0.6");
     }
