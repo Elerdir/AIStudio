@@ -698,6 +698,36 @@
                     </Border>
                 </StackPanel>
 
+                <!-- ══════════════════ GENERÁTOR OBRÁZKŮ ══════════════════ -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="GENERÁTOR OBRÁZKŮ" Classes="sectionHeader"/>
+                    <Border Classes="card">
+                        <StackPanel Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Spacing="3">
+                                    <TextBlock Text="Vestavěný generátor (beta)" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                    <TextBlock FontSize="12" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
+                                               Text="Generování přímo v aplikaci (stable-diffusion.cpp), bez ComfyUI a Pythonu. Použije se jen když je dostupný; jinak se tiše použije ComfyUI."/>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" IsChecked="{Binding UseNativeGenerator}"
+                                              VerticalAlignment="Center" OffContent="" OnContent=""/>
+                            </Grid>
+                            <!-- Stav vestavěného generátoru -->
+                            <Border Background="{DynamicResource InfoSurfaceBrush}" BorderBrush="{DynamicResource InfoBorderBrush}"
+                                    BorderThickness="1" CornerRadius="8" Padding="12,8">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <mi:MaterialIcon Width="15" Height="15" VerticalAlignment="Center"
+                                                     Kind="{x:Static miKind:MaterialIconKind.InformationOutline}"
+                                                     Foreground="{DynamicResource InfoTextBrush}"/>
+                                    <TextBlock Text="{Binding NativeGeneratorStatusLabel}" FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
                 <!-- ══════════════════ AKTUALIZACE ══════════════════ -->
                 <StackPanel Spacing="12">
                     <TextBlock Text="AKTUALIZACE" Classes="sectionHeader"/>

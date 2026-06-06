@@ -66,6 +66,13 @@ public class AppSettings
     /// <summary>Cesta k Python interpreteru. Prázdná = hledat v PATH.</summary>
     public string PythonPath { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Preferovaný backend generování obrázků: <c>"comfyui"</c> (výchozí) nebo <c>"native"</c>
+    /// (vestavěný stable-diffusion.cpp). „native" se použije jen když je reálně dostupný
+    /// (přibalená nativní knihovna), jinak se tiše použije ComfyUI.
+    /// </summary>
+    public string ImageGeneratorBackend { get; set; } = "comfyui";
+
     // ── Aktualizace ───────────────────────────────────────────────────────────
 
     /// <summary>
