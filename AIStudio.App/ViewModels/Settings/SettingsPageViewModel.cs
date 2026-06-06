@@ -18,6 +18,7 @@ public partial class SettingsPageViewModel : ViewModelBase
     private readonly IFluxDependencyService? _fluxDeps;
     private readonly IComfyUpdateService?    _comfyUpdate;
     private readonly IComfyService?          _comfy;
+    private readonly INativeImageGenerator?  _nativeGen;
     private CancellationTokenSource? _saveDebounceCts;
     private CancellationTokenSource? _installCts;
 
@@ -118,7 +119,8 @@ public partial class SettingsPageViewModel : ViewModelBase
                                  ILocalizationService? loc = null,
                                  IFluxDependencyService? fluxDeps = null,
                                  IComfyUpdateService? comfyUpdate = null,
-                                 IComfyService? comfy = null)
+                                 IComfyService? comfy = null,
+                                 INativeImageGenerator? nativeGen = null)
     {
         _settings        = settings;
         _comfyInstaller  = comfyInstaller;
@@ -127,6 +129,7 @@ public partial class SettingsPageViewModel : ViewModelBase
         _fluxDeps        = fluxDeps;
         _comfyUpdate     = comfyUpdate;
         _comfy           = comfy;
+        _nativeGen       = nativeGen;
 
         // Načteme hodnoty ze stávajících nastavení
         var s = _settings.Settings;
@@ -143,8 +146,28 @@ public partial class SettingsPageViewModel : ViewModelBase
         _pythonPath        = s.PythonPath;
         _checkForUpdates   = s.CheckForUpdates;
         _updateChannel     = string.IsNullOrWhiteSpace(s.UpdateChannel) ? "stable" : s.UpdateChannel;
+        _useNativeGenerator = string.Equals(s.ImageGeneratorBackend, "native", StringComparison.OrdinalIgnoreCase);
 
         RefreshComfyVersion();
+    }
+
+    // ── Generátor obrázků (ComfyUI vs vestavěný stable-diffusion.cpp) ──────────
+
+    /// <summary>Preferovat vestavěný generátor (použije se jen když je reálně dostupný).</summary>
+    [ObservableProperty] private bool _useNativeGenerator;
+
+    /// <summary>True když je vestavěný generátor reálně dostupný (přibalená nativní knihovna).</summary>
+    public bool NativeGeneratorAvailable => _nativeGen?.Status.IsAvailable ?? false;
+
+    /// <summary>Lidský popis stavu vestavěného generátoru pro Nastavení.</summary>
+    public string NativeGeneratorStatusLabel => _nativeGen?.Status is { } st
+        ? (st.IsAvailable ? $"Dostupný — {st.BackendInfo}" : st.UnavailableReason ?? "nedostupné")
+        : "Vestavěný generátor zatím není zapojený (přijde s nativní knihovnou).";
+
+    partial void OnUseNativeGeneratorChanged(bool value)
+    {
+        _settings.Settings.ImageGeneratorBackend = value ? "native" : "comfyui";
+        ScheduleSave();
     }
 
     // ── Auto-save při každé změně ─────────────────────────────────────────────

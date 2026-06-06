@@ -128,6 +128,26 @@ ImageGeneratorViewModel
 - **Fáze 6 — pokročilé**: ControlNet, upscaling (sd.cpp/ESRGAN), TAESD náhledy, výhledově
   video (až sd.cpp / jiný nativní stack podpoří).
 
+## 5b. Jak nativní cestu reálně otestovat (odblok Fáze 2)
+
+Managed pipeline (Fáze 1) je hotová a čeká jen na **nativní knihovnu**. Ověření na stroji:
+
+1. **Sehnat `stable-diffusion.cpp` build.** Prebuilt binárky jsou v releasech upstreamu
+   (`leejet/stable-diffusion.cpp`) — pro Windows CPU/CUDA/Vulkan/AVX2 varianty. Stáhnout
+   variantu dle HW (CPU pro první ověření, je nejjednodušší).
+2. **Umístit `stable-diffusion.dll`** (+ závislosti, např. `ggml.dll`) tam, kde ho najde
+   `NativeLibrary.TryLoad("stable-diffusion")` — typicky vedle `AIStudio.App.exe`
+   (bin output) nebo do `runtimes/win-x64/native/` (Fáze 2 sjednotí na `runtimes/` jako
+   `LLamaSharp.Backend.*`).
+3. **Stáhnout SD model** (GGUF nebo safetensors), např. malý SD1.5 GGUF.
+4. **V Nastavení** zapnout „Vestavěný generátor" — `Status` by měl přeskočit na *Dostupný*.
+5. **Vygenerovat** → ověřit, že `new_sd_ctx`/`txt2img` signatury sedí proti přibalené verzi
+   (sd.cpp C API se mění — viz POZN v `StableDiffusionInterop`). Když ne, doladit signatury.
+
+**Hlavní rozhodnutí Fáze 2:** odkud binárky brát dlouhodobě — vlastní build přes GitHub
+Actions (kontrola verze, jako bychom rádi) vs hotový NuGet binding. Ovlivní distribuci
+(velikost CUDA liby) a údržbu.
+
 ## 6. Rizika a otevřené otázky
 
 - **Nativní liby**: kde je brát? Existující NuGet vs vlastní build/CI. Velikost (CUDA lib

@@ -298,9 +298,13 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
   **Fáze 1 scaffold HOTOVO** (čeká nativní lib + runtime): `StableDiffusionInterop` (P/Invoke
   na sd.cpp, pinnuté signatury — ověřit ve Fázi 2), `NativeImageGenerator` (Infrastructure;
   load→txt2img→PNG→uložit, lazy probe nativní liby, graceful fallback když chybí, DI
-  zaregistrováno), `PngEncoder` + `NativeModelDefaults` (Core, čisté, testované). **Další:
-  Fáze 2** = přibalit nativní libu (CPU první) + runtime ověřit P/Invoke + reálnou inference,
-  pak GPU backendy a UI přepínač generátoru.
+  zaregistrováno), `PngEncoder` + `NativeModelDefaults` (Core, čisté, testované).
+  **Fáze 2 (integrace) ROZPRACOVÁNO**: `AppSettings.ImageGeneratorBackend` (comfyui/native),
+  `NativeModelFamilyDetector` (Core, čistý, testovaný — odhad SD1/SDXL/FLUX z názvu), Nastavení →
+  sekce „Generátor obrázků" (přepínač + stav přes `INativeImageGenerator.Status`). **Zbývá ve
+  Fázi 2**: přibalit nativní libu + runtime ověřit P/Invoke/inference (návod „jak otestovat
+  nativně" v `docs/native-generator-design.md` §5b), pak GPU backendy + routing ImageStudio na
+  nativní cestu (kritická ComfyUI cesta se zatím nesahá).
 
 ### Menší / technický dluh
 - ~~**Light theme audit**~~ — HOTOVO: strukturální + semantické barvy ve Views jsou theme-aware (`DynamicResource`). Případný drobný dopilování zbývá jen u záměrných výjimek (overlay scrimy, modré badge).
