@@ -67,6 +67,12 @@ public class AppSettings
     public string PythonPath { get; set; } = string.Empty;
 
     /// <summary>
+    /// Složka, jejíž obrázky se zobrazí v záložce „Upscale" (dodej obrázek → jen ho zvětši).
+    /// Prázdná = výchozí složka generovaných obrázků (galerie).
+    /// </summary>
+    public string UpscaleSourceDirectory { get; set; } = string.Empty;
+
+    /// <summary>
     /// Preferovaný backend generování obrázků: <c>"comfyui"</c> (výchozí) nebo <c>"native"</c>
     /// (vestavěný stable-diffusion.cpp). „native" se použije jen když je reálně dostupný
     /// (přibalená nativní knihovna), jinak se tiše použije ComfyUI.

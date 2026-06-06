@@ -31,6 +31,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public ImageStudioPageViewModel  ImageStudioPage  { get; }
     public Video.VideoPageViewModel  VideoPage        { get; }
     public GalleryPageViewModel      GalleryPage      { get; }
+    public Upscale.UpscalePageViewModel UpscalePage   { get; }
     public ModelManagerPageViewModel ModelManagerPage { get; }
     public LoraLibraryPageViewModel  LoraPage         { get; }
     public SystemPageViewModel       SystemPage       { get; }
@@ -45,6 +46,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ImageStudioPageViewModel  imageStudioPage,
         Video.VideoPageViewModel  videoPage,
         GalleryPageViewModel      galleryPage,
+        Upscale.UpscalePageViewModel upscalePage,
         ModelManagerPageViewModel modelManagerPage,
         LoraLibraryPageViewModel  loraPage,
         SystemPageViewModel       systemPage,
@@ -58,6 +60,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ImageStudioPage  = imageStudioPage;
         VideoPage        = videoPage;
         GalleryPage      = galleryPage;
+        UpscalePage      = upscalePage;
         ModelManagerPage = modelManagerPage;
         LoraPage         = loraPage;
         SystemPage       = systemPage;
@@ -109,6 +112,7 @@ public partial class MainWindowViewModel : ViewModelBase
             NavigationPage.ImageStudio => ImageStudioPage,
             NavigationPage.Video       => VideoPage,
             NavigationPage.Gallery     => GalleryPage,
+            NavigationPage.Upscale     => UpscalePage,
             NavigationPage.Models      => ModelManagerPage,
             NavigationPage.Lora        => LoraPage,
             NavigationPage.System      => SystemPage,
@@ -120,5 +124,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // z chatu / Image Studia / upscale).
         if (page == NavigationPage.Gallery)
             _ = GalleryPage.RefreshAsync();
+        if (page == NavigationPage.Upscale)
+            _ = UpscalePage.RefreshAsync();
     }
 }
