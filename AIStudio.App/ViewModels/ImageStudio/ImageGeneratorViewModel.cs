@@ -25,6 +25,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     private readonly ILlamaService?          _llama;
     private readonly IFluxDependencyService? _fluxDeps;
     private readonly IUpscaleModelService?   _upscaleService;
+    private readonly INativeImageGenerator?  _nativeGen;
     private static int _counter;
 
     private CancellationTokenSource? _genCts;
@@ -211,7 +212,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         IImageModelMatcher?      modelMatcher = null,
         ILlamaService?           llama        = null,
         IFluxDependencyService?  fluxDeps     = null,
-        IUpscaleModelService?    upscaleService = null)
+        IUpscaleModelService?    upscaleService = null,
+        INativeImageGenerator?   nativeGen    = null)
     {
         _comfy        = comfy;
         _settings     = settings;
@@ -222,6 +224,7 @@ public partial class ImageGeneratorViewModel : ViewModelBase
         _llama        = llama;
         _fluxDeps     = fluxDeps;
         _upscaleService = upscaleService;
+        _nativeGen    = nativeGen;
         var n = System.Threading.Interlocked.Increment(ref _counter);
         _title = $"Generátor {n}";
 
@@ -492,7 +495,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
     [RelayCommand]
     private async Task GenerateAsync()
     {
-        if (!_comfy.IsRunning)
+        // Vestavěný generátor (sd-cli) nepotřebuje ComfyUI — kontrolu přeskočíme.
+        if (!UseNativeGenerator() && !_comfy.IsRunning)
         {
             GenerationStatus = "ComfyUI není spuštěno";
             return;
@@ -564,6 +568,13 @@ public partial class ImageGeneratorViewModel : ViewModelBase
 
         try
         {
+            // ── Vestavěný generátor (sd-cli) — když je zapnutý + dostupný, jdeme mimo ComfyUI ──
+            if (UseNativeGenerator())
+            {
+                await RunNativeGenerationAsync(cts.Token);
+                return;   // finally uklidí IsGenerating/_genCts
+            }
+
             var res    = Resolution;
             var seed   = Seed < 0 ? (long)Random.Shared.Next(1, int.MaxValue) : Seed;
             var isFlux = ComfyWorkflowBuilder.IsFluxModel(SelectedModel);
@@ -857,6 +868,82 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             IsGenerating = false;
             _genCts      = null;
         }
+    }
+
+    /// <summary>True když uživatel preferuje vestavěný generátor A ten je reálně dostupný (sd-cli).</summary>
+    private bool UseNativeGenerator() =>
+        _nativeGen is not null
+        && string.Equals(_settings.Settings.ImageGeneratorBackend, "native", StringComparison.OrdinalIgnoreCase)
+        && _nativeGen.Status.IsAvailable;
+
+    /// <summary>
+    /// Generování přes vestavěný <see cref="INativeImageGenerator"/> (sd-cli) — mimo ComfyUI.
+    /// Vyřeší model na soubor, sestaví request, vygeneruje a uloží výsledky do galerie stejně
+    /// jako ComfyUI cesta. Vlastní chyby hlásí do <see cref="GenerationStatus"/> (nehází).
+    /// </summary>
+    private async Task RunNativeGenerationAsync(CancellationToken ct)
+    {
+        GenerationStatus = "Generuji (vestavěný generátor)…";
+
+        var res  = Resolution;
+        var seed = Seed < 0 ? (long)Random.Shared.Next(1, int.MaxValue) : Seed;
+
+        // sd-cli potřebuje cestu k souboru modelu, ne jen jméno checkpointu.
+        var modelPath = await Task.Run(() => SafetensorsInspector.FindModelPath(
+            SelectedModel, _settings.Settings.ModelsDirectory, _settings.Settings.ComfyUiDirectory), ct);
+        if (string.IsNullOrEmpty(modelPath) || !File.Exists(modelPath))
+        {
+            GenerationStatus = $"Vestavěný generátor: model '{SelectedModel}' jsem nenašel jako soubor na disku.";
+            return;
+        }
+
+        // LoRA/VAE pro nativní cestu zatím neposíláme (přijde později) — v1 = čistý txt2img.
+        var req = new NativeImageRequest(
+            ModelPath:      modelPath,
+            Prompt:         Prompt,
+            NegativePrompt: NegativePrompt ?? string.Empty,
+            Width:          res.W,
+            Height:         res.H,
+            Steps:          Steps,
+            CfgScale:       Cfg,
+            Seed:           seed,
+            SamplerName:    SelectedSampler,
+            BatchCount:     Math.Max(1, VariantCount));
+
+        var progress = new Progress<int>(p =>
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => GenerationProgress = p));
+
+        var result = await _nativeGen!.GenerateAsync(req, progress, ct);
+        if (!result.Success)
+        {
+            GenerationStatus = "Vestavěný generátor: " + (result.ErrorMessage ?? "generování selhalo");
+            return;
+        }
+
+        foreach (var filePath in result.FilePaths)
+        {
+            var now = DateTime.Now;
+            var vm  = new GeneratedImageViewModel
+            {
+                FilePath  = filePath, Prompt = Prompt, Model = SelectedModel, Seed = seed,
+                Width     = res.W, Height = res.H, Timestamp = now,
+                Sampler   = SelectedSampler, Scheduler = string.Empty, Steps = Steps, Cfg = Cfg,
+            };
+            var record = new ImageRecord(
+                Guid.NewGuid().ToString(), filePath, Prompt, SelectedModel, seed,
+                res.W, res.H, Steps, Cfg, SelectedSampler, string.Empty, now);
+            _ = TrySaveImageAsync(record);
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                GeneratedImages.Insert(0, vm);
+                LatestImage = vm;
+                TotalImagesInDb++;
+                OnPropertyChanged(nameof(HasGeneratedImages));
+            });
+        }
+
+        GenerationStatus = $"Hotovo! ({result.FilePaths.Count} {PluralizeImages(result.FilePaths.Count)}) — vestavěný generátor";
     }
 
     [RelayCommand]

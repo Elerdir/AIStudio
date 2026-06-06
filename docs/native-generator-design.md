@@ -192,9 +192,13 @@ Rozhodnutí je na další iteraci. `INativeImageGenerator` abstrakce zůstává 
 - `NativeImageGenerator` — lokátor `sd-cli` (vedle appky → `runtimes/<rid>/native/` → PATH),
   spustí proces, parsuje progres ze stdout/stderr (`step/total` → 5–95 %), posbírá výstupní
   PNG. Graceful: bez sd-cli hlásí „nedostupné". Mrtvý `StableDiffusionInterop` (P/Invoke) smazán.
-- **Zbývá (Fáze 4 — UI integrace):** přepojit tlačítko Generovat v Image Studiu, aby při
-  zapnutém vestavěném generátoru (a dostupném sd-cli) šlo mimo ComfyUI; jinak fallback. Pak
-  reálné runtime ověření (drop sd-cli + model → první obrázek mimo ComfyUI).
+- **Fáze 4 — UI integrace HOTOVO:** tlačítko Generovat v Image Studiu routuje na nativní cestu,
+  když je vestavěný generátor zapnutý (Nastavení) **a** dostupný (sd-cli nalezený) — jinak ComfyUI.
+  `ImageGeneratorViewModel.RunNativeGenerationAsync` (vyřeší model na soubor přes `SafetensorsInspector`,
+  request, generace, uložení do galerie jako ComfyUI cesta). Kritická ComfyUI větev netknutá
+  (nativní je izolovaná early-branch). LoRA/VAE pro nativní cestu zatím neposíláme (v1 = čistý txt2img).
+- **Zbývá (runtime):** drop `sd-cli.exe` + lokální model → **první obrázek mimo ComfyUI**; ladění
+  parsování progresu/chyb; GPU build sd-cli; přibalení binárky přes CI; LoRA/VAE pro nativní cestu.
 
 
 - **Nativní liby**: kde je brát? Existující NuGet vs vlastní build/CI. Velikost (CUDA lib

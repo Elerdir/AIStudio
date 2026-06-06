@@ -20,6 +20,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
     private readonly INavigationService       _nav;
     private readonly IFluxDependencyService?  _fluxDeps;
     private readonly IUpscaleModelService?    _upscaleService;
+    private readonly INativeImageGenerator?   _nativeGen;
     private          DispatcherTimer?         _fluxPollTimer;
 
     [ObservableProperty] private ImageGeneratorViewModel? _activeGenerator;
@@ -66,7 +67,8 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         ILlamaService            llama,
         INavigationService       nav,
         IFluxDependencyService?  fluxDeps = null,
-        IUpscaleModelService?    upscaleService = null)
+        IUpscaleModelService?    upscaleService = null,
+        INativeImageGenerator?   nativeGen = null)
     {
         _comfy        = comfy;
         _settings     = settings;
@@ -78,6 +80,7 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         _nav          = nav;
         _fluxDeps     = fluxDeps;
         _upscaleService = upscaleService;
+        _nativeGen    = nativeGen;
 
         // Pollujeme FluxDependencyService každých 500 ms — service není INotifyPropertyChanged,
         // takže timer je nejjednodušší způsob jak zobrazit živý progress v UI.
@@ -254,7 +257,8 @@ public partial class ImageStudioPageViewModel : ViewModelBase, IAsyncDisposable
         var gen = new ImageGeneratorViewModel(_comfy, _settings, _imageRepo, _loraLibrary,
                                                _intentParser, _modelMatcher, _llama,
                                                fluxDeps: _fluxDeps,
-                                               upscaleService: _upscaleService);
+                                               upscaleService: _upscaleService,
+                                               nativeGen: _nativeGen);
         // LoadCheckpointsAsync sloučí ComfyUI i lokální sken — voláme ho vždy,
         // aby uživatel hned viděl stažené modely v dropdownu (ať už ComfyUI běží či ne).
         _ = gen.LoadCheckpointsAsync();
