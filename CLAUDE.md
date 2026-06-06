@@ -288,7 +288,15 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
   UI: checkbox „Plynulejší pohyb (RIFE)" + násobek 2–4 s náhledem „16 → 32 fps". **Zbývá runtime:**
   ověřit node `RIFE VFI` (název s mezerou) + auto-download RIFE modelu + requirements-no-cupy.txt.
 - **Video → LoRA pipeline** (až budou videa hotová): uživatel vloží 1..X videí (volitelně + referenční obrázek subjektu, který má „hlídat"). Aplikace videa zanalyzuje — detekce/popis osob, objektů, zvířat atd. (frame sampling + detekce/segmentace + caption), uživatel zaškrtne/potvrdí, co chce. Z vybraných framů/crops se sestaví **dataset** (obrázky + captiony) a spustí se **LoRA trénink** (využije stávající `SdScriptsLoraTrainer`). Výsledné LoRA jdou použít v **Image Studiu i ve videích**. Otevřené otázky: jaký detekční model (YOLO/GroundingDINO/SAM přes Python proces? nebo lokální VLM caption?), jak řešit kvalitu/duplicitu framů, NSFW/consent guardrails (viz pravidlo o reálných osobách).
-- **Vlastní generátor (nezávislost na ComfyUI)** — dlouhodobý cíl: vlastní inference pipeline **přímo integrovaná v aplikaci** (ne jako externí Python proces), kde si verze modelů/závislostí řeší AI Studio samo a postupně. Kandidáti: managed inference (ONNX Runtime / TorchSharp / vlastní wrapper nad stable-diffusion.cpp / candle), nebo embedded Python s plnou kontrolou. Cíl: one-click, žádná závislost na ComfyUI portable, vlastní správa verzí. Velký záběr — navrhnout architekturu zvlášť.
+- **Vlastní generátor (nezávislost na ComfyUI)** — ROZPRACOVÁNO (Fáze 0 / foundation).
+  Návrh architektury v `docs/native-generator-design.md`: doporučení **stable-diffusion.cpp**
+  přes P/Invoke (mirror LlamaSharp/llama.cpp — GGUF, multi-backend CPU/CUDA/Vulkan/Metal,
+  konzistentní s existující LLM cestou). Hotová **abstrakce v Core**: `INativeImageGenerator`
+  + modely (`NativeImageRequest`/`Result`/`NativeLora`/`NativeGeneratorStatus`, enumy
+  `NativeGenBackend`/`NativeModelFamily`) + čistý `NativeSamplerMap` (mapování samplerů na
+  sd.cpp, testováno). **Paralelní k ComfyUI** (ne sjednocené) — v UI se přepne dle nastavení.
+  Fáze 0 nic nepřipojuje do běžící appky. **Další: Fáze 1** = P/Invoke binding + CPU backend
+  + základní txt2img (`NativeImageGenerator` v Infrastructure, lazy backend init).
 
 ### Menší / technický dluh
 - ~~**Light theme audit**~~ — HOTOVO: strukturální + semantické barvy ve Views jsou theme-aware (`DynamicResource`). Případný drobný dopilování zbývá jen u záměrných výjimek (overlay scrimy, modré badge).
