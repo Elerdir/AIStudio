@@ -1,0 +1,133 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AIStudio.App.ViewModels.Upscale"
+             xmlns:mi="using:Material.Icons.Avalonia"
+             xmlns:miKind="using:Material.Icons"
+             x:Class="AIStudio.App.Views.Upscale.UpscalePageView"
+             x:DataType="vm:UpscalePageViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,*">
+
+        <!-- Hlavička -->
+        <Border Grid.Row="0" Padding="28,20,28,14"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
+            <StackPanel Spacing="2">
+                <TextBlock Text="Upscale" FontSize="22" FontWeight="Bold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="Dodej obrázek (ze složky nebo přetažením) a jen ho zvětši — výsledek se uloží do galerie"
+                           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Toolbar: složka + akce -->
+        <Border Grid.Row="1" Padding="28,12,28,12"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <mi:MaterialIcon Grid.Column="0" Kind="{x:Static miKind:MaterialIconKind.FolderOutline}"
+                                 Width="18" Height="18" VerticalAlignment="Center"
+                                 Foreground="{DynamicResource TextMutedBrush}"/>
+                <TextBlock Grid.Column="1" Text="{Binding SourceDirectory}" VerticalAlignment="Center"
+                           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceDirectory}"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                    <Button Classes="secondary" Padding="10,6" FontSize="12"
+                            Command="{Binding PickFolderCommand}" Content="Vybrat složku…"/>
+                    <Button Classes="secondary" Padding="10,6" FontSize="12"
+                            Command="{Binding OpenSourceFolderCommand}" ToolTip.Tip="Otevřít složku v průzkumníku">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.FolderOpenOutline}" Width="15" Height="15"/>
+                    </Button>
+                    <Button Classes="secondary" Padding="10,6" FontSize="12"
+                            Command="{Binding RefreshCommand}" ToolTip.Tip="Obnovit">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Refresh}" Width="15" Height="15"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Plocha s obrázky (drop target) -->
+        <Grid Grid.Row="2" Name="DropArea" Background="Transparent">
+            <ScrollViewer Padding="22,16,16,16" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="{Binding StatusLine}" FontSize="11"
+                               Foreground="{DynamicResource TextHintBrush}"
+                               IsVisible="{Binding StatusLine, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+                    <!-- Prázdný stav -->
+                    <Border IsVisible="{Binding !HasImages}"
+                            Background="{DynamicResource DeepPanelBgBrush}" BorderBrush="{DynamicResource AppBorderBrush}"
+                            BorderThickness="1" CornerRadius="12" Padding="24" Margin="0,8,14,0">
+                        <StackPanel Spacing="8" HorizontalAlignment="Center">
+                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageMultipleOutline}"
+                                             Width="40" Height="40" Foreground="{DynamicResource TextWeakBrush}"
+                                             HorizontalAlignment="Center"/>
+                            <TextBlock Text="Žádné obrázky. Vyber složku nahoře, nebo sem přetáhni obrázek." FontSize="13"
+                                       Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center"
+                                       TextWrapping="Wrap" TextAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Mřížka náhledů -->
+                    <ItemsControl ItemsSource="{Binding Images}" IsVisible="{Binding HasImages}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:UpscaleItemViewModel">
+                                <Border Width="200" Margin="0,0,12,12" CornerRadius="10"
+                                        Background="{DynamicResource CardBgBrush}"
+                                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                                    <StackPanel>
+                                        <!-- Náhled -->
+                                        <Border Height="150" CornerRadius="10,10,0,0" ClipToBounds="True"
+                                                Background="{DynamicResource VeryDeepBgBrush}">
+                                            <Panel>
+                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                                                       IsVisible="{Binding HasThumbnail}"/>
+                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}"
+                                                                 Width="28" Height="28" IsVisible="{Binding !HasThumbnail}"
+                                                                 Foreground="{DynamicResource TextWeakBrush}"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <!-- Hotovo badge -->
+                                                <Border IsVisible="{Binding IsDone}" VerticalAlignment="Top" HorizontalAlignment="Right"
+                                                        Margin="6" Background="{DynamicResource OkSurfaceBrush}"
+                                                        BorderBrush="{DynamicResource OkBorderBrush}" BorderThickness="1"
+                                                        CornerRadius="10" Padding="6,2">
+                                                    <TextBlock Text="✓" FontSize="11" Foreground="{DynamicResource OkTextBrush}"/>
+                                                </Border>
+                                            </Panel>
+                                        </Border>
+                                        <!-- Info + akce -->
+                                        <StackPanel Spacing="6" Margin="10,8,10,10">
+                                            <TextBlock Text="{Binding FileName}" FontSize="11"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}"/>
+                                            <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    Padding="0,7" CornerRadius="8" BorderThickness="0"
+                                                    Background="{DynamicResource AccentBrush}" Foreground="White"
+                                                    IsEnabled="{Binding !IsUpscaling}"
+                                                    Command="{Binding $parent[ItemsControl].((vm:UpscalePageViewModel)DataContext).UpscaleCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ArrowExpandAll}"
+                                                                     Width="14" Height="14" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="Zvětšit" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <TextBlock Text="{Binding Status}" FontSize="10"
+                                                       Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
+                                                       IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border Height="20"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

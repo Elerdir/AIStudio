@@ -93,6 +93,16 @@
                         </Button>
 
                         <Button Command="{Binding NavigateCommand}"
+                                CommandParameter="{x:Static enums:NavigationPage.Upscale}"
+                                Classes="navItem"
+                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Upscale}}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ArrowExpandAll}" Width="18" Height="18" VerticalAlignment="Center"/>
+                                <TextBlock Text="Upscale" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding NavigateCommand}"
                                 CommandParameter="{x:Static enums:NavigationPage.Models}"
                                 Classes="navItem"
                                 Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Models}}">

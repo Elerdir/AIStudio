@@ -6,6 +6,7 @@ public enum NavigationPage
     ImageStudio,
     Video,
     Gallery,
+    Upscale,
     Models,
     Lora,
     System,
