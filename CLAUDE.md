@@ -302,9 +302,11 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
   `docs/native-generator-design.md §6`): `NativeImageGenerator` teď **shell-outuje na `sd-cli.exe`**
   (lokátor vedle appky/`runtimes`/PATH, parsování progresu ze stdout, sběr PNG, graceful fallback),
   args staví čistý `SdCliArgsBuilder` (Core, testováno). Mrtvý `StableDiffusionInterop` smazán.
-  **Zbývá:** routing tlačítka Generovat v Image Studiu na nativní cestu (Fáze 4 — kritická ComfyUI
-  cesta se zatím nesahá), pak runtime ověření (drop `sd-cli.exe` + model → 1. obrázek mimo ComfyUI),
-  GPU build sd-cli, přibalení binárky přes CI.
+  **Fáze 4 (routing) HOTOVO:** tlačítko Generovat v Image Studiu jde na nativní cestu, když je
+  vestavěný generátor zapnutý + dostupný (sd-cli), jinak ComfyUI. `ImageGeneratorViewModel.RunNativeGenerationAsync`
+  (izolovaná early-branch — kritická ComfyUI cesta netknutá), `INativeImageGenerator` protažen přes
+  `ImageStudioPageViewModel`. **Zbývá (runtime):** drop `sd-cli.exe` + model → 1. obrázek mimo ComfyUI;
+  GPU build sd-cli + přibalení přes CI; LoRA/VAE pro nativní cestu.
 
 ### Menší / technický dluh
 - ~~**Light theme audit**~~ — HOTOVO: strukturální + semantické barvy ve Views jsou theme-aware (`DynamicResource`). Případný drobný dopilování zbývá jen u záměrných výjimek (overlay scrimy, modré badge).

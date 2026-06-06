@@ -32,7 +32,9 @@ public static class SdCliArgsBuilder
 
         var args = new List<string>
         {
-            "-M", isImg2Img ? "img2img" : "txt2img",
+            // Aktuální sd-cli má jeden režim „img_gen" pro txt2img i img2img (img2img se pozná
+            // podle vstupního obrázku -i). Staré „txt2img"/„img2img" už CLI odmítá.
+            "-M", "img_gen",
             "-m", r.ModelPath,
             "-p", prompt,
             "-n", r.NegativePrompt ?? string.Empty,
