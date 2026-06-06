@@ -32,8 +32,10 @@
             </Grid>
         </Border>
 
-        <ScrollViewer Padding="28,24,28,80">
-            <StackPanel Spacing="28" MaxWidth="580" HorizontalAlignment="Left">
+        <TabControl Padding="0">
+            <TabItem Header="Vzhled &amp; jazyk">
+                <ScrollViewer Padding="28,24,28,80">
+                    <StackPanel Spacing="24" MaxWidth="580" HorizontalAlignment="Left">
 
                 <!-- ══════════════════ VZHLED ══════════════════ -->
                 <StackPanel Spacing="12">
@@ -75,6 +77,12 @@
                     </Border>
                 </StackPanel>
 
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Inference &amp; modely">
+                <ScrollViewer Padding="28,24,28,80">
+                    <StackPanel Spacing="24" MaxWidth="580" HorizontalAlignment="Left">
                 <!-- ══════════════════ INFERENCE ══════════════════ -->
                 <StackPanel Spacing="12">
                     <TextBlock Text="INFERENCE" Classes="sectionHeader"/>
@@ -388,6 +396,12 @@
                     </Border>
                 </StackPanel>
 
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Generování obrázků">
+                <ScrollViewer Padding="28,24,28,80">
+                    <StackPanel Spacing="24" MaxWidth="580" HorizontalAlignment="Left">
                 <!-- ══════════════════ COMFYUI ══════════════════ -->
                 <StackPanel Spacing="12">
                     <TextBlock Text="COMFYUI — GENEROVÁNÍ OBRÁZKŮ" Classes="sectionHeader"/>
@@ -728,6 +742,33 @@
                     </Border>
                 </StackPanel>
 
+                <!-- UPSCALE složka -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="UPSCALE" Classes="sectionHeader"/>
+                    <Border Classes="card">
+                        <StackPanel Spacing="10">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="Složka pro upscale" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                <TextBlock FontSize="12" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"
+                                           Text="Obrázky z této složky se zobrazí v záložce Upscale, kde je jen zvětšíš. Prázdné = složka galerie."/>
+                            </StackPanel>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <TextBox Grid.Column="0" Text="{Binding UpscaleSourceDirectory}"
+                                         PlaceholderText="výchozí: složka galerie" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Classes="secondary" Padding="12,8"
+                                        Command="{Binding PickUpscaleSourceFolderCommand}" Content="Vybrat…"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Aktualizace &amp; info">
+                <ScrollViewer Padding="28,24,28,80">
+                    <StackPanel Spacing="24" MaxWidth="580" HorizontalAlignment="Left">
                 <!-- ══════════════════ AKTUALIZACE ══════════════════ -->
                 <StackPanel Spacing="12">
                     <TextBlock Text="AKTUALIZACE" Classes="sectionHeader"/>
@@ -841,8 +882,10 @@
                      prázdný Border s Height to vyřeší stoprocentně. -->
                 <Border Height="100"/>
 
-            </StackPanel>
-        </ScrollViewer>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
 
     </DockPanel>
 </UserControl>

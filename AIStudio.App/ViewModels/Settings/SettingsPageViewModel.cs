@@ -56,6 +56,9 @@ public partial class SettingsPageViewModel : ViewModelBase
     // ── Modely ────────────────────────────────────────────────────────────────
     [ObservableProperty] private string _modelsDirectory = string.Empty;
 
+    /// <summary>Složka, jejíž obrázky se zobrazí v záložce Upscale. Prázdná = složka galerie.</summary>
+    [ObservableProperty] private string _upscaleSourceDirectory = string.Empty;
+
     // ── API tokeny ────────────────────────────────────────────────────────────
     [ObservableProperty] private string _huggingFaceToken = string.Empty;
     [ObservableProperty] private string _civitaiApiKey = string.Empty;
@@ -138,6 +141,7 @@ public partial class SettingsPageViewModel : ViewModelBase
         _useGpu            = s.UseGpu;
         _chatContextSize   = s.ChatContextSize > 0 ? s.ChatContextSize : 8192;
         _modelsDirectory   = s.ModelsDirectory;
+        _upscaleSourceDirectory = s.UpscaleSourceDirectory;
         _huggingFaceToken  = s.HuggingFaceToken;
         _civitaiApiKey     = s.CivitaiApiKey;
         _comfyUiDirectory  = s.ComfyUiDirectory;
@@ -206,6 +210,34 @@ public partial class SettingsPageViewModel : ViewModelBase
     {
         _settings.Settings.ModelsDirectory = value;
         ScheduleSave();
+    }
+
+    partial void OnUpscaleSourceDirectoryChanged(string value)
+    {
+        _settings.Settings.UpscaleSourceDirectory = value;
+        ScheduleSave();
+    }
+
+    [RelayCommand]
+    private async Task PickUpscaleSourceFolderAsync()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime
+            is not IClassicDesktopStyleApplicationLifetime { MainWindow: { } win })
+            return;
+
+        IStorageFolder? startFolder = null;
+        if (!string.IsNullOrWhiteSpace(UpscaleSourceDirectory) && Directory.Exists(UpscaleSourceDirectory))
+            startFolder = await win.StorageProvider.TryGetFolderFromPathAsync(UpscaleSourceDirectory);
+
+        var result = await win.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "Vybrat složku s obrázky pro upscale",
+            AllowMultiple = false,
+            SuggestedStartLocation = startFolder
+        });
+
+        if (result.Count > 0)
+            UpscaleSourceDirectory = result[0].Path.LocalPath;
     }
 
     partial void OnHuggingFaceTokenChanged(string value)
