@@ -17,7 +17,12 @@ public static class NativeModelFamilyDetector
     {
         if (string.IsNullOrWhiteSpace(fileNameOrPath)) return NativeModelFamily.Unknown;
 
-        var n = System.IO.Path.GetFileName(fileNameOrPath).ToLowerInvariant();
+        // Ořež adresář podle OBOU oddělovačů — Path.GetFileName je platform-závislé (na Unixu
+        // nebere '\' jako oddělovač, takže by celá Windows cesta prošla jako název a např.
+        // „C:\flux\sd_xl…" by chybně chytla „flux"). Bez tohohle padal test na macOS/Linux.
+        var normalized = fileNameOrPath.Replace('\\', '/');
+        var slash      = normalized.LastIndexOf('/');
+        var n          = (slash >= 0 ? normalized[(slash + 1)..] : normalized).ToLowerInvariant();
 
         if (n.Contains("flux")) return NativeModelFamily.Flux;
 
