@@ -3,8 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using AIStudio.Core.Enums;
 using AIStudio.Core.Interfaces;
 using AIStudio.App.ViewModels.Chat;
-using AIStudio.App.ViewModels.Gallery;
-using AIStudio.App.ViewModels.ImageStudio;
+using AIStudio.App.ViewModels.Creation;
 using AIStudio.App.ViewModels.Lora;
 using AIStudio.App.ViewModels.Models;
 using AIStudio.App.ViewModels.Settings;
@@ -28,10 +27,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string _gpuNameShort = string.Empty;
 
     public ChatPageViewModel         ChatPage         { get; }
-    public ImageStudioPageViewModel  ImageStudioPage  { get; }
-    public Video.VideoPageViewModel  VideoPage        { get; }
-    public GalleryPageViewModel      GalleryPage      { get; }
-    public Upscale.UpscalePageViewModel UpscalePage   { get; }
+    public CreationPageViewModel     CreationPage     { get; }
     public ModelManagerPageViewModel ModelManagerPage { get; }
     public LoraLibraryPageViewModel  LoraPage         { get; }
     public SystemPageViewModel       SystemPage       { get; }
@@ -43,10 +39,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ILlamaService             llama,
         INavigationService        nav,
         ChatPageViewModel         chatPage,
-        ImageStudioPageViewModel  imageStudioPage,
-        Video.VideoPageViewModel  videoPage,
-        GalleryPageViewModel      galleryPage,
-        Upscale.UpscalePageViewModel upscalePage,
+        CreationPageViewModel     creationPage,
         ModelManagerPageViewModel modelManagerPage,
         LoraLibraryPageViewModel  loraPage,
         SystemPageViewModel       systemPage,
@@ -57,10 +50,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _llama   = llama;
 
         ChatPage         = chatPage;
-        ImageStudioPage  = imageStudioPage;
-        VideoPage        = videoPage;
-        GalleryPage      = galleryPage;
-        UpscalePage      = upscalePage;
+        CreationPage     = creationPage;
         ModelManagerPage = modelManagerPage;
         LoraPage         = loraPage;
         SystemPage       = systemPage;
@@ -105,26 +95,33 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void Navigate(NavigationPage page)
     {
-        ActivePage = page;
+        // Image Studio / Video / Galerie / Upscale (i cílená navigace mezi VM)
+        // žijí pod rozcestníkem „Tvorba" — přepneme jeho vnitřní záložku a v sidebaru
+        // zvýrazníme jediné tlačítko Tvorba.
+        var isCreation = page is NavigationPage.Creation
+                              or NavigationPage.ImageStudio
+                              or NavigationPage.Video
+                              or NavigationPage.Gallery
+                              or NavigationPage.Upscale;
+
+        ActivePage = isCreation ? NavigationPage.Creation : page;
+
+        if (isCreation)
+        {
+            // ShowSubPage si sám obnoví Galerii/Upscale při přepnutí záložky.
+            CreationPage.ShowSubPage(page);
+            CurrentPage = CreationPage;
+            return;
+        }
+
         CurrentPage = page switch
         {
-            NavigationPage.Chat        => ChatPage,
-            NavigationPage.ImageStudio => ImageStudioPage,
-            NavigationPage.Video       => VideoPage,
-            NavigationPage.Gallery     => GalleryPage,
-            NavigationPage.Upscale     => UpscalePage,
-            NavigationPage.Models      => ModelManagerPage,
-            NavigationPage.Lora        => LoraPage,
-            NavigationPage.System      => SystemPage,
-            NavigationPage.Settings    => SettingsPage,
-            _                          => ChatPage
+            NavigationPage.Chat     => ChatPage,
+            NavigationPage.Models   => ModelManagerPage,
+            NavigationPage.Lora     => LoraPage,
+            NavigationPage.System   => SystemPage,
+            NavigationPage.Settings => SettingsPage,
+            _                       => ChatPage
         };
-
-        // Galerie čte z DB stránkovaně — při každém otevření obnov (mohlo přibýt
-        // z chatu / Image Studia / upscale).
-        if (page == NavigationPage.Gallery)
-            _ = GalleryPage.RefreshAsync();
-        if (page == NavigationPage.Upscale)
-            _ = UpscalePage.RefreshAsync();
     }
 }

@@ -235,6 +235,7 @@ public partial class App : Application
         services.AddSingleton<AIStudio.App.ViewModels.Video.VideoPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Gallery.GalleryPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Upscale.UpscalePageViewModel>();
+        services.AddSingleton<AIStudio.App.ViewModels.Creation.CreationPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Models.ModelManagerPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.Lora.LoraLibraryPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.SystemMonitor.SystemPageViewModel>();
