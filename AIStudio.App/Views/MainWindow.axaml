@@ -63,42 +63,12 @@
                         </Button>
 
                         <Button Command="{Binding NavigateCommand}"
-                                CommandParameter="{x:Static enums:NavigationPage.ImageStudio}"
+                                CommandParameter="{x:Static enums:NavigationPage.Creation}"
                                 Classes="navItem"
-                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.ImageStudio}}">
+                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Creation}}">
                             <StackPanel Orientation="Horizontal" Spacing="12">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}" Width="18" Height="18" VerticalAlignment="Center"/>
-                                <TextBlock Text="Image Studio" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Command="{Binding NavigateCommand}"
-                                CommandParameter="{x:Static enums:NavigationPage.Video}"
-                                Classes="navItem"
-                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Video}}">
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.MovieOpenOutline}" Width="18" Height="18" VerticalAlignment="Center"/>
-                                <TextBlock Text="Video" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Command="{Binding NavigateCommand}"
-                                CommandParameter="{x:Static enums:NavigationPage.Gallery}"
-                                Classes="navItem"
-                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Gallery}}">
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ViewGalleryOutline}" Width="18" Height="18" VerticalAlignment="Center"/>
-                                <TextBlock Text="Galerie" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Command="{Binding NavigateCommand}"
-                                CommandParameter="{x:Static enums:NavigationPage.Upscale}"
-                                Classes="navItem"
-                                Classes.active="{Binding ActivePage, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static enums:NavigationPage.Upscale}}">
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ArrowExpandAll}" Width="18" Height="18" VerticalAlignment="Center"/>
-                                <TextBlock Text="Upscale" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Palette}" Width="18" Height="18" VerticalAlignment="Center"/>
+                                <TextBlock Text="Tvorba" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
 
