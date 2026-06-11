@@ -155,6 +155,17 @@
                         <TextBlock Text="Trénovat" FontSize="13" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
+                <Button Classes="tabBtn"
+                        Classes.activeTab="{Binding IsVideoTab}"
+                        Command="{Binding SelectVideoTabCommand}"
+                        Padding="14,10"
+                        IsVisible="{Binding VideoLoraPane, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.MovieOpenOutline}"
+                                         Width="14" Height="14" VerticalAlignment="Center"/>
+                        <TextBlock Text="Z videa" FontSize="13" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </Border>
 
@@ -1026,6 +1037,190 @@
                   </Border>
               </Border>
 
+            </Panel>
+
+            <!-- ═══════════════════ TAB: Z VIDEA ═══════════════════ -->
+            <Panel IsVisible="{Binding IsVideoTab}">
+              <Grid DataContext="{Binding VideoLoraPane}" x:DataType="vm:VideoLoraPaneViewModel"
+                    RowDefinitions="Auto,*,Auto">
+
+                <!-- ── Vstupní videa + volby + Analyzovat ── -->
+                <Border Grid.Row="0" Margin="28,12,28,8" Padding="16" CornerRadius="12"
+                        Background="{DynamicResource CardBgBrush}">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Z videí vytvoříš LoRA: vlož videa → Analyzovat → vyber snímky → předej do tréninku."
+                                   FontSize="12" Foreground="{DynamicResource TextHintBrush}" TextWrapping="Wrap"/>
+
+                        <!-- Drop zóna -->
+                        <Border x:Name="VideoDropZone"
+                                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1.5"
+                                CornerRadius="10" Padding="16" Background="{DynamicResource SubtlePanelBgBrush}">
+                            <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.MovieOpenOutline}"
+                                                 Width="22" Height="22" Foreground="{DynamicResource TextHintBrush}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Přetáhni sem videa nebo" FontSize="12"
+                                           Foreground="{DynamicResource TextHintBrush}" VerticalAlignment="Center"/>
+                                <Button Classes="secondary" Padding="12,6"
+                                        Command="{Binding AddVideosFromPickerCommand}">
+                                    <TextBlock Text="Přidat videa" FontSize="12"/>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Přidaná videa (chipy) -->
+                        <ItemsControl ItemsSource="{Binding VideoPaths}" IsVisible="{Binding VideoCount}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Border Margin="0,0,8,8" CornerRadius="8" Padding="10,6"
+                                            Background="{DynamicResource SubtlePanelBgBrush}"
+                                            BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Movie}" Width="14" Height="14"
+                                                             Foreground="{DynamicResource AccentLightBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding}" FontSize="11" MaxWidth="220"
+                                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                                       ToolTip.Tip="{Binding}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                            <Button Classes="secondary" Padding="4" Width="22" Height="22"
+                                                    Command="{Binding $parent[ItemsControl].((vm:VideoLoraPaneViewModel)DataContext).RemoveVideoCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip.Tip="Odebrat">
+                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Close}" Width="12" Height="12"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Volby -->
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="14">
+                            <StackPanel Grid.Column="0" Spacing="3">
+                                <TextBlock Text="Snímků / video" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                <NumericUpDown Value="{Binding FramesPerVideo}" Minimum="1" Maximum="200" Increment="5"
+                                               Width="120" FontSize="13"
+                                               Background="{DynamicResource SubtlePanelBgBrush}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="3">
+                                <TextBlock Text="Název LoRA / trigger" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                <TextBox Text="{Binding LoraName}" Width="200" FontSize="13"
+                                         PlaceholderText="např. Nikol"
+                                         Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+                                         BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="8" Padding="10,8"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" Spacing="3" VerticalAlignment="Bottom">
+                                <TextBlock Text="Osoba/postava (token-only)" FontSize="11" Foreground="{DynamicResource TextHintBrush}"/>
+                                <ToggleSwitch IsChecked="{Binding TokenOnlyCaptions}" OffContent="" OnContent=""/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Analyzovat / průběh -->
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                            <Button Grid.Column="0" Classes="primary" Padding="16,9"
+                                    IsVisible="{Binding IsIdle}"
+                                    IsEnabled="{Binding CanAnalyze}"
+                                    Command="{Binding AnalyzeCommand}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.Magnify}" Width="15" Height="15" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Analyzovat" FontSize="13" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="0" Classes="secondary" Padding="16,9"
+                                    IsVisible="{Binding IsAnalyzing}"
+                                    Command="{Binding CancelAnalyzeCommand}">
+                                <TextBlock Text="Zrušit" FontSize="13"/>
+                            </Button>
+
+                            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center"
+                                        IsVisible="{Binding AnalyzeStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                <TextBlock Text="{Binding AnalyzeStatus}" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                <ProgressBar Value="{Binding AnalyzeProgress}" Minimum="0" Maximum="100"
+                                             Height="4" CornerRadius="2" IsVisible="{Binding IsAnalyzing}"
+                                             Foreground="{DynamicResource AccentBrush}"
+                                             Background="{DynamicResource HoverBgBrush}"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── Mřížka kandidátů ── -->
+                <ScrollViewer Grid.Row="1" Padding="28,0,14,8"
+                              VerticalScrollBarVisibility="Auto" AllowAutoHide="False">
+                    <Panel>
+                        <TextBlock IsVisible="{Binding !HasCandidates}"
+                                   Text="Zatím žádné snímky — vlož videa a klikni Analyzovat."
+                                   HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,40,0,0"
+                                   FontSize="12" Foreground="{DynamicResource TextHintBrush}"/>
+                        <ItemsControl ItemsSource="{Binding Candidates}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:CandidateFrameViewModel">
+                                    <Border Width="200" Margin="0,0,12,12" CornerRadius="10"
+                                            Background="{DynamicResource CardBgBrush}" ClipToBounds="True">
+                                        <StackPanel>
+                                            <Panel Height="128">
+                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill"
+                                                       IsVisible="{Binding HasThumbnail}"/>
+                                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ImageOutline}"
+                                                                 Width="28" Height="28" IsVisible="{Binding !HasThumbnail}"
+                                                                 Foreground="{DynamicResource TextDisabledBrush}"
+                                                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                <CheckBox IsChecked="{Binding IsSelected}"
+                                                          HorizontalAlignment="Left" VerticalAlignment="Top" Margin="6"/>
+                                                <Border Background="#AA000000" CornerRadius="4" Padding="5,2"
+                                                        HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="6">
+                                                    <TextBlock Text="{Binding TimestampLabel}" FontSize="10" Foreground="White"/>
+                                                </Border>
+                                            </Panel>
+                                            <TextBox Text="{Binding Caption}" Margin="8" FontSize="11"
+                                                     PlaceholderText="popisek…" MaxHeight="60" AcceptsReturn="True"
+                                                     TextWrapping="Wrap"
+                                                     Background="{DynamicResource SubtlePanelBgBrush}" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                     BorderBrush="{DynamicResource AppBorderBrush}" CornerRadius="6"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Panel>
+                </ScrollViewer>
+
+                <!-- ── Footer: výběr + předání do tréninku ── -->
+                <Border Grid.Row="2" Padding="28,12" IsVisible="{Binding HasCandidates}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0"
+                        Background="{DynamicResource SubtlePanelBgBrush}">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                        <Button Grid.Column="0" Classes="secondary" Padding="10,7"
+                                Command="{Binding SelectAllCommand}">
+                            <TextBlock Text="Vybrat vše" FontSize="12"/>
+                        </Button>
+                        <Button Grid.Column="1" Classes="secondary" Padding="10,7"
+                                Command="{Binding SelectNoneCommand}">
+                            <TextBlock Text="Odznačit" FontSize="12"/>
+                        </Button>
+                        <TextBlock Grid.Column="2" Text="{Binding SelectedCountLabel}" VerticalAlignment="Center"
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,0"/>
+                        <Button Grid.Column="3" Classes="primary" Padding="16,9"
+                                IsEnabled="{Binding CanUseForTraining}"
+                                Command="{Binding UseForTrainingCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Použít vybrané do tréninku" FontSize="13" VerticalAlignment="Center"/>
+                                <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.ArrowRight}" Width="15" Height="15" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+              </Grid>
             </Panel>
 
         </Panel>

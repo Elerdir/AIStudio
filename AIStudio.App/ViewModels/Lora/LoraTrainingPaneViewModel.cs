@@ -915,13 +915,15 @@ public partial class LoraTrainingPaneViewModel : ViewModelBase
     /// Přidá obrázek do datasetu — volaná z file pickeru nebo z drag&drop handleru.
     /// Deduplikuje podle absolutní cesty.
     /// </summary>
-    public void AddDatasetImage(string imagePath)
+    public void AddDatasetImage(string imagePath, string? caption = null)
     {
         if (string.IsNullOrEmpty(imagePath)) return;
         if (DatasetItems.Any(i => string.Equals(i.ImagePath, imagePath, StringComparison.OrdinalIgnoreCase)))
             return;
 
-        DatasetItems.Add(new LoraDatasetItemViewModel(imagePath, RemoveDatasetItemAsync));
+        var item = new LoraDatasetItemViewModel(imagePath, RemoveDatasetItemAsync);
+        if (!string.IsNullOrWhiteSpace(caption)) item.Caption = caption!;
+        DatasetItems.Add(item);
     }
 
     private Task RemoveDatasetItemAsync(LoraDatasetItemViewModel item)

@@ -31,17 +31,22 @@ public partial class LoraLibraryPageViewModel : ViewModelBase
     // ── Tab switcher (0 = Knihovna, 1 = Trénovat) ─────────────────────────────
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsLibraryTab), nameof(IsTrainingTab))]
+    [NotifyPropertyChangedFor(nameof(IsLibraryTab), nameof(IsTrainingTab), nameof(IsVideoTab))]
     private int _selectedTabIndex;
 
     public bool IsLibraryTab  => SelectedTabIndex == 0;
     public bool IsTrainingTab => SelectedTabIndex == 1;
+    public bool IsVideoTab    => SelectedTabIndex == 2;
 
     [RelayCommand] private void SelectLibraryTab()  => SelectedTabIndex = 0;
     [RelayCommand] private void SelectTrainingTab() => SelectedTabIndex = 1;
+    [RelayCommand] private void SelectVideoTab()    => SelectedTabIndex = 2;
 
     /// <summary>Trénovací panel — null pokud DI neposkytl trénovací služby (degraded mode).</summary>
     public LoraTrainingPaneViewModel? TrainingPane { get; }
+
+    /// <summary>Záložka „Z videa" — null pokud chybí pipeline nebo trénovací panel.</summary>
+    public VideoLoraPaneViewModel? VideoLoraPane { get; }
 
     /// <summary>Podporované přípony LoRA souborů (stejné jako <c>LoraLibraryService.LoraExtensions</c>).</summary>
     private static readonly string[] LoraExtensions = { ".safetensors", ".pt", ".ckpt" };
@@ -85,7 +90,8 @@ public partial class LoraLibraryPageViewModel : ViewModelBase
         ILoraCaptionService?            captionService  = null,
         IDownloadService?               downloadService = null,
         IFluxDependencyService?         fluxDeps        = null,
-        IComfyService?                  comfy           = null)
+        IComfyService?                  comfy           = null,
+        IVideoLoraPipelineService?      videoPipeline   = null)
     {
         _settings = settings;
 
@@ -95,6 +101,11 @@ public partial class LoraLibraryPageViewModel : ViewModelBase
             TrainingPane = new LoraTrainingPaneViewModel(
                 trainer, trainerDeps, settings, monitor, captionService, downloadService,
                 fluxDeps: fluxDeps, comfy: comfy);
+
+        // Záložka „Z videa" potřebuje pipeline + trénovací panel (předává mu vybrané snímky).
+        if (videoPipeline is not null && TrainingPane is not null)
+            VideoLoraPane = new VideoLoraPaneViewModel(
+                videoPipeline, TrainingPane, switchToTrainingTab: () => SelectedTabIndex = 1);
 
         // První načtení — fire-and-forget, UI bude zatím prázdné (IsLoading=true)
         _ = LoadAsync();
