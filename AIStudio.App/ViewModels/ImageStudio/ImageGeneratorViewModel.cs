@@ -900,6 +900,20 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             return;
         }
 
+        // Pojistka: když je SelectedModel pořád výchozí „FLUX.1 Schnell" (CFG~1, ~4 kroky),
+        // ale reálně rozpoznaný checkpoint je SD/SDXL, CFG~1 by způsobilo ignorování promptu.
+        // Rozpoznáme rodinu z cesty modelu a v takovém případě nasadíme rozumné parametry.
+        var family = AIStudio.Core.Services.NativeModelFamilyDetector.GuessFromFileName(modelPath);
+        var (effSteps, effCfg, guarded) =
+            AIStudio.Core.Services.NativeParamGuard.Correct(family, Path.GetFileName(modelPath), Steps, Cfg);
+        if (guarded)
+        {
+            Log.Warning("Native gen: model '{Model}' (rodina {Fam}) měl FLUX parametry " +
+                        "(CFG={OldCfg}, kroky={OldSteps}) → opravuji na CFG={NewCfg}, kroky={NewSteps}",
+                        Path.GetFileName(modelPath), family, Cfg, Steps, effCfg, effSteps);
+            GenerationStatus = $"Upravuji parametry pro {family} (CFG {effCfg}, {effSteps} kroků)…";
+        }
+
         // LoRA/VAE pro nativní cestu zatím neposíláme (přijde později) — v1 = čistý txt2img.
         var req = new NativeImageRequest(
             ModelPath:      modelPath,
@@ -907,8 +921,8 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             NegativePrompt: NegativePrompt ?? string.Empty,
             Width:          res.W,
             Height:         res.H,
-            Steps:          Steps,
-            CfgScale:       Cfg,
+            Steps:          effSteps,
+            CfgScale:       effCfg,
             Seed:           seed,
             SamplerName:    SelectedSampler,
             BatchCount:     Math.Max(1, VariantCount));
@@ -932,11 +946,11 @@ public partial class ImageGeneratorViewModel : ViewModelBase
             {
                 FilePath  = filePath, Prompt = Prompt, Model = SelectedModel, Seed = seed,
                 Width     = res.W, Height = res.H, Timestamp = now,
-                Sampler   = SelectedSampler, Scheduler = string.Empty, Steps = Steps, Cfg = Cfg,
+                Sampler   = SelectedSampler, Scheduler = string.Empty, Steps = effSteps, Cfg = effCfg,
             };
             var record = new ImageRecord(
                 Guid.NewGuid().ToString(), filePath, Prompt, SelectedModel, seed,
-                res.W, res.H, Steps, Cfg, SelectedSampler, string.Empty, now);
+                res.W, res.H, effSteps, effCfg, SelectedSampler, string.Empty, now);
             _ = TrySaveImageAsync(record);
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
