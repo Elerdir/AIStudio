@@ -229,6 +229,9 @@ public partial class App : Application
                 sp.GetRequiredService<ILoraTrainerDependencyService>(),
                 makePythonResolver(sp)));
 
+        // Pipeline „video → LoRA" (fáze 1: extrakce snímků ffmpegem + captioning).
+        services.AddSingleton<IVideoLoraPipelineService, VideoLoraPipelineService>();
+
         // ViewModels — každý dostane ze DI jen vlastní závislosti
         services.AddSingleton<AIStudio.App.ViewModels.Chat.ChatPageViewModel>();
         services.AddSingleton<AIStudio.App.ViewModels.ImageStudio.ImageStudioPageViewModel>();
