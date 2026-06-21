@@ -31,6 +31,16 @@ public interface IComfyInstaller
         CancellationToken                 ct       = default);
 
     /// <summary>
+    /// Aktualizuje existující instalaci na <b>nejnovější</b> portable build — stáhne ho a
+    /// rozbalí přes stávající (uživatelská data jako modely / custom_nodes / output zůstanou).
+    /// Na rozdíl od <see cref="InstallAsync"/> se nepřeskočí, když už je nainstalováno.
+    /// </summary>
+    Task<(string ComfyUiDir, string PythonPath)> UpdateToLatestAsync(
+        string                            installDir,
+        IProgress<ComfyInstallProgress>?  progress = null,
+        CancellationToken                 ct       = default);
+
+    /// <summary>
     /// True pokud je v ComfyUI nainstalovaný custom node ComfyUI-GGUF
     /// (potřebný pro FLUX GGUF kvantizace).
     /// </summary>

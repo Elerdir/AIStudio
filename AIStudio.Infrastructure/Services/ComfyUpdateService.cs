@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Serilog;
 using AIStudio.Core.Interfaces;
+using AIStudio.Core.Models;
 
 namespace AIStudio.Infrastructure.Services;
 
@@ -17,17 +18,62 @@ public sealed class ComfyUpdateService : IComfyUpdateService
 {
     private readonly IComfyService    _comfy;
     private readonly ISettingsService _settings;
+    private readonly IComfyInstaller? _installer;
 
-    public ComfyUpdateService(IComfyService comfy, ISettingsService settings)
+    public ComfyUpdateService(IComfyService comfy, ISettingsService settings, IComfyInstaller? installer = null)
     {
-        _comfy    = comfy;
-        _settings = settings;
+        _comfy     = comfy;
+        _settings  = settings;
+        _installer = installer;
     }
 
     public bool IsGitRepo(string? comfyUiDir) =>
         !string.IsNullOrWhiteSpace(comfyUiDir) && Directory.Exists(Path.Combine(comfyUiDir, ".git"));
 
     public bool IsGitAvailable() => ResolveExe(OperatingSystem.IsWindows() ? "git.exe" : "git") is not null;
+
+    public bool IsPortableInstall(string? comfyUiDir) =>
+        _installer is not null &&
+        !string.IsNullOrWhiteSpace(comfyUiDir) &&
+        File.Exists(Path.Combine(comfyUiDir, "main.py")) &&
+        !IsGitRepo(comfyUiDir);
+
+    public async Task<ComfyUpdateResult> UpdatePortableToLatestAsync(
+        IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        var dir = _settings.Settings.ComfyUiDirectory;
+        if (string.IsNullOrWhiteSpace(dir) || !File.Exists(Path.Combine(dir, "main.py")))
+            return new(false, "ComfyUI není nainstalované (chybí main.py).");
+        if (_installer is null)
+            return new(false, "Aktualizace portable instalace není na této platformě dostupná.");
+
+        // Standardní portable layout: {installDir}/ComfyUI_windows_portable/ComfyUI → installDir je o 2 výš.
+        var installDir = Path.GetFullPath(Path.Combine(dir, "..", ".."));
+        if (_installer.DetectExisting(installDir) is null)
+            return new(false,
+                "ComfyUI je na neobvyklém umístění — automatická aktualizace portable nejde. " +
+                "Stáhni nejnovější ComfyUI Portable ručně a rozbal ho přes stávající složku.");
+
+        // 1) Zastav běžící ComfyUI (jinak by extrakce narazila na zamčené soubory).
+        progress?.Report("Zastavuji ComfyUI…");
+        try { await _comfy.StopAsync(); } catch (Exception ex) { Log.Warning(ex, "ComfyUpdate(portable): StopAsync selhal (pokračuji)"); }
+
+        // 2) Stáhni + rozbal nejnovější portable přes stávající (merge zachová modely/custom_nodes).
+        var instProgress = new Progress<ComfyInstallProgress>(p => progress?.Report(p.Message));
+        try
+        {
+            await _installer.UpdateToLatestAsync(installDir, instProgress, ct);
+        }
+        catch (OperationCanceledException) { return new(false, "Aktualizace zrušena."); }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "ComfyUpdate(portable): re-extrakce selhala");
+            return new(false, "Aktualizace selhala: " + Short(ex.Message));
+        }
+
+        progress?.Report("Hotovo.");
+        return new(true, "ComfyUI aktualizováno na nejnovější verzi. Spusť ho znovu.");
+    }
 
     public async Task<ComfyUpdateResult> UpdateToVersionAsync(
         string targetVersion, IProgress<string>? progress = null, CancellationToken ct = default)

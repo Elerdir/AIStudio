@@ -264,7 +264,7 @@ public partial class SettingsPageViewModel : ViewModelBase
     /// <summary>Verze nainstalovaného ComfyUI (z comfyui_version.py). Prázdné = neznámá.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ComfyUiVersionLabel), nameof(IsComfyUpToDate),
-                              nameof(HasComfyVersion), nameof(CanUpdateComfy),
+                              nameof(HasComfyVersion), nameof(CanUpdateComfy), nameof(CanUpdateComfyPortable),
                               nameof(ComfyUpdateUnavailableHint), nameof(HasComfyUpdateUnavailableHint))]
     private string _comfyUiVersion = string.Empty;
 
@@ -283,7 +283,7 @@ public partial class SettingsPageViewModel : ViewModelBase
     // ── Řízená aktualizace ComfyUI (na ověřenou verzi) ────────────────────────
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanUpdateComfy))]
+    [NotifyPropertyChangedFor(nameof(CanUpdateComfy), nameof(CanUpdateComfyPortable))]
     private bool _isUpdatingComfy;
 
     [ObservableProperty]
@@ -299,12 +299,22 @@ public partial class SettingsPageViewModel : ViewModelBase
         _comfyUpdate is not null &&
         _comfyUpdate.IsGitRepo(ComfyUiDirectory) && _comfyUpdate.IsGitAvailable();
 
+    /// <summary>
+    /// Tlačítko „Aktualizovat na nejnovější" pro <b>portable</b> (ne-git) instalaci —
+    /// stáhne a rozbalí nejnovější portable přes stávající (modely/custom_nodes zůstanou).
+    /// </summary>
+    public bool CanUpdateComfyPortable =>
+        IsComfyInstalled && !IsUpdatingComfy && !IsComfyUpToDate &&
+        _comfyUpdate is not null && _comfyUpdate.IsPortableInstall(ComfyUiDirectory);
+
     /// <summary>Hint, proč nejde aktualizovat, když verze nesedí (chybí git / není git repo).</summary>
     public string ComfyUpdateUnavailableHint
     {
         get
         {
             if (IsComfyUpToDate || !IsComfyInstalled || !HasComfyVersion || _comfyUpdate is null) return string.Empty;
+            // Portable (ne-git) instalaci umíme aktualizovat re-extrakcí → místo hintu se ukáže tlačítko.
+            if (_comfyUpdate.IsPortableInstall(ComfyUiDirectory)) return string.Empty;
             if (!_comfyUpdate.IsGitRepo(ComfyUiDirectory))
                 return "Automatická aktualizace není možná — tahle instalace ComfyUI není git repozitář.";
             if (!_comfyUpdate.IsGitAvailable())
@@ -336,6 +346,42 @@ public partial class SettingsPageViewModel : ViewModelBase
         catch (Exception ex)
         {
             Log.Error(ex, "ComfyUpdate: aktualizace selhala");
+            ComfyUpdateStatus = "Aktualizace selhala: " + ex.Message;
+        }
+        finally
+        {
+            IsUpdatingComfy = false;
+            RefreshComfyVersion();
+        }
+    }
+
+    /// <summary>
+    /// Aktualizuje portable (ne-git) ComfyUI na nejnovější build re-extrakcí. Po úspěchu
+    /// rovnou spustí ComfyUI. Modely / custom_nodes / output zůstanou zachované.
+    /// </summary>
+    [RelayCommand]
+    private async Task UpdateComfyPortableAsync()
+    {
+        if (_comfyUpdate is null || IsUpdatingComfy) return;
+
+        IsUpdatingComfy   = true;
+        ComfyUpdateStatus = "Spouštím aktualizaci…";
+        var progress = new Progress<string>(m => Dispatcher.UIThread.Post(() => ComfyUpdateStatus = m));
+        try
+        {
+            var res = await _comfyUpdate.UpdatePortableToLatestAsync(progress);
+            ComfyUpdateStatus = res.Message;
+
+            if (res.Success && _comfy is not null)
+            {
+                ComfyUpdateStatus = res.Message + " Spouštím ComfyUI…";
+                try { await _comfy.StartAsync(); ComfyUpdateStatus = "Hotovo — ComfyUI běží na nejnovější verzi."; }
+                catch (Exception ex) { Log.Warning(ex, "ComfyUpdate(portable): restart ComfyUI selhal"); }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "ComfyUpdate(portable): aktualizace selhala");
             ComfyUpdateStatus = "Aktualizace selhala: " + ex.Message;
         }
         finally

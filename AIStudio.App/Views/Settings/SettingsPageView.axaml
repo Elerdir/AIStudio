@@ -642,6 +642,19 @@
                                         </StackPanel>
                                     </Button>
 
+                                    <!-- Řádek 4b: aktualizace portable (ne-git) instalace re-extrakcí -->
+                                    <Button Classes="secondary" Padding="12,7" HorizontalAlignment="Left"
+                                            IsVisible="{Binding CanUpdateComfyPortable}"
+                                            Command="{Binding UpdateComfyPortableCommand}"
+                                            ToolTip.Tip="Zastaví ComfyUI, stáhne nejnovější portable a rozbalí ho přes stávající (modely a custom_nodes zůstanou), pak ho spustí.">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.DownloadOutline}"
+                                                             Width="14" Height="14" VerticalAlignment="Center"/>
+                                            <TextBlock VerticalAlignment="Center" FontSize="12"
+                                                       Text="{Binding TestedComfyVersion, StringFormat='Aktualizovat na nejnovější ({0})'}"/>
+                                        </StackPanel>
+                                    </Button>
+
                                     <!-- Proč nejde aktualizovat (chybí git / není git repo) -->
                                     <TextBlock IsVisible="{Binding HasComfyUpdateUnavailableHint}"
                                                Text="{Binding ComfyUpdateUnavailableHint}"

@@ -110,6 +110,25 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
             return existing;
         }
 
+        return await DownloadExtractResolveAsync(installDir, progress, ct);
+    }
+
+    /// <summary>
+    /// Aktualizace na nejnovější portable: stáhne nejnovější build a rozbalí ho <b>přes</b>
+    /// stávající instalaci. 7z merge zachová uživatelská data (modely / custom_nodes / output
+    /// jsou soubory navíc, které v archivu nejsou) a přepíše jen jádro ComfyUI + python_embeded.
+    /// Na rozdíl od <see cref="InstallAsync"/> přeskočí „už nainstalováno" kontrolu.
+    /// </summary>
+    public Task<(string ComfyUiDir, string PythonPath)> UpdateToLatestAsync(
+        string installDir, IProgress<ComfyInstallProgress>? progress = null, CancellationToken ct = default)
+    {
+        Directory.CreateDirectory(installDir);
+        return DownloadExtractResolveAsync(installDir, progress, ct);
+    }
+
+    private async Task<(string ComfyUiDir, string PythonPath)> DownloadExtractResolveAsync(
+        string installDir, IProgress<ComfyInstallProgress>? progress, CancellationToken ct)
+    {
         // ── 1) Najdi latest release URL ───────────────────────────────────────
         progress?.Report(new(ComfyInstallStage.FetchingRelease,
             "Zjišťuji nejnovější verzi…", 0, 0, 0, 0, null));
