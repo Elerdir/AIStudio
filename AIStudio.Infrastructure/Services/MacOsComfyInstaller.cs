@@ -56,6 +56,16 @@ public sealed class MacOsComfyInstaller : IComfyInstaller
 
     // ── Hlavní instalace ──────────────────────────────────────────────────────
 
+    /// <summary>
+    /// macOS instaluje ComfyUI přes git clone (ne portable .7z), takže „aktualizace na
+    /// nejnovější" se dělá přes git cestu (<see cref="IComfyUpdateService"/>), ne tudy.
+    /// Tahle metoda se na macOS nevolá — instalace je git repo, takže UI nabízí git tlačítko.
+    /// </summary>
+    public Task<(string ComfyUiDir, string PythonPath)> UpdateToLatestAsync(
+        string installDir, IProgress<ComfyInstallProgress>? progress = null, CancellationToken ct = default) =>
+        throw new NotSupportedException(
+            "Na macOS se ComfyUI aktualizuje přes git (tlačítko 'Sladit s ověřenou verzí'), ne re-extrakcí portable.");
+
     public async Task<(string ComfyUiDir, string PythonPath)> InstallAsync(
         string                            installDir,
         IProgress<ComfyInstallProgress>?  progress = null,
