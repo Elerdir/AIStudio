@@ -15,8 +15,10 @@ public static partial class ComfyVersion
     /// <summary>
     /// Verze ComfyUI, na které je AI Studio ověřené. Slouží jako „pinned" reference —
     /// dokud běžící verze odpovídá, je vše zaručeně kompatibilní.
+    /// <para>Pozn. k číslování: ComfyUI přečísloval staré <c>0.3.x</c> na <c>0.2x.x</c>
+    /// (0.3.40 &lt; 0.20.x &lt; 0.25.x) — vyšší <c>minor</c> = novější, i když to opticky mate.</para>
     /// </summary>
-    public const string TestedVersion = "0.3.40";
+    public const string TestedVersion = "0.25.1";
 
     /// <summary>Vyparsuje <c>__version__</c> z obsahu <c>comfyui_version.py</c>. Null když nenalezeno.</summary>
     public static string? Parse(string? fileContent)
