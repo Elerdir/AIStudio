@@ -372,6 +372,14 @@ public partial class SettingsPageViewModel : ViewModelBase
             var res = await _comfyUpdate.UpdatePortableToLatestAsync(progress);
             ComfyUpdateStatus = res.Message;
 
+            if (res.Success)
+            {
+                // Service mohl přepsat cesty v settings (nový archiv = jiný název kořenové
+                // složky) — sync do VM properties, jinak by UI ukazovalo starou cestu.
+                ComfyUiDirectory = _settings.Settings.ComfyUiDirectory;
+                PythonPath       = _settings.Settings.PythonPath;
+            }
+
             if (res.Success && _comfy is not null)
             {
                 ComfyUpdateStatus = res.Message + " Spouštím ComfyUI…";

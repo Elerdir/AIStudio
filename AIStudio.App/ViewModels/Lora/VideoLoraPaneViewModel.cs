@@ -29,6 +29,12 @@ public partial class VideoLoraPaneViewModel : ViewModelBase
     private readonly Action                        _switchToTrainingTab;
     private CancellationTokenSource? _cts;
 
+    /// <summary>
+    /// True když aktuální dávka snímků odešla do tréninku — pak se working dir při další
+    /// analýze NEuklízí (trainer soubory kopíruje až při startu tréninku).
+    /// </summary>
+    private bool _handedOffCurrentBatch;
+
     /// <summary>Vstupní videa (absolutní cesty).</summary>
     public ObservableCollection<string> VideoPaths { get; } = new();
 
@@ -154,6 +160,17 @@ public partial class VideoLoraPaneViewModel : ViewModelBase
     {
         if (!CanAnalyze) return;
 
+        // Ukliď snímky z PŘEDCHOZÍ analýzy (jinak by se hromadily v %Temp%).
+        // Výjimka: když šla předchozí dávka do tréninku, mazat NESMÍME — trainer si
+        // soubory kopíruje až při „Spustit trénink", takže do té doby musí zůstat na
+        // disku (radši malý leak než rozbitý dataset).
+        if (!_handedOffCurrentBatch)
+        {
+            try { await _pipeline.CleanupAsync(); }
+            catch (Exception ex) { Log.Warning(ex, "VideoLoraPane: úklid předchozí analýzy selhal"); }
+        }
+        _handedOffCurrentBatch = false;
+
         Candidates.Clear();
         SelectedCount   = 0;
         HasAnalyzeError = false;
@@ -249,6 +266,7 @@ public partial class VideoLoraPaneViewModel : ViewModelBase
             _trainingPane.TrainingName = LoraName.Trim();
         _trainingPane.TokenOnlyCaptions = TokenOnlyCaptions;
 
+        _handedOffCurrentBatch = true;   // snímky teď drží dataset → neuklízet při další analýze
         _switchToTrainingTab();
     }
 }

@@ -217,13 +217,18 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
     {
         if (!Directory.Exists(installDir)) return null;
 
-        // Standardní cesta — rychlá kontrola
-        foreach (var portable in new[]
+        // Standardní cesta — rychlá kontrola. Kořenová složka archivu se mezi releasy
+        // jmenuje různě (ComfyUI_windows_portable, ..._nvidia, ..._nvidia_cu126, …),
+        // proto bereme installDir + KAŽDOU podsložku začínající na "ComfyUI_windows_portable".
+        var fastCandidates = new List<string> { installDir };
+        try
         {
-            installDir,
-            Path.Combine(installDir, "ComfyUI_windows_portable"),
-            Path.Combine(installDir, "ComfyUI_windows_portable_nvidia"),
-        })
+            fastCandidates.AddRange(
+                Directory.EnumerateDirectories(installDir, "ComfyUI_windows_portable*"));
+        }
+        catch (Exception ex) { Log.Debug(ex, "ComfyInstaller: enumerace portable podsložek selhala"); }
+
+        foreach (var portable in fastCandidates)
         {
             var comfy  = Path.Combine(portable, "ComfyUI");
             var python = Path.Combine(portable, "python_embeded", "python.exe");
