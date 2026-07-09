@@ -16,7 +16,11 @@
          IsWindows() zařídí, že se tam nezavolá). Na Windows byl dosud tranzitivní,
          explicitní reference ho zpřístupní i pro non-Windows build. -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.7" />
-    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.9" />
+    <!-- Override tranzitivní SQLitePCLRaw 2.1.11 (NU1903 — GHSA-2m69-gcr7-jv3q,
+         high severity ve zranitelné nativní e_sqlite3). MDS 10.0.x pořád pinuje
+         2.1.11, proto přímá reference na opravenou řadu 3.0.x. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.7" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <!-- Pro rozbalení ComfyUI Portable .7z archivu při auto-instalaci -->

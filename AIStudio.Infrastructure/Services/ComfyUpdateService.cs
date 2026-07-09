@@ -60,9 +60,10 @@ public sealed class ComfyUpdateService : IComfyUpdateService
 
         // 2) Stáhni + rozbal nejnovější portable přes stávající (merge zachová modely/custom_nodes).
         var instProgress = new Progress<ComfyInstallProgress>(p => progress?.Report(p.Message));
+        (string ComfyUiDir, string PythonPath) updated;
         try
         {
-            await _installer.UpdateToLatestAsync(installDir, instProgress, ct);
+            updated = await _installer.UpdateToLatestAsync(installDir, instProgress, ct);
         }
         catch (OperationCanceledException) { return new(false, "Aktualizace zrušena."); }
         catch (Exception ex)
@@ -70,6 +71,20 @@ public sealed class ComfyUpdateService : IComfyUpdateService
             Log.Error(ex, "ComfyUpdate(portable): re-extrakce selhala");
             return new(false, "Aktualizace selhala: " + Short(ex.Message));
         }
+
+        // 3) Ulož nové cesty. KRITICKÉ: nový archiv může mít jiný název kořenové složky
+        //    (např. ComfyUI_windows_portable → ..._nvidia_cu126) — bez přepsání settings by
+        //    appka dál mířila na starou instalaci a „aktualizace by nic neudělala".
+        if (!string.Equals(updated.ComfyUiDir, dir, StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Information("ComfyUpdate(portable): nová instalace na jiné cestě — {Old} → {New}",
+                dir, updated.ComfyUiDir);
+            progress?.Report("Nová verze má jinou složku — přenes si prosím modely/custom_nodes ze staré instalace.");
+        }
+        _settings.Settings.ComfyUiDirectory = updated.ComfyUiDir;
+        _settings.Settings.PythonPath       = updated.PythonPath;
+        try { await _settings.SaveAsync(); }
+        catch (Exception ex) { Log.Warning(ex, "ComfyUpdate(portable): uložení settings selhalo"); }
 
         progress?.Report("Hotovo.");
         return new(true, "ComfyUI aktualizováno na nejnovější verzi. Spusť ho znovu.");
