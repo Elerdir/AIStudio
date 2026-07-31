@@ -316,4 +316,14 @@ VM by neměly volat Infrastructure přímo — používají interface z Core. DI
   se dotáhne). `IsPaused`/`ShowPauseButton`/`ShowResume` v `ModelItemViewModel`. Mazání nepoužívaných
   modelů = už existující per-model „Odebrat" (`DeleteModelAsync`).
 - **macOS reálné ověření + AppIcon.icns + .pkg installer**
-- **Refactor velkých VMs** — částečně: LLM tah vytažen do `ChatTurnService` (Infrastructure, unit-testovaný). Zbývá: případné rozdělení `ChatPageViewModel` (1500+ ř.) na tematické partial soubory + zvážit ChatImageOrchestrator sjednocení image-gen větve.
+- **Refactor velkých VMs** — částečně: LLM tah vytažen do `ChatTurnService` (Infrastructure, unit-testovaný),
+  `ChatPageViewModel` i `LoraTrainingPaneViewModel` rozdělené na tematické partial soubory
+  (`.Parameters` / `.Hardware` / `.BaseModels` / `.Dataset` / `.Captions` / `.Training`, jádro drží
+  závislosti, konfiguraci, stav a konstruktor). Zbývá: zvážit ChatImageOrchestrator sjednocení image-gen větve.
+- ~~**Kontrola ComfyUI uzlů**~~ — HOTOVO: `ComfyNodeRequirements` (Core, čistý — skupiny uzlů po
+  funkcích + `Evaluate`/`Describe`), `IComfyHttpClient.GetAvailableNodeTypesAsync` (streamované čtení
+  `/object_info` přes `Utf8JsonReader` — odpověď má jednotky MB), `ComfyService.VerifyNodesAsync`
+  (běží po startu, výsledek do logu) + tlačítko „Zkontrolovat uzly ComfyUI" v Nastavení.
+  Chytá třídu chyb, kterou unit testy nevidí: uzel odkazovaný řetězcem (`"RIFE VFI"`), přejmenovaný
+  novou verzí ComfyUI nebo chybějící kvůli tiše selhané instalaci custom balíku — dřív se projevila
+  až chybou uprostřed generování. **Při přidání uzlu do `ComfyWorkflowBuilder` ho přidej i sem.**
