@@ -9,6 +9,7 @@ using SharpCompress.Common;
 using SharpCompress.Factories;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Core.Services;
 
 namespace AIStudio.Infrastructure.Services;
 
@@ -28,6 +29,7 @@ namespace AIStudio.Infrastructure.Services;
 public sealed class WindowsComfyInstaller : IComfyInstaller
 {
     private readonly IDownloadService _downloader;
+    private readonly IGpuDetector?    _gpuDetector;
 
     private static readonly HttpClient Http = new()
     {
@@ -39,9 +41,10 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
         }
     };
 
-    public WindowsComfyInstaller(IDownloadService downloader)
+    public WindowsComfyInstaller(IDownloadService downloader, IGpuDetector? gpuDetector = null)
     {
-        _downloader = downloader;
+        _downloader  = downloader;
+        _gpuDetector = gpuDetector;
     }
 
     private const string LatestReleaseUrl =
@@ -170,6 +173,24 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
             // a my se nechceme blokovat na UI threadu (ač sem nevoláme z UI,
             // installer může být volaný z VM commandu, který používá UI sync ctx).
             await Task.Run(() => Extract7z(sevenZipPath, installDir, progress, ct), ct);
+
+            // ── 3b) Cross-python guard (update přes starší instalaci) ─────────
+            // Když nový build nese jinou verzi Pythonu (cu126 = 3.12, aktuální = 3.13),
+            // merge nechá v python_embeded smíchané cpXXX .pyd/dll obou verzí a ComfyUI
+            // nenastartuje. Detekce: dvě různé python3NN.dll → smaž python_embeded a
+            // rozbal archiv znovu (vytvoří ho načisto; archiv je v tuhle chvíli ještě
+            // na disku). Pip extra balíky (torch-directml, gguf) se doinstalují při
+            // startu ComfyUI přes Ensure* služby.
+            if (FindMixedPythonDir(installDir) is { } mixedPythonDir)
+            {
+                Log.Warning("ComfyInstaller: detekován mix verzí Pythonu v {Dir} — čistá re-extrakce python_embeded",
+                            mixedPythonDir);
+                progress?.Report(new(ComfyInstallStage.Extracting,
+                    "Nová verze má jiný Python — stavím prostředí načisto…", 85, 0, 0, 0, null));
+
+                Directory.Delete(mixedPythonDir, recursive: true);
+                await Task.Run(() => Extract7z(sevenZipPath, installDir, progress, ct), ct);
+            }
         }
         finally
         {
@@ -204,6 +225,37 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
                         resolved.Value.ComfyUiDir, resolved.Value.PythonPath);
 
         return resolved.Value;
+    }
+
+    /// <summary>
+    /// Najde <c>python_embeded</c> složku, ve které po merge-extrakci skončily DVĚ různé
+    /// verze Pythonu (např. <c>python312.dll</c> + <c>python313.dll</c>) — známka toho, že
+    /// update přepsal instalaci s jinou verzí Pythonu a prostředí je nekonzistentní.
+    /// Vrací cestu ke smíchané složce, jinak null. (Generický <c>python3.dll</c> stub se
+    /// nepočítá — verze poznáme jen podle plného <c>python3NN.dll</c>.)
+    /// </summary>
+    internal static string? FindMixedPythonDir(string installDir)
+    {
+        try
+        {
+            if (ResolvePortablePaths(installDir) is not { } paths) return null;
+            var pythonDir = Path.GetDirectoryName(paths.PythonPath);
+            if (pythonDir is null || !Directory.Exists(pythonDir)) return null;
+
+            var versions = Directory.EnumerateFiles(pythonDir, "python3*.dll")
+                .Select(Path.GetFileNameWithoutExtension)
+                .Where(n => n is not null && n.Length > "python3".Length &&
+                            n["python3".Length..].All(char.IsDigit))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return versions.Count >= 2 ? pythonDir : null;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ComfyInstaller: kontrola mixu Python verzí selhala");
+            return null;
+        }
     }
 
     // ── Detekce cest v rozbalené struktuře ────────────────────────────────────
@@ -275,33 +327,47 @@ public sealed class WindowsComfyInstaller : IComfyInstaller
             return (null, string.Empty, 0);
         }
 
-        // Hledáme asset s "windows_portable" + "nvidia" + ".7z" v názvu.
-        // Preferujeme novější CUDA (cu128 > cu126 > bez specifikace).
-        var candidates = new List<(string Url, string Name, long Size, int Score)>();
-
+        var byName = new Dictionary<string, (string Url, long Size)>(StringComparer.OrdinalIgnoreCase);
         foreach (var a in assets.EnumerateArray())
         {
             var name = a.GetProperty("name").GetString() ?? "";
             var url  = a.GetProperty("browser_download_url").GetString() ?? "";
             var size = a.TryGetProperty("size", out var s) ? s.GetInt64() : 0;
-
-            if (!name.Contains("windows_portable", StringComparison.OrdinalIgnoreCase)) continue;
-            if (!name.Contains("nvidia",            StringComparison.OrdinalIgnoreCase)) continue;
-            if (!name.EndsWith(".7z",               StringComparison.OrdinalIgnoreCase)) continue;
-
-            // Skóre podle CUDA verze — vyšší = preferovanější
-            var score = 0;
-            if      (name.Contains("cu128", StringComparison.OrdinalIgnoreCase)) score = 30;
-            else if (name.Contains("cu126", StringComparison.OrdinalIgnoreCase)) score = 20;
-            else if (name.Contains("cu124", StringComparison.OrdinalIgnoreCase)) score = 10;
-
-            candidates.Add((url, name, size, score));
+            if (!string.IsNullOrEmpty(name)) byName[name] = (url, size);
         }
 
-        if (candidates.Count == 0) return (null, string.Empty, 0);
+        // Výběr NVIDIA varianty podle generace GPU (viz ComfyPortableAssetPicker):
+        // moderní karty (RTX 20+ vč. RTX 50/Blackwell) dostanou bezsufixový build
+        // s nejnovější CUDA; GTX 10 a starší legacy cu126 build.
+        var legacy = await IsLegacyGpuAsync(ct);
+        var bestName = ComfyPortableAssetPicker.PickBest(byName.Keys.ToList(), legacy);
+        if (bestName is null) return (null, string.Empty, 0);
 
-        var best = candidates.OrderByDescending(c => c.Score).First();
-        return (best.Url, best.Name, best.Size);
+        Log.Information("ComfyInstaller: vybraný portable asset = {Name} (legacyGpu={Legacy})",
+                        bestName, legacy);
+        var best = byName[bestName];
+        return (best.Url, bestName, best.Size);
+    }
+
+    /// <summary>
+    /// True když detekovaná NVIDIA karta patří do legacy generace (GTX 10 a starší) —
+    /// pak jí patří cu126 build. Bez detektoru / při chybě vrací false (moderní build
+    /// je správný default pro RTX 20+ včetně řady 50).
+    /// </summary>
+    private async Task<bool> IsLegacyGpuAsync(CancellationToken ct)
+    {
+        if (_gpuDetector is null) return false;
+        try
+        {
+            var gpu = await _gpuDetector.DetectAsync(ct);
+            return ComfyPortableAssetPicker.IsLegacyNvidiaGpu(gpu.Name);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ComfyInstaller: GPU detekce pro výběr assetu selhala — beru moderní build");
+            return false;
+        }
     }
 
     // ── Format helper pro download status (volaný z adapteru v InstallAsync) ──
