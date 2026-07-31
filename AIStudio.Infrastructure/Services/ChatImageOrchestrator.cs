@@ -274,7 +274,7 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
             if (!_pulid.IsAvailable())
             {
                 Log.Information("ChatImageOrchestrator: PuLID se instaluje (první použití)");
-                var dl = new Progress<DownloadProgressInfo>(info =>
+                var dl = new SyncProgress<DownloadProgressInfo>(info =>
                 {
                     var pct = info.Total > 0 ? (int)(100 * info.Downloaded / info.Total) : 0;
                     downloadProgress?.Report(new DownloadStatusUpdate(
@@ -354,7 +354,7 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
             var modelsDir = ResolveModelsDirectory();
             if (!_upscale.IsAvailable(modelsDir))
             {
-                var dl = new Progress<DownloadProgressInfo>(info =>
+                var dl = new SyncProgress<DownloadProgressInfo>(info =>
                 {
                     var pct = info.Total > 0 ? (int)(100 * info.Downloaded / info.Total) : 0;
                     downloadProgress?.Report(new DownloadStatusUpdate(
@@ -518,7 +518,7 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
             Log.Information("ChatImageOrchestrator: Kontext není stažený, zkouším auto-download");
             try
             {
-                var dl = new Progress<DownloadProgressInfo>(info =>
+                var dl = new SyncProgress<DownloadProgressInfo>(info =>
                 {
                     var pct = info.Total > 0 ? (int)(100 * info.Downloaded / info.Total) : 0;
                     downloadProgress?.Report(new DownloadStatusUpdate(
@@ -687,7 +687,7 @@ public sealed class ChatImageOrchestrator : IChatImageOrchestrator
             // DownloadProgressInfo (bytes-based) → DownloadStatusUpdate (percent + speed)
             var progressBridge = downloadProgress is null
                 ? null
-                : new Progress<DownloadProgressInfo>(p =>
+                : new SyncProgress<DownloadProgressInfo>(p =>
                   {
                       downloadProgress.Report(new DownloadStatusUpdate(
                           ModelName:          offer.Name,
