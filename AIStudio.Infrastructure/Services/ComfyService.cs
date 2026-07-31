@@ -4,6 +4,7 @@ using System.Text.Json;
 using Serilog;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Core.Services;
 
 namespace AIStudio.Infrastructure.Services;
 
@@ -406,6 +407,7 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
                 {
                     SetStatus(ComfyStatus.Running, $"Spuštěno (port {port})");
                     Log.Information("ComfyService: zdravotní check OK po {Sec} s", i + 1);
+                    await VerifyNodesAsync(ct);
                     return true;
                 }
 
@@ -640,6 +642,45 @@ public sealed class ComfyService : IComfyService, IAsyncDisposable
     private int Port => _settings.Settings.ComfyUiPort;
 
     private Task<bool> IsHealthyAsync() => _httpClient.IsHealthyAsync(Port);
+
+    /// <summary>
+    /// Po startu ověří, že uzly, na kterých workflow buildery stojí, běžící ComfyUI
+    /// opravdu zná — přejmenovaný uzel po update nebo tiše selhaná instalace custom
+    /// balíku se jinak projeví až chybou z generování. Diagnostika: nikdy nevyhazuje
+    /// a start neblokuje (prázdná odpověď = ComfyUI nestihlo doregistrovat uzly nebo
+    /// dotaz selhal — o tom se nedá nic tvrdit, takže se mlčí).
+    /// </summary>
+    public async Task<ComfyNodeCheckResult> VerifyNodesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var available = await _httpClient.GetAvailableNodeTypesAsync(Port, ct);
+            if (available.Count == 0)
+            {
+                // Prázdná odpověď = dotaz selhal nebo ComfyUI ještě neregistrovalo uzly.
+                // O chybějících uzlech se z toho nedá usoudit nic — hlásíme „nezjištěno".
+                Log.Debug("ComfyService: /object_info nevrátilo uzly — kontrolu přeskakuji");
+                return ComfyNodeCheckResult.NotAvailable;
+            }
+
+            var missing = ComfyNodeRequirements.Evaluate(available);
+            var result  = new ComfyNodeCheckResult(true, available.Count, missing);
+
+            if (missing.Count == 0)
+                Log.Information("ComfyService: kontrola uzlů OK ({Count} uzlů dostupných)", available.Count);
+            else
+                Log.Warning("ComfyService: kontrola uzlů — {Summary}",
+                            ComfyNodeRequirements.Describe(missing));
+
+            return result;
+        }
+        catch (OperationCanceledException) { return ComfyNodeCheckResult.NotAvailable; }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ComfyService: kontrola uzlů selhala");
+            return ComfyNodeCheckResult.NotAvailable;
+        }
+    }
 
     /// <summary>
     /// Lazy detekce GPU pomocí <see cref="IGpuDetector"/>. Výsledek se cache-uje

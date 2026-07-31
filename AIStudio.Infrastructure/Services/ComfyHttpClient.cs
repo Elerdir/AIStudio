@@ -77,6 +77,95 @@ public sealed class ComfyHttpClient : IComfyHttpClient
         }
     }
 
+    public async Task<IReadOnlySet<string>> GetAvailableNodeTypesAsync(int port, CancellationToken ct = default)
+    {
+        try
+        {
+            // /object_info nese kompletní schéma všech uzlů — u instalace s custom
+            // balíky jednotky MB. Zajímají nás jen klíče na první úrovni, takže
+            // čteme streamem přes Utf8JsonReader a tělo nikdy nedržíme celé v paměti.
+            using var resp = await _http.GetAsync(
+                $"{BaseUrl(port)}/object_info", HttpCompletionOption.ResponseHeadersRead, ct);
+            resp.EnsureSuccessStatusCode();
+
+            await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+            return await ReadTopLevelKeysAsync(stream, ct);
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "ComfyHttpClient: GetAvailableNodeTypes selhalo");
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// Vytáhne názvy vlastností kořenového objektu a přeskočí jejich hodnoty.
+    /// Ordinální množina — <c>class_type</c> je v ComfyUI case-sensitive.
+    /// </summary>
+    private static async Task<IReadOnlySet<string>> ReadTopLevelKeysAsync(
+        Stream stream, CancellationToken ct)
+    {
+        var keys   = new HashSet<string>(StringComparer.Ordinal);
+        var reader = new System.Text.Json.JsonReaderState();
+        var buffer = new byte[64 * 1024];
+        var start  = 0;                 // začátek nezpracovaného zbytku v bufferu
+        var depth  = 0;                 // hloubka vnoření vůči kořenovému objektu
+
+        while (true)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(start, buffer.Length - start), ct);
+            var end  = start + read;
+            var last = read == 0;
+
+            var consumed = ParseChunk(buffer.AsSpan(0, end), last, ref reader, ref depth, keys);
+            if (last) break;
+
+            // Nedočtený zbytek (rozříznutý token) přesuneme na začátek; když se do
+            // bufferu nevešel ani jeden token, buffer zvětšíme.
+            var leftover = end - consumed;
+            if (leftover > 0) Array.Copy(buffer, consumed, buffer, 0, leftover);
+            if (leftover == end && end == buffer.Length)
+            {
+                var bigger = new byte[buffer.Length * 2];
+                Array.Copy(buffer, bigger, end);
+                buffer = bigger;
+            }
+            start = leftover;
+        }
+        return keys;
+    }
+
+    /// <summary>
+    /// Zpracuje jeden blok bajtů a vrátí, kolik jich reader spotřeboval.
+    /// Klíče sbírá jen z hloubky 1 (přímé vlastnosti kořene = názvy uzlů),
+    /// hlubší struktura schématu se ignoruje.
+    /// </summary>
+    private static int ParseChunk(
+        ReadOnlySpan<byte> span, bool isFinalBlock,
+        ref System.Text.Json.JsonReaderState state, ref int depth, HashSet<string> keys)
+    {
+        var reader = new System.Text.Json.Utf8JsonReader(span, isFinalBlock, state);
+        while (reader.Read())
+        {
+            switch (reader.TokenType)
+            {
+                case System.Text.Json.JsonTokenType.StartObject:
+                case System.Text.Json.JsonTokenType.StartArray:
+                    depth++;
+                    break;
+                case System.Text.Json.JsonTokenType.EndObject:
+                case System.Text.Json.JsonTokenType.EndArray:
+                    depth--;
+                    break;
+                case System.Text.Json.JsonTokenType.PropertyName when depth == 1:
+                    keys.Add(reader.GetString()!);
+                    break;
+            }
+        }
+        state = reader.CurrentState;
+        return (int)reader.BytesConsumed;
+    }
+
     public async Task<int> GetQueueDepthAsync(int port, CancellationToken ct = default)
     {
         try

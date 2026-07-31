@@ -671,6 +671,34 @@
                                         <TextBlock Text="{Binding ComfyUpdateStatus}" FontSize="11" TextWrapping="Wrap"
                                                    Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
                                     </StackPanel>
+
+                                    <!-- Řádek 5: kontrola uzlů proti běžícímu ComfyUI -->
+                                    <Button Classes="secondary" Padding="12,7" HorizontalAlignment="Left"
+                                            IsEnabled="{Binding CanCheckComfyNodes}"
+                                            Command="{Binding CheckComfyNodesCommand}"
+                                            ToolTip.Tip="Zeptá se běžícího ComfyUI, které uzly zná, a porovná to s tím, co aplikace při generování posílá. Odhalí chybějící custom balík nebo uzel přejmenovaný novou verzí ComfyUI dřív, než to spadne uprostřed generování.">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <mi:MaterialIcon Kind="{x:Static miKind:MaterialIconKind.CheckboxMarkedCircleOutline}"
+                                                             Width="14" Height="14" VerticalAlignment="Center"/>
+                                            <TextBlock VerticalAlignment="Center" FontSize="12"
+                                                       Text="Zkontrolovat uzly ComfyUI"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- Průběh / výsledek kontroly uzlů -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                                IsVisible="{Binding HasComfyNodeCheckStatus}">
+                                        <ProgressBar IsIndeterminate="True" Width="80" Height="4" CornerRadius="2"
+                                                     IsVisible="{Binding IsCheckingComfyNodes}"
+                                                     Foreground="{DynamicResource AccentLightBrush}"
+                                                     VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding ComfyNodeCheckStatus}" FontSize="11" TextWrapping="Wrap"
+                                                   IsVisible="{Binding !ComfyNodeCheckFoundProblems}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding ComfyNodeCheckStatus}" FontSize="11" TextWrapping="Wrap"
+                                                   IsVisible="{Binding ComfyNodeCheckFoundProblems}"
+                                                   Foreground="{DynamicResource WarningBrush}" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
 

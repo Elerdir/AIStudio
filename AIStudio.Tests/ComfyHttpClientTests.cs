@@ -360,4 +360,84 @@ public class ComfyHttpClientTests
         uri.Should().Contain("subfolder=subfolder");
         uri.Should().Contain("type=output");
     }
+
+    // ── GetAvailableNodeTypesAsync ────────────────────────────────────────────
+    //
+    // Čte se streamem přes Utf8JsonReader (odpověď má u reálné instalace jednotky
+    // MB), takže testy míří hlavně na hranice bloků a na to, že se sbírají jen
+    // klíče kořene — ne názvy vlastností ze schématu uzlů.
+
+    /// <summary>Zjednodušené /object_info se schématem, jaké vrací ComfyUI.</summary>
+    private static string ObjectInfoJson(params string[] nodeNames) =>
+        "{" + string.Join(",", nodeNames.Select(n =>
+            $$"""
+            "{{n}}": {
+                "input": { "required": { "ckpt_name": [["model.safetensors"], {}] } },
+                "output": ["MODEL", "CLIP", "VAE"],
+                "name": "{{n}}",
+                "category": "loaders"
+            }
+            """)) + "}";
+
+    [Fact]
+    public async Task GetAvailableNodeTypes_ReturnsTopLevelKeysOnly()
+    {
+        var (client, handler) = MakeClient(_ => Json(
+            ObjectInfoJson("CheckpointLoaderSimple", "KSampler", "RIFE VFI")));
+
+        var nodes = await client.GetAvailableNodeTypesAsync(TestPort);
+
+        nodes.Should().BeEquivalentTo(new[] { "CheckpointLoaderSimple", "KSampler", "RIFE VFI" });
+        // Vlastnosti ze schématu uzlu (hloubka 2+) se nesmí plést mezi názvy uzlů.
+        nodes.Should().NotContain("input").And.NotContain("output").And.NotContain("ckpt_name");
+        handler.Requests[0].RequestUri!.ToString().Should().EndWith("/object_info");
+    }
+
+    [Fact]
+    public async Task GetAvailableNodeTypes_LargePayload_ReadsAcrossChunkBoundaries()
+    {
+        // Buffer čtečky je 64 KB — tohle je výrazně přes, takže se tokeny nutně
+        // rozříznou mezi bloky. Právě tam by naivní parsování ztrácelo klíče.
+        var many = Enumerable.Range(0, 4000).Select(i => $"Node_{i:D4}").ToArray();
+        var (client, _) = MakeClient(_ => Json(ObjectInfoJson(many)));
+
+        var nodes = await client.GetAvailableNodeTypesAsync(TestPort);
+
+        nodes.Should().HaveCount(many.Length);
+        nodes.Should().Contain("Node_0000").And.Contain("Node_3999");
+    }
+
+    [Fact]
+    public async Task GetAvailableNodeTypes_NodeNameLongerThanBuffer_StillParsed()
+    {
+        // Jediný token delší než buffer → čtečka musí buffer zvětšit, ne zacyklit.
+        var hugeName = "Node_" + new string('X', 100_000);
+        var (client, _) = MakeClient(_ => Json(ObjectInfoJson(hugeName)));
+
+        var nodes = await client.GetAvailableNodeTypesAsync(TestPort);
+
+        nodes.Should().ContainSingle().Which.Should().Be(hugeName);
+    }
+
+    [Fact]
+    public async Task GetAvailableNodeTypes_ServerError_ReturnsEmpty()
+    {
+        // Read metoda — při chybě fallback, nikdy výjimka (caller z toho jen
+        // usoudí „nezjištěno", viz ComfyNodeCheckResult.NotAvailable).
+        var (client, _) = MakeClient(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+        var nodes = await client.GetAvailableNodeTypesAsync(TestPort);
+
+        nodes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAvailableNodeTypes_MalformedJson_ReturnsEmpty()
+    {
+        var (client, _) = MakeClient(_ => Json("""{"KSampler": {"input": """));
+
+        var nodes = await client.GetAvailableNodeTypesAsync(TestPort);
+
+        nodes.Should().BeEmpty();
+    }
 }
