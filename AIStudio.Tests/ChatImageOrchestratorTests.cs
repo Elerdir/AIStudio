@@ -616,6 +616,47 @@ public class ChatImageOrchestratorTests : IDisposable
         collected.Should().OnlyContain(u => u.ModelName == offer.Name);
     }
 
+    [Fact]
+    public async Task GenerateAsync_DownloadProgress_DeliversEveryEventInOrder()
+    {
+        // Bridge uvnitř orchestrátoru musí být synchronní (SyncProgress). S
+        // Progress<T> se posty doručují přes thread pool: pořadí není zaručené
+        // a poslední event se nemusí stihnout doručit vůbec — v UI pak progress
+        // bar zůstane viset pod 100 %. Dřív to bylo vidět jen jako občasný
+        // flaky test na rychlejším CI stroji.
+        SetupHappyPath();
+        var offer = SetupUpgradeOffer();
+
+        _comfy.GetCheckpointsAsync(Arg.Any<CancellationToken>())
+              .Returns(
+                  _ => new[] { "sd_xl_base_1.0.safetensors" },
+                  _ => new[] { "sd_xl_base_1.0.safetensors", offer.FileName });
+
+        var percents = new[] { 10, 25, 50, 75, 100 };
+        _downloader.DownloadFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IProgress<DownloadProgressInfo>?>(),
+            Arg.Any<string?>(), Arg.Any<CancellationToken>(), Arg.Any<string?>())
+            .Returns(ci =>
+            {
+                var progress = ci.ArgAt<IProgress<DownloadProgressInfo>?>(2);
+                foreach (var p in percents)
+                    progress?.Report(new DownloadProgressInfo(p * 100_000L, 10_000_000, 500_000));
+                File.WriteAllBytes(ci.ArgAt<string>(1), new byte[] { 0, 1, 2 });
+                return Task.CompletedTask;
+            });
+
+        var collected = new List<DownloadStatusUpdate>();
+        var downloadProgress = new SynchronousProgress<DownloadStatusUpdate>(u => collected.Add(u));
+
+        await MakeOrchestrator().GenerateAsync(
+            "něco", null, null, CancellationToken.None,
+            askForUpgrade:    (_, _) => Task.FromResult(UpgradeChoice.DownloadBetter),
+            downloadProgress: downloadProgress);
+
+        collected.Select(u => u.Percent).Should().Equal(percents,
+            "každý report musí dorazit právě jednou a ve stejném pořadí, v jakém ho downloader poslal");
+    }
+
     /// <summary>Nastaví recommender, aby vrátil upgrade offer pro happy path.</summary>
     private ModelUpgradeOffer SetupUpgradeOffer()
     {

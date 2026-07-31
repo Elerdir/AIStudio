@@ -43,4 +43,13 @@ public interface IComfyService
     /// se zaloguje a spolkne (uvolnění není kritické pro správnost).
     /// </summary>
     Task FreeMemoryAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Ověří proti běžícímu ComfyUI, že uzly použité ve workflow builderech existují
+    /// (viz <see cref="Services.ComfyNodeRequirements"/>), a výsledek zaloguje.
+    /// Volá se automaticky po startu; jde spustit i ručně z Nastavení.
+    /// Diagnostika — nevyhazuje, při nedostupném ComfyUI vrací
+    /// <see cref="Services.ComfyNodeCheckResult.NotAvailable"/>.
+    /// </summary>
+    Task<Services.ComfyNodeCheckResult> VerifyNodesAsync(CancellationToken ct = default);
 }

@@ -34,6 +34,17 @@ public interface IComfyHttpClient
     Task<IReadOnlyList<string>> GetLorasAsync(int port, CancellationToken ct = default);
 
     /// <summary>
+    /// Názvy všech uzlů, které běžící ComfyUI zná (klíče <c>/object_info</c>) —
+    /// tedy core uzly i vše z nainstalovaných custom balíků. Slouží ke kontrole,
+    /// že uzly, které workflow buildery posílají, na druhé straně opravdu existují
+    /// (viz <see cref="Services.ComfyNodeRequirements"/>).
+    ///
+    /// Odpověď má běžně jednotky MB, proto se čte streamovaně a drží se z ní jen
+    /// klíče. Při chybě vrací prázdnou množinu (read metoda — nevyhazuje).
+    /// </summary>
+    Task<IReadOnlySet<string>> GetAvailableNodeTypesAsync(int port, CancellationToken ct = default);
+
+    /// <summary>
     /// Zařadí workflow do fronty. Vrací <c>prompt_id</c> pro pozdější dotazování přes
     /// WebSocket / <c>/history</c>. Pokud ComfyUI vrátí 400 (validation error),
     /// vyhodí <see cref="InvalidOperationException"/> s lidsky čitelným popisem

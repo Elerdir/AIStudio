@@ -7,6 +7,7 @@ using Serilog;
 using AIStudio.Core.Enums;
 using AIStudio.Core.Interfaces;
 using AIStudio.Core.Models;
+using AIStudio.Core.Services;
 
 namespace AIStudio.App.ViewModels.Settings;
 
@@ -409,6 +410,71 @@ public partial class SettingsPageViewModel : ViewModelBase
     public string VideoHelperLabel =>
         VideoHelperInstalled ? "Video (VideoHelperSuite): nainstalováno"
                              : "Video (VideoHelperSuite): doinstaluje se při startu ComfyUI";
+
+    // ── Kontrola uzlů proti běžícímu ComfyUI ──────────────────────────────────
+    //
+    // Instalovaný balík ještě neznamená funkční uzel: uzel může být přejmenovaný
+    // novou verzí ComfyUI nebo se balík nenačetl kvůli chybě v importu. Tohle se
+    // ptá přímo ComfyUI, co doopravdy zná — proto je to k něčemu jen za běhu.
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCheckComfyNodes))]
+    private bool _isCheckingComfyNodes;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasComfyNodeCheckStatus))]
+    private string _comfyNodeCheckStatus = string.Empty;
+
+    /// <summary>True = poslední kontrola našla chybějící uzly (UI to odliší barvou).</summary>
+    [ObservableProperty]
+    private bool _comfyNodeCheckFoundProblems;
+
+    public bool HasComfyNodeCheckStatus => !string.IsNullOrEmpty(ComfyNodeCheckStatus);
+
+    /// <summary>Kontrolu má smysl nabízet jen když ComfyUI běží (jinak se není koho ptát).</summary>
+    public bool CanCheckComfyNodes =>
+        _comfy is { IsRunning: true } && !IsCheckingComfyNodes;
+
+    [RelayCommand]
+    private async Task CheckComfyNodesAsync()
+    {
+        if (_comfy is null || IsCheckingComfyNodes) return;
+
+        IsCheckingComfyNodes        = true;
+        ComfyNodeCheckFoundProblems = false;
+        ComfyNodeCheckStatus        = "Ptám se ComfyUI na dostupné uzly…";
+        try
+        {
+            var result = await _comfy.VerifyNodesAsync();
+
+            if (!result.Completed)
+            {
+                // Nezjištěno ≠ v pořádku — nesmí to vypadat jako úspěch.
+                ComfyNodeCheckFoundProblems = true;
+                ComfyNodeCheckStatus = "Nepodařilo se zjistit — ComfyUI neodpovědělo. Běží?";
+            }
+            else if (result.AllPresent)
+            {
+                ComfyNodeCheckStatus =
+                    $"Vše v pořádku — všechny potřebné uzly jsou dostupné ({result.AvailableCount} uzlů).";
+            }
+            else
+            {
+                ComfyNodeCheckFoundProblems = true;
+                ComfyNodeCheckStatus = "Chybí uzly — " + ComfyNodeRequirements.Describe(result.Missing);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "SettingsPage: kontrola ComfyUI uzlů selhala");
+            ComfyNodeCheckFoundProblems = true;
+            ComfyNodeCheckStatus = "Kontrola selhala: " + ex.Message;
+        }
+        finally
+        {
+            IsCheckingComfyNodes = false;
+        }
+    }
 
     /// <summary>Přečte verzi ComfyUI + stav custom nodů a aktualizuje UI.</summary>
     private void RefreshComfyVersion()
